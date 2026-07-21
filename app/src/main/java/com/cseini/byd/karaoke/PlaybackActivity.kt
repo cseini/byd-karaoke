@@ -28,7 +28,7 @@ import java.io.File
 
 /**
  * 재생 + 자동 녹음 + 채점 + 다시 듣기.
- * 곡이 PLAYING 되면 자동으로 마이크 녹음 시작 → ENDED 되면 녹음 중지·채점·점수 표시.
+ * 곡이 PLAYING 되면 자동으로 마이크 녹음 시작 → ENDED 또는 일시정지 시 녹음 중지·채점·점수 표시.
  */
 class PlaybackActivity : AppCompatActivity() {
 
@@ -86,7 +86,9 @@ class PlaybackActivity : AppCompatActivity() {
             override fun onStateChange(youTubePlayer: YouTubePlayer, state: PlayerConstants.PlayerState) {
                 when (state) {
                     PlayerConstants.PlayerState.PLAYING -> onSongPlaying()
-                    PlayerConstants.PlayerState.ENDED -> onSongEnded()
+                    // 곡을 중간에 멈춰도(일시정지) 끝난 것과 동일하게 바로 채점한다.
+                    PlayerConstants.PlayerState.ENDED,
+                    PlayerConstants.PlayerState.PAUSED -> onSongEnded()
                     else -> {}
                 }
             }
@@ -123,7 +125,7 @@ class PlaybackActivity : AppCompatActivity() {
     }
 
     private fun onSongEnded() {
-        if (scored) return
+        if (scored || !recordStarted) return
         scored = true
         val file = recorder.stop()
         if (file == null || !file.exists()) {
