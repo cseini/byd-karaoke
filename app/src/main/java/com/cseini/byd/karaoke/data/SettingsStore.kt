@@ -12,9 +12,19 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("yt_api_key", "") ?: ""
         set(v) = prefs.edit().putString("yt_api_key", v.trim()).apply()
 
-    /** 마이크 소스 이름. 실차 0-B 결과에 따라 사용자가 바꿀 수 있음. */
+    /** 검색 방식: "keyless"(API 키 불필요, 결과 페이지 파싱) | "api"(Data API v3). 기본 키 없이. */
+    var searchMode: String
+        get() = prefs.getString("search_mode", "keyless") ?: "keyless"
+        set(v) = prefs.edit().putString("search_mode", v).apply()
+
+    val keylessSearch: Boolean get() = searchMode != "api"
+
+    /**
+     * 마이크 소스 이름. 반주(차 스피커)+목소리를 한 트랙에 담아야 하므로 기본은 MIC.
+     * (VOICE_RECOGNITION 은 배경음 억제가 걸려 반주가 지워진다.) 실차에서 조정 가능.
+     */
     var micSourceName: String
-        get() = prefs.getString("mic_source", "VOICE_RECOGNITION") ?: "VOICE_RECOGNITION"
+        get() = prefs.getString("mic_source", "MIC") ?: "MIC"
         set(v) = prefs.edit().putString("mic_source", v).apply()
 
     var aecEnabled: Boolean

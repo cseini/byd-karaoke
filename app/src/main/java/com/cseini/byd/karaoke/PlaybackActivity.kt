@@ -8,7 +8,9 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -16,12 +18,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.audio.AudioRecorder
 import com.cseini.byd.karaoke.audio.WavIo
+import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
+import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
 import com.cseini.byd.karaoke.scoring.ScoringEngine
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -34,9 +40,9 @@ import java.io.File
 
 /**
  * 재생 + 자동 녹음 + 채점 + 다시 듣기.
- * 곡이 PLAYING 되면 자동 녹음 시작 → ENDED 또는 정지(일시정지) 시 즉시 채점.
- * 다시 듣기는 반주(유튜브)를 처음부터 다시 틀면서 녹음된 내 목소리를 동시에 재생한다
- * (녹음 파일 자체는 채점 정확도를 위해 보컬만 담는다).
+ * 곡이 PLAYING 되면 자동 녹음 시작 → ENDED 또는 정지 시 즉시 채점.
+ * 녹음은 마이크로 반주(차 스피커)+목소리를 한 트랙에 함께 담으므로, 다시 듣기는
+ * 그 파일 하나만 재생한다(두 번째 플레이어가 없어 싱크가 어긋날 일이 없다).
  */
 class PlaybackActivity : AppCompatActivity() {
 
@@ -61,6 +67,15 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var queue: QueueStore
     private lateinit var recordings: RecordingStore
     private lateinit var recorder: AudioRecorder
+    private lateinit var repo: YouTubeRepository
+
+    private lateinit var reservePanel: View
+    private lateinit var reserveInput: EditText
+    private lateinit var reserveStatus: TextView
+    private val reserveAdapter = ResultAdapter(
+        onReserve = { reserveToQueue(it, front = false) },
+        onPlayNow = { reserveToQueue(it, front = true) },
+    )
 
     private lateinit var playerView: YouTubePlayerView
     private var player: YouTubePlayer? = null
@@ -70,12 +85,13 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var btnReplay: Button
     private lateinit var scoreOverlay: FrameLayout
     private lateinit var scoreTotal: TextView
+    private lateinit var scoreGrade: TextView
     private lateinit var scoreDetail: TextView
 
     private var currentVideoId = ""
     private var recordStarted = false
     private var scored = false
-    private var replaying = false
+    private var replayOnly = false   // 녹음함에서 진입: 유튜브 없이 저장된 파일만 재생
     private var lastRecording: File? = null
     private var mediaPlayer: MediaPlayer? = null
     private var scoreAnimator: ValueAnimator? = null
@@ -88,24 +104,26 @@ class PlaybackActivity : AppCompatActivity() {
         queue = QueueStore(this)
         recordings = RecordingStore(this)
         recorder = AudioRecorder(this, settings)
+        repo = YouTubeRepository()
 
         songTitle = findViewById(R.id.song_title)
         recStatus = findViewById(R.id.rec_status)
         btnReplay = findViewById(R.id.btn_replay)
         scoreOverlay = findViewById(R.id.score_overlay)
         scoreTotal = findViewById(R.id.score_total)
+        scoreGrade = findViewById(R.id.score_grade)
         scoreDetail = findViewById(R.id.score_detail)
 
         currentVideoId = intent.getStringExtra("videoId").orEmpty()
         songTitle.text = intent.getStringExtra("title") ?: "재생 중"
 
-        // 녹음함에서 들어온 경우: 채점·녹음 없이 반주+보컬 동시 재생 모드
+        // 녹음함에서 들어온 경우: 채점·녹음 없이 저장된 믹스 파일만 재생
         intent.getStringExtra("replayPath")?.let { path ->
             lastRecording = File(path)
             scored = true
-            replaying = true
+            replayOnly = true
             btnReplay.isEnabled = true
-            recStatus.text = "▶ 반주 + 내 노래 재생"
+            recStatus.text = "▶ 저장된 노래 재생"
         }
 
         playerView = findViewById(R.id.youtube_player_view)
@@ -113,21 +131,14 @@ class PlaybackActivity : AppCompatActivity() {
         playerView.addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
             override fun onReady(youTubePlayer: YouTubePlayer) {
                 player = youTubePlayer
-                youTubePlayer.loadVideo(currentVideoId, 0f)
+                if (replayOnly) startReplay() else youTubePlayer.loadVideo(currentVideoId, 0f)
             }
 
             override fun onStateChange(youTubePlayer: YouTubePlayer, state: PlayerConstants.PlayerState) {
+                if (replayOnly) return
                 when (state) {
-                    PlayerConstants.PlayerState.PLAYING ->
-                        if (replaying) onReplayPlaying() else onSongPlaying()
-                    // 반주가 버퍼링으로 멈추면 보컬도 같이 멈춰 싱크를 지킨다.
-                    PlayerConstants.PlayerState.BUFFERING ->
-                        if (replaying) mediaPlayer?.takeIf { it.isPlaying }?.pause()
-                    // 곡을 중간에 정지해도 끝난 것과 동일하게 즉시 채점.
-                    PlayerConstants.PlayerState.PAUSED ->
-                        if (replaying) mediaPlayer?.takeIf { it.isPlaying }?.pause() else onSongEnded()
-                    PlayerConstants.PlayerState.ENDED ->
-                        if (replaying) onReplayEnded() else onSongEnded()
+                    PlayerConstants.PlayerState.PLAYING -> onSongPlaying()
+                    PlayerConstants.PlayerState.ENDED -> onSongEnded()
                     else -> {}
                 }
             }
@@ -137,11 +148,58 @@ class PlaybackActivity : AppCompatActivity() {
             }
         })
 
-        scoreOverlay.setOnClickListener { hideScoreOverlay() }
+        scoreOverlay.setOnClickListener { goToSearch() }
+        findViewById<Button>(R.id.score_next).setOnClickListener { playNext() }
+        findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         btnReplay.setOnClickListener { startReplay() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
+
+        setupReservePanel()
+    }
+
+    // ── 부르는 중 검색·예약 패널 ──────────────────────────────────────
+
+    private fun setupReservePanel() {
+        reservePanel = findViewById(R.id.reserve_panel)
+        reserveInput = findViewById(R.id.reserve_input)
+        reserveStatus = findViewById(R.id.reserve_status)
+        findViewById<RecyclerView>(R.id.reserve_results).apply {
+            layoutManager = LinearLayoutManager(this@PlaybackActivity)
+            adapter = reserveAdapter
+        }
+        findViewById<Button>(R.id.btn_reserve_search).setOnClickListener { showReservePanel() }
+        findViewById<Button>(R.id.btn_reserve_close).setOnClickListener { reservePanel.visibility = View.GONE }
+        findViewById<Button>(R.id.reserve_search_btn).setOnClickListener { doReserveSearch() }
+        reserveInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) { doReserveSearch(); true } else false
+        }
+    }
+
+    private fun showReservePanel() {
+        reservePanel.visibility = View.VISIBLE
+        reserveInput.requestFocus()
+    }
+
+    private fun doReserveSearch() {
+        val q = reserveInput.text.toString().trim()
+        if (q.isEmpty()) { reserveStatus.text = "검색어를 입력하세요."; return }
+        reserveStatus.text = "검색 중…"
+        lifecycleScope.launch {
+            when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)) {
+                is YouTubeRepository.Result.Ok -> {
+                    reserveAdapter.submit(r.items)
+                    reserveStatus.text = if (r.items.isEmpty()) "결과가 없습니다." else "예약할 곡을 고르세요 (${r.items.size}개)"
+                }
+                is YouTubeRepository.Result.Error -> reserveStatus.text = r.message
+            }
+        }
+    }
+
+    private fun reserveToQueue(item: QueueItem, front: Boolean) {
+        if (front) { queue.addFirst(item); toast("다음 차례로 예약: ${item.title}") }
+        else { queue.add(item); toast("예약: ${item.title}") }
     }
 
     private fun hasMic() = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -207,6 +265,12 @@ class PlaybackActivity : AppCompatActivity() {
     private fun showScoreOverlay(total: Int, detail: String) {
         scoreDetail.text = detail
         scoreTotal.text = "0"
+        scoreGrade.text = when {
+            total >= 95 -> "🏆 완벽한 무대!"
+            total >= 88 -> "✨ 명 가수!"
+            total >= 80 -> "🔥 열창!"
+            else -> "👏 잘했어요!"
+        }
         scoreOverlay.visibility = View.VISIBLE
         scoreAnimator?.cancel()
         scoreAnimator = ValueAnimator.ofInt(0, total).apply {
@@ -226,57 +290,53 @@ class PlaybackActivity : AppCompatActivity() {
         scoreOverlay.visibility = View.GONE
     }
 
-    // ── 다시 듣기: 반주 + 내 목소리 동시 재생 ───────────────────────
+    /** 점수 화면을 탭하면 노래 화면이 아니라 검색 홈으로 나간다. */
+    private fun goToSearch() {
+        scoreAnimator?.cancel()
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        })
+        finish()
+    }
+
+    // ── 다시 듣기: 반주+목소리가 한 트랙에 담긴 녹음을 그대로 재생 ────────
 
     private fun startReplay() {
         val file = lastRecording
         if (file == null || !file.exists()) { toast("들려줄 녹음이 없습니다"); return }
         hideScoreOverlay()
+        player?.pause()          // 유튜브 반주가 남아 있으면 멈춘다(이중 재생 방지)
         stopMediaPlayer()
-        replaying = true
-        recStatus.text = "▶ 반주 + 내 노래 다시 듣는 중…"
-        player?.loadVideo(currentVideoId, 0f)
-    }
-
-    /** 반주가 PLAYING 이 된 순간 보컬을 함께 시작(원래 녹음도 PLAYING 에 시작했으므로 싱크가 맞는다). */
-    private fun onReplayPlaying() {
-        val file = lastRecording ?: return
-        val mp = mediaPlayer
-        if (mp == null) {
-            mediaPlayer = MediaPlayer().apply {
-                try {
-                    setDataSource(file.absolutePath)
-                    setOnCompletionListener { recStatus.text = "내 노래 재생 완료" }
-                    prepare()
-                    start()
-                } catch (e: Exception) {
-                    toast("녹음 재생 실패: ${e.message}")
-                }
+        recStatus.text = "▶ 다시 듣는 중…"
+        mediaPlayer = MediaPlayer().apply {
+            try {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener { recStatus.text = "다시 듣기 완료" }
+                prepare()
+                start()
+            } catch (e: Exception) {
+                toast("녹음 재생 실패: ${e.message}")
             }
-        } else if (!mp.isPlaying) {
-            runCatching { mp.start() }
         }
-    }
-
-    private fun onReplayEnded() {
-        stopMediaPlayer()
-        replaying = false
-        recStatus.text = "다시 듣기 완료"
     }
 
     // ── 조작 버튼 ─────────────────────────────────────────────────
 
+    /** 정지 = 즉시 채점(일시정지 개념 없음). 다시 듣는 중이면 재생만 멈춘다. */
     private fun onStopPressed() {
-        // 부르는 중이면 PAUSED 이벤트가 즉시 채점으로 이어진다.
+        if (mediaPlayer?.isPlaying == true) {
+            stopMediaPlayer()
+            recStatus.text = "정지됨"
+            return
+        }
         player?.pause()
-        if (replaying) recStatus.text = "정지됨 (다시 듣기를 누르면 처음부터)"
+        onSongEnded()   // PAUSED 콜백을 기다리지 않고 바로 채점
     }
 
     private fun retry() {
         hideScoreOverlay()
         stopMediaPlayer()
         if (recorder.isRecording) recorder.stop()
-        replaying = false
         resetForNewSong()
         player?.loadVideo(currentVideoId, 0f)
     }
@@ -292,7 +352,6 @@ class PlaybackActivity : AppCompatActivity() {
                 toast("다음 곡으로 넘어갑니다: ${next.title}")
                 currentVideoId = next.videoId
                 songTitle.text = next.title
-                replaying = false
                 resetForNewSong()
                 player?.loadVideo(currentVideoId, 0f)
             } else {
@@ -307,7 +366,6 @@ class PlaybackActivity : AppCompatActivity() {
         hideScoreOverlay()
         stopMediaPlayer()
         if (recorder.isRecording) recorder.stop()
-        replaying = false
         val next = queue.pollFirst()
         if (next == null) { toast("대기열이 비었습니다"); return }
         currentVideoId = next.videoId

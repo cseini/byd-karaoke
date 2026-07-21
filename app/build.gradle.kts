@@ -11,8 +11,8 @@ android {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.5"
+        versionCode = 6
+        versionName = "0.6"
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
@@ -97,6 +97,9 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
+
+    // 히스토리 타일 썸네일 로딩
+    implementation("io.coil-kt:coil:2.6.0")
 
     // 단위 테스트 (순수 Kotlin DSP·채점 검증 — 차 없이 실행)
     testImplementation("junit:junit:4.13.2")

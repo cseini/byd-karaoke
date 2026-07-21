@@ -56,7 +56,9 @@ object ScoringEngine {
         val beat = (beatConsistencyFraction(frames) * MAX_BEAT).roundToInt().coerceIn(0, MAX_BEAT)
         val volume = (volumeDynamicsFraction(frames) * MAX_VOLUME).roundToInt().coerceIn(0, MAX_VOLUME)
         val vibrato = (vibratoReachFraction(voiced) * MAX_VIBRATO).roundToInt().coerceIn(0, MAX_VIBRATO)
-        val total = (accuracy + stability + beat + volume + vibrato).coerceIn(0, 100)
+        val raw = (accuracy + stability + beat + volume + vibrato).coerceIn(0, 100)
+        // 아이들이 즐기는 노래방 — 후하게 준다(최저 75, 웬만하면 85~100).
+        val total = generous(raw)
 
         val bd = buildString {
             append("총점 ${total}점\n")
@@ -69,6 +71,9 @@ object ScoringEngine {
         }
         return Score(total, accuracy, stability, beat, volume, vibrato, voicedPct, medianF0, bd)
     }
+
+    /** 원점수를 후한 곡선으로 변환 — 최저 75, 만점은 100 유지(아이용). */
+    private fun generous(raw: Int): Int = (75 + raw * 0.25).roundToInt().coerceIn(75, 100)
 
     // ── 음정 정확도: 부른 음이 반음 격자에 얼마나 정확히 앉는가(글로벌 튠 오프셋 보정) ──
     private fun pitchAccuracyFraction(f0s: List<Float>): Double {

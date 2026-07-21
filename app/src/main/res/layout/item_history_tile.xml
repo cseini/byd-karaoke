@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_panel"
+    android:layout_margin="5dp"
+    android:padding="6dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/tile_thumb"
+            android:layout_width="match_parent"
+            android:layout_height="96dp"
+            android:scaleType="centerCrop"
+            android:background="@color/tj_panel_light"
+            android:contentDescription="썸네일" />
+
+        <TextView
+            android:id="@+id/tile_score"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:background="@drawable/bg_score_pill"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/tj_bg_deep" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tile_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="@color/tj_text_primary"
+        android:maxLines="2"
+        android:ellipsize="end" />
+</LinearLayout>

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/tj_bg_deep">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,14 +20,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:background="@color/tj_bg"
+            android:padding="14dp">
 
             <TextView
                 android:id="@+id/song_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
+                android:textSize="17sp"
                 android:textStyle="bold"
+                android:textColor="@color/tj_text_primary"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:text="재생 중" />
@@ -35,6 +39,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_red"
                 android:paddingTop="4dp"
                 android:text="대기 중" />
 
@@ -42,13 +48,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingTop="8dp">
+                android:paddingTop="10dp">
 
                 <Button
                     android:id="@+id/btn_stop"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    app:backgroundTint="@color/tj_red"
                     android:text="⏹ 정지" />
 
                 <Button
@@ -57,26 +64,117 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="6dp"
                     android:enabled="false"
                     android:text="다시 듣기" />
 
                 <Button
                     android:id="@+id/btn_retry"
-                    style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    app:backgroundTint="@color/tj_orange"
                     android:text="다시 부르기" />
 
                 <Button
                     android:id="@+id/btn_next"
-                    style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    app:backgroundTint="@color/tj_blue"
                     android:text="다음 곡" />
+
+                <Button
+                    android:id="@+id/btn_reserve_search"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    app:backgroundTint="@color/tj_pink"
+                    android:text="🔍 예약" />
             </LinearLayout>
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- 부르는 중 검색·예약 패널: 재생을 끊지 않고 다음 곡을 예약한다. -->
+    <LinearLayout
+        android:id="@+id/reserve_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#F00A0A1A"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🎫 다음 곡 예약"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_pink" />
+
+            <Button
+                android:id="@+id/btn_reserve_close"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="닫기" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="10dp"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/reserve_input"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="노래 제목·가수로 검색"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
+            <Button
+                android:id="@+id/reserve_search_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                app:backgroundTint="@color/tj_cyan"
+                android:textColor="@color/tj_bg_deep"
+                android:text="검색" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/reserve_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:textSize="13sp"
+            android:textColor="@color/tj_text_secondary"
+            android:text="검색해서 예약할 곡을 고르세요." />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/reserve_results"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
     </LinearLayout>
 
     <!-- 노래방식 점수 연출: 탭하면 닫힘 -->
@@ -84,7 +182,7 @@
         android:id="@+id/score_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#E6000000"
+        android:background="#F2050510"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
@@ -102,7 +200,9 @@
                 android:layout_height="wrap_content"
                 android:text="✨ 오늘의 점수 ✨"
                 android:textSize="22sp"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/tj_cyan"
+                android:shadowColor="@color/tj_cyan"
+                android:shadowRadius="14" />
 
             <TextView
                 android:id="@+id/score_total"
@@ -111,11 +211,21 @@
                 android:text="0"
                 android:textSize="130sp"
                 android:textStyle="bold"
-                android:textColor="#FFD54F"
-                android:shadowColor="#FF6F00"
+                android:textColor="@color/tj_gold"
+                android:shadowColor="@color/tj_gold_deep"
                 android:shadowRadius="24"
                 android:shadowDx="0"
                 android:shadowDy="0" />
+
+            <TextView
+                android:id="@+id/score_grade"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_pink"
+                android:shadowColor="@color/tj_pink_dark"
+                android:shadowRadius="12" />
 
             <TextView
                 android:id="@+id/score_detail"
@@ -123,16 +233,38 @@
                 android:layout_height="wrap_content"
                 android:paddingTop="12dp"
                 android:textSize="13sp"
-                android:textColor="#CCCCCC"
+                android:textColor="@color/tj_text_secondary"
                 android:fontFamily="monospace" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="24dp">
+
+                <Button
+                    android:id="@+id/score_retry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:backgroundTint="@color/tj_orange"
+                    android:text="다시 부르기" />
+
+                <Button
+                    android:id="@+id/score_next"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    app:backgroundTint="@color/tj_blue"
+                    android:text="다음 곡 ▶" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="16dp"
-                android:text="(화면을 누르면 닫힙니다)"
+                android:paddingTop="18dp"
+                android:text="(빈 곳을 누르면 검색으로 돌아갑니다)"
                 android:textSize="12sp"
-                android:textColor="#888888" />
+                android:textColor="@color/tj_text_hint" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

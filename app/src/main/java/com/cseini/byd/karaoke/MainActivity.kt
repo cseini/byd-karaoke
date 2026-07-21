@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -14,10 +15,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
+import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
 import com.cseini.byd.karaoke.update.UpdateManager
@@ -29,15 +32,22 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
     private lateinit var queue: QueueStore
+    private lateinit var recordings: RecordingStore
     private lateinit var repo: YouTubeRepository
     private lateinit var voice: VoiceSearch
 
     private lateinit var searchInput: EditText
     private lateinit var status: TextView
     private lateinit var btnQueue: Button
+    private lateinit var results: RecyclerView
+    private lateinit var historySection: View
+    private lateinit var historyEmpty: TextView
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
         onPlayNow = { playNow(it) },
+    )
+    private val historyAdapter = HistoryAdapter(
+        onPlay = { playNow(QueueItem(it.videoId, it.title)) },
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,16 +56,24 @@ class MainActivity : AppCompatActivity() {
 
         settings = SettingsStore(this)
         queue = QueueStore(this)
+        recordings = RecordingStore(this)
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
         btnQueue = findViewById(R.id.btn_queue)
+        historySection = findViewById(R.id.history_section)
+        historyEmpty = findViewById(R.id.history_empty)
 
-        findViewById<RecyclerView>(R.id.results).apply {
+        results = findViewById(R.id.results)
+        results.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
+        }
+        findViewById<RecyclerView>(R.id.history).apply {
+            layoutManager = GridLayoutManager(this@MainActivity, 3)
+            adapter = this@MainActivity.historyAdapter
         }
 
         findViewById<Button>(R.id.btn_search).setOnClickListener { doSearch() }
@@ -67,6 +85,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_recordings).setOnClickListener {
             startActivity(Intent(this, RecordingsActivity::class.java))
         }
+        findViewById<Button>(R.id.btn_ranking).setOnClickListener {
+            startActivity(Intent(this, RankingActivity::class.java))
+        }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { showSettingsDialog() }
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
@@ -74,8 +95,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         ensureMicPermission()
-        if (!settings.hasApiKey()) {
-            status.text = "먼저 [설정]에서 YouTube API 키를 입력하세요."
+        if (!settings.keylessSearch && !settings.hasApiKey()) {
+            status.text = "먼저 [설정]에서 API 키를 입력하거나 '키 없이 검색'을 켜세요."
         }
         checkOtaUpdate()
     }
@@ -97,9 +118,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        searchInput.setText("")
+        showHistory()
+    }
+
     override fun onResume() {
         super.onResume()
         updateQueueCount()
+        refreshHistory()
+    }
+
+    /** 같은 곡은 가장 최근 것만, 최신순으로 히스토리 타일에 노출. */
+    private fun refreshHistory() {
+        val recent = recordings.all().distinctBy { it.videoId }
+        historyAdapter.submit(recent)
+        historyEmpty.visibility = if (recent.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun showHistory() {
+        results.visibility = View.GONE
+        historySection.visibility = View.VISIBLE
+    }
+
+    private fun showResults() {
+        historySection.visibility = View.GONE
+        results.visibility = View.VISIBLE
     }
 
     private fun doSearch() {
@@ -107,9 +153,10 @@ class MainActivity : AppCompatActivity() {
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
         status.text = "검색 중…"
         lifecycleScope.launch {
-            when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis())) {
+            when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)) {
                 is YouTubeRepository.Result.Ok -> {
                     adapter.submit(r.items)
+                    showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
                 }
                 is YouTubeRepository.Result.Error -> status.text = r.message
@@ -152,18 +199,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val keyless = android.widget.CheckBox(this).apply {
+            text = "API 키 없이 검색 (키 발급 불필요, 정확도 약간 낮을 수 있음)"
+            isChecked = settings.keylessSearch
+        }
         val input = EditText(this).apply {
-            hint = "YouTube Data API v3 키"
+            hint = "YouTube Data API v3 키 (API 방식 선택 시)"
             setText(settings.youtubeApiKey)
             setSingleLine()
         }
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            addView(keyless)
+            addView(input)
+        }
         AlertDialog.Builder(this)
-            .setTitle("설정 — API 키")
-            .setMessage("Google Cloud Console에서 발급한 YouTube Data API v3 키를 입력하세요.")
-            .setView(input)
+            .setTitle("검색 설정")
+            .setView(container)
             .setPositiveButton("저장") { _, _ ->
+                settings.searchMode = if (keyless.isChecked) "keyless" else "api"
                 settings.youtubeApiKey = input.text.toString()
-                status.text = if (settings.hasApiKey()) "API 키 저장됨." else "키가 비어 있습니다."
+                status.text = when {
+                    settings.keylessSearch -> "키 없이 검색 모드 — 바로 검색하세요."
+                    settings.hasApiKey() -> "API 키 저장됨."
+                    else -> "키가 비어 있습니다. API 방식은 키가 필요합니다."
+                }
             }
             .setNegativeButton("취소", null)
             .show()

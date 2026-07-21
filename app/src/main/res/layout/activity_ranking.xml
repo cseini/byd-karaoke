@@ -16,12 +16,12 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🎵 녹음함"
+            android:text="🏆 역대 랭킹"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/tj_gold"
             android:shadowColor="@color/tj_gold_deep"
-            android:shadowRadius="12" />
+            android:shadowRadius="14" />
 
         <Button
             android:id="@+id/btn_back"
@@ -38,7 +38,7 @@
         android:background="@drawable/divider_gradient" />
 
     <TextView
-        android:id="@+id/empty"
+        android:id="@+id/ranking_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="24dp"
@@ -46,10 +46,10 @@
         android:textSize="14sp"
         android:textColor="@color/tj_text_secondary"
         android:visibility="gone"
-        android:text="아직 녹음이 없습니다.\n노래를 부르면 자동으로 저장돼요." />
+        android:text="아직 채점된 곡이 없습니다.\n노래를 부르면 랭킹에 오릅니다." />
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recordings"
+        android:id="@+id/ranking_list"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

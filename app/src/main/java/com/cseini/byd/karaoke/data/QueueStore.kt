@@ -39,6 +39,12 @@ class QueueStore(context: Context) {
         persist()
     }
 
+    /** 맨 앞에 예약(다음 차례로). */
+    fun addFirst(item: QueueItem) {
+        items.add(0, item)
+        persist()
+    }
+
     fun removeAt(index: Int) {
         if (index in items.indices) {
             items.removeAt(index)
