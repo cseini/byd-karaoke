@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 마이크 몸통(캡슐) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M41,35 V48 A13,13 0 0 0 67,48 V35 A13,13 0 0 0 41,35 Z" />
+
+    <!-- 그릴 라인 -->
+    <path
+        android:strokeColor="#FF9333EA"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M46,31 H62 M46,38 H62 M46,45 H62" />
+
+    <!-- 거치대(U형) -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M33,49 A21,21 0 0 0 75,49" />
+
+    <!-- 스탠드 -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,70 V83" />
+
+    <!-- 받침 -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M42,83 H66" />
+
+    <!-- 음표 액센트(노래방 느낌) -->
+    <path
+        android:fillColor="#FFFFD54F"
+        android:pathData="M74,26 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0z" />
+    <path
+        android:strokeColor="#FFFFD54F"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M77,26 V15 L84,18" />
+</vector>
