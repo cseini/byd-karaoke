@@ -11,8 +11,8 @@ android {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
@@ -81,6 +81,10 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("com.google.android.material:material:1.11.0")
+
+    // 오프라인 음성인식 (DiLink 에는 구글 인식 서비스가 없음)
+    // 한국어 모델은 tools/fetch_vosk_model.sh 로 assets/model-ko 에 준비
+    implementation("com.alphacephei:vosk-android:0.3.47")
 
     // 코루틴 (검색 네트워크)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

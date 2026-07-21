@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         settings = SettingsStore(this)
         queue = QueueStore(this)
         repo = YouTubeRepository()
-        voice = VoiceSearch(this)
+        voice = VoiceSearch(this, settings)
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
@@ -123,9 +123,9 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             ensureMicPermission(); toast("마이크 권한이 필요합니다"); return
         }
-        status.text = "🎙 말씀하세요…"
+        status.text = "🎙 음성인식 준비 중… (첫 실행은 몇 초 걸립니다)"
         voice.start(
-            onReady = { status.text = "🎙 듣는 중…" },
+            onReady = { status.text = "🎙 말씀하세요…" },
             onResult = { text ->
                 searchInput.setText(text)
                 doSearch()

@@ -12,6 +12,7 @@ cd "$(dirname "$0")/.."
 VERSION=$(sed -n 's/.*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
 [ -n "$VERSION" ] || { echo "versionName 을 읽지 못했습니다"; exit 1; }
 
+./tools/fetch_vosk_model.sh
 ./gradlew :app:assembleDebug
 APK="byd-karaoke-v${VERSION}.apk"
 cp app/build/outputs/apk/debug/app-debug.apk "$APK"
