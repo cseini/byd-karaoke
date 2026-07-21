@@ -35,6 +35,11 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
+            android:name=".RecordingsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <activity
             android:name=".QueueActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />

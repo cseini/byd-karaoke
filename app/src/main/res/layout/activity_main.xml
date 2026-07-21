@@ -27,6 +27,13 @@
             android:text="대기열 (0)" />
 
         <Button
+            android:id="@+id/btn_recordings"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="녹음함" />
+
+        <Button
             android:id="@+id/btn_settings"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"

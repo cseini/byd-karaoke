@@ -64,6 +64,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_diag).setOnClickListener {
             startActivity(Intent(this, DiagnosticsActivity::class.java))
         }
+        findViewById<Button>(R.id.btn_recordings).setOnClickListener {
+            startActivity(Intent(this, RecordingsActivity::class.java))
+        }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { showSettingsDialog() }
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
