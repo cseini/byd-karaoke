@@ -12,20 +12,30 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("yt_api_key", "") ?: ""
         set(v) = prefs.edit().putString("yt_api_key", v.trim()).apply()
 
-    /** 검색 방식: "keyless"(API 키 불필요, 결과 페이지 파싱) | "api"(Data API v3). 기본 키 없이. */
+    /**
+     * 검색 방식: "keyless"(결과 페이지 파싱) | "api"(Data API v3).
+     * 사용자가 명시적으로 고르지 않았으면, 키가 있으면 API(임베드 가능만 필터되어 재생 안정적),
+     * 키가 없으면 keyless 를 기본으로 한다.
+     */
     var searchMode: String
-        get() = prefs.getString("search_mode", "keyless") ?: "keyless"
+        get() = prefs.getString("search_mode", null)
+            ?: if (youtubeApiKey.isNotBlank()) "api" else "keyless"
         set(v) = prefs.edit().putString("search_mode", v).apply()
 
     val keylessSearch: Boolean get() = searchMode != "api"
 
     /**
-     * 마이크 소스 이름. 반주(차 스피커)+목소리를 한 트랙에 담아야 하므로 기본은 MIC.
-     * (VOICE_RECOGNITION 은 배경음 억제가 걸려 반주가 지워진다.) 실차에서 조정 가능.
+     * 마이크 소스 이름. 다시듣기는 반주(유튜브)와 목소리를 따로 재생해 싱크를 맞추므로,
+     * 녹음은 깨끗한 목소리만 담는 VOICE_RECOGNITION 이 기본(채점 정확도에도 유리).
      */
     var micSourceName: String
-        get() = prefs.getString("mic_source", "MIC") ?: "MIC"
+        get() = prefs.getString("mic_source", "VOICE_RECOGNITION") ?: "VOICE_RECOGNITION"
         set(v) = prefs.edit().putString("mic_source", v).apply()
+
+    /** 다시듣기 싱크 보정(ms). 유튜브 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. */
+    var syncOffsetMs: Int
+        get() = prefs.getInt("sync_offset_ms", 0)
+        set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
     var aecEnabled: Boolean
         get() = prefs.getBoolean("aec", false)

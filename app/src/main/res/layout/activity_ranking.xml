@@ -54,4 +54,6 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:paddingTop="12dp" />
+
+    <include layout="@layout/include_navbar" />
 </LinearLayout>

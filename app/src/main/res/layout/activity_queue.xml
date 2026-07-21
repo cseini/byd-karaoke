@@ -62,4 +62,6 @@
             android:layout_marginStart="8dp"
             android:text="전체 삭제" />
     </LinearLayout>
+
+    <include layout="@layout/include_navbar" />
 </LinearLayout>

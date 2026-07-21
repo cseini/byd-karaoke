@@ -37,6 +37,7 @@ class RecordingsActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@RecordingsActivity)
             adapter = this@RecordingsActivity.adapter
         }
+        NavBar.wire(this, RecordingsActivity::class.java)
     }
 
     override fun onResume() {

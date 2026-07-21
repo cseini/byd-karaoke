@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+<script>
+// 네이티브가 녹음한 오디오(data URL)를 Puter Whisper 로 전사한다. 키·로그인 불필요.
+function startTranscribe() {
+  try {
+    var dataUrl = Android.getAudioDataUrl();
+    if (!dataUrl) { Android.onError("녹음 데이터가 없습니다"); return; }
+    puter.ai.speech2txt(dataUrl, { model: "whisper-1" })
+      .then(function (r) {
+        var text = (r && typeof r.text === "string") ? r.text : ("" + r);
+        Android.onResult(text);
+      })
+      .catch(function (e) {
+        Android.onError("" + (e && e.message ? e.message : e));
+      });
+  } catch (e) {
+    Android.onError("" + e);
+  }
+}
+</script>
+</body>
+</html>

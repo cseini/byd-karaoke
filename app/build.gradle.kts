@@ -11,8 +11,8 @@ android {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.6"
+        versionCode = 7
+        versionName = "0.7"
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도

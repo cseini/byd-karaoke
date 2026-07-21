@@ -32,6 +32,7 @@ class QueueActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_clear).setOnClickListener {
             queue.clear(); refresh(); toast("대기열을 비웠습니다")
         }
+        NavBar.wire(this, QueueActivity::class.java)
         refresh()
     }
 

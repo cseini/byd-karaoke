@@ -27,37 +27,6 @@
             android:shadowDy="0" />
 
         <Button
-            android:id="@+id/btn_queue"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="대기열 (0)" />
-
-        <Button
-            android:id="@+id/btn_recordings"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="녹음함" />
-
-        <Button
-            android:id="@+id/btn_ranking"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="🏆 랭킹" />
-
-        <Button
-            android:id="@+id/btn_settings"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="설정" />
-
-        <Button
             android:id="@+id/btn_diag"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
@@ -162,4 +131,6 @@
                 android:layout_weight="1" />
         </LinearLayout>
     </FrameLayout>
+
+    <include layout="@layout/include_navbar" />
 </LinearLayout>

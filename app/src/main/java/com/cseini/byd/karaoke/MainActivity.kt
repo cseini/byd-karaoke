@@ -38,13 +38,13 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var searchInput: EditText
     private lateinit var status: TextView
-    private lateinit var btnQueue: Button
     private lateinit var results: RecyclerView
     private lateinit var historySection: View
     private lateinit var historyEmpty: TextView
+    private var lastResults: List<QueueItem> = emptyList()
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
-        onPlayNow = { playNow(it) },
+        onPlayNow = { playFromResults(it) },
     )
     private val historyAdapter = HistoryAdapter(
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
@@ -62,7 +62,6 @@ class MainActivity : AppCompatActivity() {
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
-        btnQueue = findViewById(R.id.btn_queue)
         historySection = findViewById(R.id.history_section)
         historyEmpty = findViewById(R.id.history_empty)
 
@@ -78,17 +77,10 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_search).setOnClickListener { doSearch() }
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
-        btnQueue.setOnClickListener { startActivity(Intent(this, QueueActivity::class.java)) }
         findViewById<Button>(R.id.btn_diag).setOnClickListener {
             startActivity(Intent(this, DiagnosticsActivity::class.java))
         }
-        findViewById<Button>(R.id.btn_recordings).setOnClickListener {
-            startActivity(Intent(this, RecordingsActivity::class.java))
-        }
-        findViewById<Button>(R.id.btn_ranking).setOnClickListener {
-            startActivity(Intent(this, RankingActivity::class.java))
-        }
-        findViewById<Button>(R.id.btn_settings).setOnClickListener { showSettingsDialog() }
+        NavBar.wire(this, MainActivity::class.java)
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { doSearch(); true } else false
@@ -127,7 +119,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        updateQueueCount()
         refreshHistory()
     }
 
@@ -155,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)) {
                 is YouTubeRepository.Result.Ok -> {
+                    lastResults = r.items
                     adapter.submit(r.items)
                     showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
@@ -186,7 +178,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun reserve(item: QueueItem) {
         queue.add(item)
-        updateQueueCount()
         toast("예약: ${item.title}")
     }
 
@@ -194,41 +185,10 @@ class MainActivity : AppCompatActivity() {
         startActivity(PlaybackActivity.intent(this, item.videoId, item.title, fromQueue = false))
     }
 
-    private fun updateQueueCount() {
-        btnQueue.text = "대기열 (${queue.size()})"
-    }
-
-    private fun showSettingsDialog() {
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val keyless = android.widget.CheckBox(this).apply {
-            text = "API 키 없이 검색 (키 발급 불필요, 정확도 약간 낮을 수 있음)"
-            isChecked = settings.keylessSearch
-        }
-        val input = EditText(this).apply {
-            hint = "YouTube Data API v3 키 (API 방식 선택 시)"
-            setText(settings.youtubeApiKey)
-            setSingleLine()
-        }
-        val container = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-            addView(keyless)
-            addView(input)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("검색 설정")
-            .setView(container)
-            .setPositiveButton("저장") { _, _ ->
-                settings.searchMode = if (keyless.isChecked) "keyless" else "api"
-                settings.youtubeApiKey = input.text.toString()
-                status.text = when {
-                    settings.keylessSearch -> "키 없이 검색 모드 — 바로 검색하세요."
-                    settings.hasApiKey() -> "API 키 저장됨."
-                    else -> "키가 비어 있습니다. API 방식은 키가 필요합니다."
-                }
-            }
-            .setNegativeButton("취소", null)
-            .show()
+    /** 검색 결과에서 부르기: 재생 불가 영상이면 뒤 후보로 자동으로 넘어가도록 목록을 함께 넘긴다. */
+    private fun playFromResults(item: QueueItem) {
+        val idx = lastResults.indexOfFirst { it.videoId == item.videoId }.coerceAtLeast(0)
+        startActivity(PlaybackActivity.intentWithCandidates(this, lastResults, idx))
     }
 
     private fun ensureMicPermission() {

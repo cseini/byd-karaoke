@@ -44,6 +44,33 @@
                 android:paddingTop="4dp"
                 android:text="대기 중" />
 
+            <!-- 다시듣기 싱크 보정: 반주 대비 내 목소리를 앞/뒤로 -->
+            <LinearLayout
+                android:id="@+id/sync_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="6dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/sync_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_cyan"
+                    android:minWidth="120dp"
+                    android:text="싱크 0ms" />
+
+                <SeekBar
+                    android:id="@+id/sync_seek"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="3000" />
+            </LinearLayout>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -35,6 +35,7 @@ class RankingActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@RankingActivity)
             adapter = this@RankingActivity.adapter
         }
+        NavBar.wire(this, RankingActivity::class.java)
     }
 
     override fun onResume() {
