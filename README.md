@@ -20,6 +20,26 @@ export ANDROID_HOME=~/Library/Android/sdk
 # 산출물: app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## OTA 자동 업데이트
+
+앱이 시작될 때 이 저장소의 **GitHub Releases 최신 태그(vX.Y)** 를 현재 버전과 비교해,
+새 버전이면 APK 를 자동 다운로드하고 설치 화면을 띄운다(설치 확인 탭 1회는 Android 정책상 필요).
+
+새 버전 배포:
+
+```bash
+# 1) app/build.gradle.kts 의 versionCode/versionName 올리기 (예: 0.3 → 0.4)
+# 2) 빌드 + 릴리스 생성 + APK 업로드
+./tools/release.sh "변경 내용 요약"
+```
+
+전제 조건:
+- 차량이 인증 없이 릴리스를 조회하므로 **저장소가 public** 이어야 한다
+  (private 이면 업데이트 확인이 조용히 실패하고 앱은 정상 동작).
+- **기존 설치본과 같은 디버그 키스토어**(같은 PC의 `~/.android/debug.keystore`)로
+  빌드해야 덮어쓰기 설치가 된다. 키가 다르면 차에서 기존 앱을 지우고 새로 설치해야 한다.
+- 차에서 최초 1회 "출처를 알 수 없는 앱 설치" 허용을 이 앱에 켜줘야 한다.
+
 ## 돌핀에 설치 (사이드로드)
 
 ```bash

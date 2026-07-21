@@ -20,6 +20,7 @@ import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
+import com.cseini.byd.karaoke.update.UpdateManager
 import com.cseini.byd.karaoke.voice.VoiceSearch
 import kotlinx.coroutines.launch
 
@@ -72,6 +73,24 @@ class MainActivity : AppCompatActivity() {
         ensureMicPermission()
         if (!settings.hasApiKey()) {
             status.text = "먼저 [설정]에서 YouTube API 키를 입력하세요."
+        }
+        checkOtaUpdate()
+    }
+
+    /** GitHub Releases 에 새 버전이 있으면 내려받아 설치 화면을 띄운다. */
+    private fun checkOtaUpdate() {
+        lifecycleScope.launch {
+            val release = UpdateManager.checkForUpdate() ?: return@launch
+            toast("새 버전 v${release.version} 다운로드 중…")
+            val apk = UpdateManager.download(this@MainActivity, release) { p ->
+                runOnUiThread { status.text = "업데이트 다운로드 중… $p%" }
+            }
+            if (apk == null) {
+                status.text = "업데이트 다운로드 실패 — 네트워크 확인 후 앱을 다시 시작하세요"
+                return@launch
+            }
+            status.text = "v${release.version} 설치를 진행하세요"
+            UpdateManager.install(this@MainActivity, apk)
         }
     }
 
