@@ -25,19 +25,24 @@ export ANDROID_HOME=~/Library/Android/sdk
 앱이 시작될 때 이 저장소의 **GitHub Releases 최신 태그(vX.Y)** 를 현재 버전과 비교해,
 새 버전이면 APK 를 자동 다운로드하고 설치 화면을 띄운다(설치 확인 탭 1회는 Android 정책상 필요).
 
-새 버전 배포:
+새 버전 배포 (둘 중 아무거나):
 
 ```bash
-# 1) app/build.gradle.kts 의 versionCode/versionName 올리기 (예: 0.3 → 0.4)
-# 2) 빌드 + 릴리스 생성 + APK 업로드
+# A. GitHub Actions (권장): versionCode/versionName 올려서 push 후
+#    Actions 탭 → build-release → Run workflow (또는 vX.Y 태그 push)
+#    → 릴리스에 APK 자동 업로드
+
+# B. 로컬 빌드:
 ./tools/release.sh "변경 내용 요약"
 ```
+
+서명: 모든 빌드(로컬/CI)는 저장소에 커밋된 `keystore/ota.keystore` 로 서명되므로
+어디서 빌드해도 OTA 덮어쓰기 설치가 된다. (구버전 v0.2 이하는 다른 키라서
+v0.3 은 기존 앱을 **지우고 새로 설치**해야 한다 — 이후부터는 자동.)
 
 전제 조건:
 - 차량이 인증 없이 릴리스를 조회하므로 **저장소가 public** 이어야 한다
   (private 이면 업데이트 확인이 조용히 실패하고 앱은 정상 동작).
-- **기존 설치본과 같은 디버그 키스토어**(같은 PC의 `~/.android/debug.keystore`)로
-  빌드해야 덮어쓰기 설치가 된다. 키가 다르면 차에서 기존 앱을 지우고 새로 설치해야 한다.
 - 차에서 최초 1회 "출처를 알 수 없는 앱 설치" 허용을 이 앱에 켜줘야 한다.
 
 ## 돌핀에 설치 (사이드로드)
