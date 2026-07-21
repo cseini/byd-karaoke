@@ -15,6 +15,11 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
         data class Error(val message: String) : Result()
     }
 
+    private fun likelyEmbedBlocked(item: QueueItem): Boolean {
+        val s = "${item.channel} ${item.title}".lowercase()
+        return "tj karaoke" in s || "tj노래방" in s || "tj 노래방" in s
+    }
+
     private data class Cached(val at: Long, val items: List<QueueItem>)
     private val cache = HashMap<String, Cached>()
     private val ttlMs = 5 * 60 * 1000L
@@ -37,7 +42,9 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
                         title = it.snippet?.title ?: "(제목 없음)",
                         channel = it.snippet?.channelTitle ?: "",
                     )
-                }
+                    // TJ 공식 반주는 저작권자(Ziller-TJ)가 Content ID로 임베드 재생을 차단해
+                    // videoEmbeddable=true 로도 안 걸러진다 → 재생 가능한 결과를 앞으로.
+                }.sortedBy { likelyEmbedBlocked(it) }
                 cache[effective] = Cached(nowMs, items)
                 Result.Ok(items)
             } catch (e: retrofit2.HttpException) {

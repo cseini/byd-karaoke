@@ -90,6 +90,10 @@ class PlaybackActivity : AppCompatActivity() {
                     else -> {}
                 }
             }
+
+            override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+                onPlayerError(error)
+            }
         })
 
         btnReplay.setOnClickListener { replay() }
@@ -167,6 +171,27 @@ class PlaybackActivity : AppCompatActivity() {
         if (recorder.isRecording) recorder.stop()
         resetForNewSong()
         player?.loadVideo(currentVideoId, 0f)
+    }
+
+    // videoEmbeddable=true 검색 필터로는 저작권자(예: TJ의 Ziller)가 Content ID로 건
+    // 임베드 차단을 거를 수 없어, 차단 영상은 재생 시점에야 이 오류로 드러난다.
+    private fun onPlayerError(error: PlayerConstants.PlayerError) {
+        if (recorder.isRecording) recorder.stop()
+        if (error == PlayerConstants.PlayerError.VIDEO_NOT_PLAYABLE_IN_EMBEDDED_PLAYER) {
+            toast("저작권자가 앱 내 재생을 차단한 영상입니다")
+            val next = queue.pollFirst()
+            if (next != null) {
+                toast("다음 곡으로 넘어갑니다: ${next.title}")
+                currentVideoId = next.videoId
+                songTitle.text = next.title
+                resetForNewSong()
+                player?.loadVideo(currentVideoId, 0f)
+            } else {
+                recStatus.text = "이 영상은 앱 안에서 재생할 수 없습니다.\n검색에서 다른 반주 영상(금영 KY Karaoke 등)을 선택하세요."
+            }
+        } else {
+            recStatus.text = "재생 오류: $error"
+        }
     }
 
     private fun playNext() {
