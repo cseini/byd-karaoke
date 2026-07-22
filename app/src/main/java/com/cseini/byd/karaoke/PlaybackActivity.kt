@@ -253,7 +253,10 @@ class PlaybackActivity : AppCompatActivity() {
             return
         }
         val dir = Storage.recordingsDir(this, settings.storageMode)
-        val file = File(dir, "rec_${currentVideoId}_${System.currentTimeMillis()}.wav")
+        val safeTitle = songTitle.text.toString()
+            .replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
+        val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
+        val file = File(dir, "${safeTitle}_${ts}.wav")
         val err = recorder.start(file) { db ->
             runOnUiThread { if (recorder.isRecording) recStatus.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
