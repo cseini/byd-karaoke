@@ -142,9 +142,9 @@ class MixRecorder(
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
                         if (readPos < 0) {
-                            val posMs = positionProvider?.invoke() ?: 0L
+                            // 녹음 시작 = 재생 시작(곡 0). 반주도 0부터 순차로 읽는다.
                             step = accompRate.toDouble() / RATE
-                            readPos = posMs * accompRate / 1000.0
+                            readPos = 0.0
                         }
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
