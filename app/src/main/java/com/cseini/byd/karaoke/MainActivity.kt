@@ -141,6 +141,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshHistory()
+        // 음성 버튼은 Gemini 키가 있을 때만 노출
+        findViewById<Button>(R.id.btn_voice).visibility =
+            if (settings.openaiApiKey.isNotBlank()) View.VISIBLE else View.GONE
     }
 
     /** 같은 곡은 가장 최근 것만, 최신순으로 히스토리 타일에 노출. */

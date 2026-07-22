@@ -19,8 +19,6 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
-    private lateinit var keyless: CheckBox
-    private lateinit var apiKey: EditText
     private lateinit var openaiKey: EditText
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
@@ -32,13 +30,9 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_settings)
         settings = SettingsStore(this)
 
-        keyless = findViewById(R.id.chk_keyless)
-        apiKey = findViewById(R.id.api_key_input)
         openaiKey = findViewById(R.id.openai_key_input)
         updateStatus = findViewById(R.id.update_status)
 
-        keyless.isChecked = settings.keylessSearch
-        apiKey.setText(settings.youtubeApiKey)
         openaiKey.setText(settings.openaiApiKey)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
 
@@ -57,8 +51,6 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun save() {
-        settings.searchMode = if (keyless.isChecked) "keyless" else "api"
-        settings.youtubeApiKey = apiKey.text.toString()
         settings.openaiApiKey = openaiKey.text.toString()
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }

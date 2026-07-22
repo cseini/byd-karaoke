@@ -37,34 +37,25 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="검색 방식"
+                android:text="음성 검색"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_cyan"
                 android:paddingBottom="6dp" />
 
-            <CheckBox
-                android:id="@+id/chk_keyless"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/tj_text_primary"
-                android:text="API 키 없이 검색 (키 발급 불필요)" />
-
-            <EditText
-                android:id="@+id/api_key_input"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="6dp"
-                android:hint="YouTube Data API v3 키 (API 방식 선택 시)"
-                android:inputType="text"
-                android:importantForAutofill="no" />
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:paddingBottom="4dp"
+                android:text="키를 넣으면 검색 화면에 🎤 음성 버튼이 나타납니다. aistudio.google.com 에서 무료 발급." />
 
             <EditText
                 android:id="@+id/openai_key_input"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_marginTop="6dp"
-                android:hint="Gemini API 키 (무료 음성검색용 · 선택)"
+                android:hint="Gemini API 키 (무료)"
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
