@@ -134,22 +134,27 @@ class MixRecorder(
         worker = thread(name = "mix-recorder") {
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
+            // 시작점만 재생 위치로 정렬하고, 이후엔 반주를 연속으로 읽는다(끊김 방지).
+            var readPos = -1.0
+            var step = 1.0   // 마이크 1샘플당 반주 진행(accompRate/RATE)
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
-                        val posMs = positionProvider?.invoke() ?: 0L
-                        val rate = accompRate
-                        val baseIdx = posMs * rate / 1000L        // 이 블록 시작의 반주 인덱스(accompRate 기준)
+                        if (readPos < 0) {
+                            val posMs = positionProvider?.invoke() ?: 0L
+                            step = accompRate.toDouble() / RATE
+                            readPos = posMs * accompRate / 1000.0
+                        }
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
                             val voice = buf[i].toInt()
-                            // 마이크 i번째(RATE) 샘플 시각의 반주 인덱스(accompRate)
-                            val ai = (baseIdx + i.toLong() * rate / RATE).toInt()
+                            val ai = readPos.toInt()
                             val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
                             var m = voice + (acc * 6 / 10)
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
+                            readPos += step
                         }
                         writer.write(out, n)
                         onLevel?.let { cb ->
