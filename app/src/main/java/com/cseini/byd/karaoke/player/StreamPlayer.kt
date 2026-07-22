@@ -84,9 +84,13 @@ class StreamPlayer(
                 cb.onError("영상 스트림을 불러오지 못했습니다.\n네트워크를 확인하거나 다른 곡으로 시도해보세요.")
                 return@launch
             }
-            exo.setMediaSource(source)
-            exo.prepare()
-            exo.playWhenReady = true
+            try {
+                exo.setMediaSource(source)
+                exo.prepare()
+                exo.playWhenReady = true
+            } catch (e: Exception) {
+                cb.onError("재생 준비 실패: ${e.message}")
+            }
         }
     }
 

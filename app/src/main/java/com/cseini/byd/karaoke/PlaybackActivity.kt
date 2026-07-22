@@ -29,7 +29,6 @@ import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
-import com.cseini.byd.karaoke.player.IframePlayer
 import com.cseini.byd.karaoke.player.KaraokePlayer
 import com.cseini.byd.karaoke.player.PlayerCallbacks
 import com.cseini.byd.karaoke.player.StreamPlayer
@@ -97,7 +96,6 @@ class PlaybackActivity : AppCompatActivity() {
 
     private lateinit var songTitle: TextView
     private lateinit var recStatus: TextView
-    private lateinit var btnReplay: Button
     private lateinit var scoreOverlay: FrameLayout
     private lateinit var scoreTotal: TextView
     private lateinit var scoreGrade: TextView
@@ -133,7 +131,6 @@ class PlaybackActivity : AppCompatActivity() {
 
         songTitle = findViewById(R.id.song_title)
         recStatus = findViewById(R.id.rec_status)
-        btnReplay = findViewById(R.id.btn_replay)
         scoreOverlay = findViewById(R.id.score_overlay)
         scoreTotal = findViewById(R.id.score_total)
         scoreGrade = findViewById(R.id.score_grade)
@@ -150,7 +147,6 @@ class PlaybackActivity : AppCompatActivity() {
             lastRecording = File(path)
             scored = true
             replayOnly = true
-            btnReplay.isEnabled = true
             recStatus.text = "▶ 저장된 노래 재생"
         }
 
@@ -165,24 +161,21 @@ class PlaybackActivity : AppCompatActivity() {
                 recStatus.text = msg
             },
         )
-        player = if (settings.playbackEngine == "iframe") {
-            IframePlayer(this, container, lifecycle, callbacks)
-        } else {
-            StreamPlayer(this, container, lifecycleScope, callbacks)
-        }
+        player = StreamPlayer(this, container, lifecycleScope, callbacks)
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
         scoreOverlay.setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.score_next).setOnClickListener { playNext() }
         findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
-        btnReplay.setOnClickListener { startReplay() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
 
         setupSyncControl()
 
         setupReservePanel()
+
+        NavBar.wire(this, PlaybackActivity::class.java)
     }
 
     // ── 부르는 중 검색·예약 패널 ──────────────────────────────────────
@@ -283,8 +276,7 @@ class PlaybackActivity : AppCompatActivity() {
             if (result == null) {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {
-                recStatus.text = "🎯 채점 완료 — 녹음함에 저장됨"
-                btnReplay.isEnabled = true
+                recStatus.text = "🎯 채점 완료 — 녹음함에서 다시 들을 수 있어요"
                 showScoreOverlay(result.total, result.breakdown.lines().drop(1).joinToString("\n"))
             }
         }
@@ -381,19 +373,21 @@ class PlaybackActivity : AppCompatActivity() {
         // 녹음 파일이 사실상 비어 있으면(캡처 실패) 목소리가 없으니 그 사실을 명확히 알린다.
         val sizeKb = file.length() / 1024
         mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-            // 비동기 재생 오류는 이 리스너로만 잡힌다 — 이게 없으면 완전 무음 실패였다.
-            setOnErrorListener { _, what, extra ->
-                recStatus.text = "❗내 목소리 재생 오류 (코드 $what/$extra, 파일 ${sizeKb}KB)"
-                true
-            }
-            setOnCompletionListener { recStatus.text = "내 목소리 재생 완료 (반주는 계속)" }
+            // setAudioAttributes 등 준비 전체를 try 로 감싼다 — 일부 헤드유닛에선 여기서
+            // 예외가 나 앱이 통째로 튕겼다(다시듣기→검색창 복귀의 원인).
             try {
+                setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                // 비동기 재생 오류는 이 리스너로만 잡힌다 — 이게 없으면 완전 무음 실패였다.
+                setOnErrorListener { _, what, extra ->
+                    recStatus.text = "❗내 목소리 재생 오류 (코드 $what/$extra, 파일 ${sizeKb}KB)"
+                    true
+                }
+                setOnCompletionListener { recStatus.text = "내 목소리 재생 완료 (반주는 계속)" }
                 setDataSource(file.absolutePath)
                 prepare()
                 // 반주 대비 목소리를 앞당기려면(+offset) 그만큼 뒤 지점부터 시작
@@ -508,7 +502,6 @@ class PlaybackActivity : AppCompatActivity() {
         candIndex = 0
         hideScoreOverlay()
         syncRow.visibility = View.GONE
-        btnReplay.isEnabled = false
         recStatus.text = "대기 중"
     }
 

@@ -86,16 +86,6 @@
                     android:text="⏹ 정지" />
 
                 <Button
-                    android:id="@+id/btn_replay"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:enabled="false"
-                    android:text="다시 듣기" />
-
-                <Button
                     android:id="@+id/btn_retry"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -123,6 +113,8 @@
                     android:text="🔍 예약" />
             </LinearLayout>
         </LinearLayout>
+
+        <include layout="@layout/include_navbar" />
     </LinearLayout>
 
     <!-- 부르는 중 검색·예약 패널: 재생을 끊지 않고 다음 곡을 예약한다. -->

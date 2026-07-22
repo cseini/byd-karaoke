@@ -66,50 +66,6 @@
                 android:layout_marginBottom="18dp"
                 android:background="@color/tj_divider" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="재생 방식"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="6dp" />
-
-            <RadioGroup
-                android:id="@+id/engine_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <RadioButton
-                    android:id="@+id/eng_stream"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="스트림 재생 (광고 없음·로그인 불필요·모든 곡) — 권장" />
-
-                <RadioButton
-                    android:id="@+id/eng_iframe"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="유튜브 IFrame (안정적이나 일부 곡 재생 불가·광고 있음)" />
-            </RadioGroup>
-
-            <Button
-                android:id="@+id/btn_yt_login"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                app:backgroundTint="@color/tj_pink"
-                android:text="▶ 유튜브 로그인 (프리미엄이면 광고 제거)" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
 
             <TextView
                 android:layout_width="wrap_content"

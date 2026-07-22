@@ -22,7 +22,6 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var keyless: CheckBox
     private lateinit var apiKey: EditText
     private lateinit var updateStatus: TextView
-    private lateinit var engineGroup: RadioGroup
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
     private lateinit var maxStorageInput: EditText
@@ -35,14 +34,10 @@ class SettingsActivity : AppCompatActivity() {
         keyless = findViewById(R.id.chk_keyless)
         apiKey = findViewById(R.id.api_key_input)
         updateStatus = findViewById(R.id.update_status)
-        engineGroup = findViewById(R.id.engine_group)
 
         keyless.isChecked = settings.keylessSearch
         apiKey.setText(settings.youtubeApiKey)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
-        engineGroup.check(
-            if (settings.playbackEngine == "iframe") R.id.eng_iframe else R.id.eng_stream
-        )
 
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
@@ -54,9 +49,6 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
-        findViewById<Button>(R.id.btn_yt_login).setOnClickListener {
-            startActivity(Intent(this, LoginActivity::class.java))
-        }
 
         NavBar.wire(this, SettingsActivity::class.java)
     }
@@ -64,8 +56,6 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         settings.searchMode = if (keyless.isChecked) "keyless" else "api"
         settings.youtubeApiKey = apiKey.text.toString()
-        settings.playbackEngine =
-            if (engineGroup.checkedRadioButtonId == R.id.eng_iframe) "iframe" else "stream"
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

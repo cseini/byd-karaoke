@@ -37,15 +37,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("sync_offset_ms", 0)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
-    /**
-     * 재생 엔진.
-     * "stream" — NewPipe 로 유튜브 스트림을 추출해 네이티브 ExoPlayer 로 재생(광고·로그인 없음, 모든 곡).
-     * "iframe" — 유튜브 공식 IFrame 플레이어(안정적이나 임베드 차단 영상 불가·광고 있음).
-     */
-    var playbackEngine: String
-        get() = prefs.getString("playback_engine", "stream") ?: "stream"
-        set(v) = prefs.edit().putString("playback_engine", v).apply()
-
     /** 녹음 저장 위치: "internal"(차 내부) | "sd"(SD카드). */
     var storageMode: String
         get() = prefs.getString("storage_mode", "internal") ?: "internal"
