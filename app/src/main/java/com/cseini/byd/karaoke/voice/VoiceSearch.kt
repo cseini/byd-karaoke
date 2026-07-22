@@ -146,13 +146,14 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             if (!file.exists() || file.length() < 2000) {
                 main.post { onError("녹음이 감지되지 않았습니다") }; return
             }
+            // Groq(무료 티어) — OpenAI 호환. whisper-large-v3 로 한국어 정확도 높음.
             val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("model", "whisper-1")
+                .addFormDataPart("model", "whisper-large-v3-turbo")
                 .addFormDataPart("language", "ko")
                 .addFormDataPart("file", "voice.wav", file.asRequestBody("audio/wav".toMediaTypeOrNull()))
                 .build()
             val req = Request.Builder()
-                .url("https://api.openai.com/v1/audio/transcriptions")
+                .url("https://api.groq.com/openai/v1/audio/transcriptions")
                 .addHeader("Authorization", "Bearer ${settings.openaiApiKey}")
                 .post(body).build()
             http.newCall(req).execute().use { resp ->
