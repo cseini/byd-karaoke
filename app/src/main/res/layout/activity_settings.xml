@@ -64,7 +64,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_marginTop="6dp"
-                android:hint="Groq API 키 (무료 음성검색용 · 선택)"
+                android:hint="Gemini API 키 (무료 음성검색용 · 선택)"
                 android:inputType="text"
                 android:importantForAutofill="no" />
 

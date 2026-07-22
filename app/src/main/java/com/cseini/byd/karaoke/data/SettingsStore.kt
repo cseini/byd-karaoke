@@ -12,7 +12,7 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("yt_api_key", "") ?: ""
         set(v) = prefs.edit().putString("yt_api_key", v.trim()).apply()
 
-    /** Groq API 키(무료 티어) — 온라인 음성검색(Whisper). 있으면 Vosk 대신 사용. */
+    /** Gemini API 키(무료 티어) — 온라인 음성검색(오디오→가수/곡명). 있으면 Vosk 대신 사용. */
     var openaiApiKey: String
         get() = prefs.getString("openai_key", "") ?: ""
         set(v) = prefs.edit().putString("openai_key", v.trim()).apply()

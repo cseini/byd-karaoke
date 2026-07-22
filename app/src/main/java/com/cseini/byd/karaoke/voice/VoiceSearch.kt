@@ -17,10 +17,10 @@ import android.speech.SpeechRecognizer
 import com.cseini.byd.karaoke.audio.AudioRecorder
 import com.cseini.byd.karaoke.data.SettingsStore
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
@@ -66,7 +66,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onError: (String) -> Unit,
     ) {
         if (SpeechRecognizer.isRecognitionAvailable(context)) startSystem(onReady, onProcessing, onResult, onError)
-        else if (settings.openaiApiKey.isNotBlank()) startWhisperApi(onReady, onProcessing, onResult, onError)
+        else if (settings.openaiApiKey.isNotBlank()) startGemini(onReady, onProcessing, onResult, onError)
         else startVosk(onReady, onProcessing, onResult, onError)
     }
 
@@ -118,9 +118,9 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         r.startListening(intent)
     }
 
-    // ── 경로 2: OpenAI Whisper API(온라인, 정확도 최상) ───────────────
+    // ── 경로 2: Gemini(온라인) — 오디오를 듣고 가수/노래 제목을 텍스트로 리턴 ──
 
-    private fun startWhisperApi(
+    private fun startGemini(
         onReady: () -> Unit,
         onProcessing: () -> Unit,
         onResult: (String) -> Unit,
@@ -137,38 +137,49 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             rec.stop()
             whisperRec = null
             onProcessing()
-            thread(name = "whisper") { transcribeWhisper(file, onResult, onError) }
+            thread(name = "gemini") { transcribeGemini(file, onResult, onError) }
         }, RECORD_MS)
     }
 
-    private fun transcribeWhisper(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
+    private fun transcribeGemini(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
         try {
             if (!file.exists() || file.length() < 2000) {
                 main.post { onError("녹음이 감지되지 않았습니다") }; return
             }
-            // Groq(무료 티어) — OpenAI 호환. whisper-large-v3 로 한국어 정확도 높음.
-            // prompt 로 "한국 가요 제목/가수" 도메인을 알려줘 고유명사 인식률을 끌어올린다.
-            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("model", "whisper-large-v3-turbo")
-                .addFormDataPart("language", "ko")
-                .addFormDataPart(
-                    "prompt",
-                    "노래방에서 부를 대한민국 가요입니다. 가수 이름이나 노래 제목을 말합니다. " +
-                        "예: 아이유 좋은날, 임재범 너를 위해, 볼빨간사춘기 우주를줄게.",
-                )
-                .addFormDataPart("file", "voice.wav", file.asRequestBody("audio/wav".toMediaTypeOrNull()))
-                .build()
+            val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
+            val prompt = "다음 오디오는 노래방에서 부를 대한민국 가요의 가수 이름 또는 노래 제목을 말한 것입니다. " +
+                "유튜브에서 검색할 수 있도록 들린 가수명/노래제목 텍스트만 정확히 출력하세요. 설명·따옴표 없이 검색어만 한 줄로."
+            val payload = JSONObject().put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put(
+                        "parts",
+                        JSONArray()
+                            .put(JSONObject().put("text", prompt))
+                            .put(
+                                JSONObject().put(
+                                    "inline_data",
+                                    JSONObject().put("mime_type", "audio/wav").put("data", b64),
+                                ),
+                            ),
+                    ),
+                ),
+            )
             val req = Request.Builder()
-                .url("https://api.groq.com/openai/v1/audio/transcriptions")
-                .addHeader("Authorization", "Bearer ${settings.openaiApiKey}")
-                .post(body).build()
+                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${settings.openaiApiKey}")
+                .post(payload.toString().toRequestBody("application/json".toMediaTypeOrNull()))
+                .build()
             http.newCall(req).execute().use { resp ->
                 val json = resp.body?.string().orEmpty()
                 if (!resp.isSuccessful) {
-                    main.post { onError("음성 인식 실패 (${resp.code}) — API 키를 확인하세요") }
+                    main.post { onError("음성 인식 실패 (${resp.code}) — Gemini 키를 확인하세요") }
                     return
                 }
-                val text = runCatching { JSONObject(json).optString("text").trim() }.getOrDefault("")
+                val text = runCatching {
+                    JSONObject(json).getJSONArray("candidates").getJSONObject(0)
+                        .getJSONObject("content").getJSONArray("parts").getJSONObject(0)
+                        .getString("text").trim()
+                }.getOrDefault("")
                 main.post { if (text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(text) }
             }
         } catch (e: Exception) {
