@@ -79,6 +79,8 @@ class StreamPlayer(
 
     init {
         YouTubeDownloader.ensureInit()
+        // 노래 부를 땐 앱 버튼(정지 등)만 쓰므로 ExoPlayer 기본 재생 컨트롤(앞/뒤·멈춤)은 숨긴다.
+        playerView.useController = false
         container.addView(
             playerView,
             FrameLayout.LayoutParams(

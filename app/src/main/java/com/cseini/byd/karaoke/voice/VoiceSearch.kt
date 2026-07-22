@@ -109,11 +109,12 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     ) {
         stop()
         val file = File(context.cacheDir, "voice_query.wav")
-        // 음성검색: 통화용 소스(에코/노이즈 제거 내장) + AEC/NS/AGC 강제.
+        // 음성검색: USB 마이크는 입 가까이라 깨끗하므로 원음(UNPROCESSED)으로 받는다.
+        // (VOICE_COMMUNICATION 의 에코제거/AGC 는 내장마이크용이라 USB 원음을 왜곡해 인식이 나빴다.)
         val rec = AudioRecorder(
             context, settings, 16000,
-            sourceOverride = android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-            forceEffects = true,
+            sourceOverride = android.media.MediaRecorder.AudioSource.UNPROCESSED,
+            forceEffects = false,
         )
         recorder = rec
         val err = rec.start(file, null)
@@ -133,8 +134,9 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 main.post { onError("녹음이 감지되지 않았습니다") }; return
             }
             val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
-            val prompt = "다음 오디오는 노래방에서 부를 대한민국 가요의 가수 이름 또는 노래 제목을 말한 것입니다. " +
-                "유튜브에서 검색할 수 있도록 들린 가수명/노래제목 텍스트만 정확히 출력하세요. 설명·따옴표 없이 검색어만 한 줄로."
+            val prompt = "이 오디오에는 한 사람이 대한민국 가요의 노래 제목이나 가수 이름을 한국어로 말합니다. " +
+                "오디오를 잘 듣고, 실제로 들린 노래 제목 또는 가수 이름만 유튜브 검색어로 그대로 한 줄로 출력하세요. " +
+                "들리는 내용만 쓰고 추측하지 마세요. 설명·따옴표·부연 없이 검색어만."
             val payload = JSONObject().put(
                 "contents",
                 JSONArray().put(
@@ -152,7 +154,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 ),
             )
             val req = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${settings.openaiApiKey}")
+                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.openaiApiKey}")
                 .post(payload.toString().toRequestBody("application/json".toMediaTypeOrNull()))
                 .build()
             http.newCall(req).execute().use { resp ->
