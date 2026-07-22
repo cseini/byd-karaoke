@@ -45,6 +45,18 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("player_mode", "mobile") ?: "mobile"
         set(v) = prefs.edit().putString("player_mode", v).apply()
 
+    /** 녹음 저장 위치: "internal"(차 내부) | "sd"(SD카드). */
+    var storageMode: String
+        get() = prefs.getString("storage_mode", "internal") ?: "internal"
+        set(v) = prefs.edit().putString("storage_mode", v).apply()
+
+    /** 녹음 최대 사용 용량(MB). 초과 시 오래된 녹음부터 자동 삭제. */
+    var maxStorageMb: Int
+        get() = prefs.getInt("max_storage_mb", 500)
+        set(v) = prefs.edit().putInt("max_storage_mb", v).apply()
+
+    val maxStorageBytes: Long get() = maxStorageMb * 1_000_000L
+
     var aecEnabled: Boolean
         get() = prefs.getBoolean("aec", false)
         set(v) = prefs.edit().putBoolean("aec", v).apply()

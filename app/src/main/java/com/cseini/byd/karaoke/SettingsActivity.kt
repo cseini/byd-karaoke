@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.cseini.byd.karaoke.data.SettingsStore
+import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.update.UpdateManager
 import kotlinx.coroutines.launch
 
@@ -22,6 +23,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var apiKey: EditText
     private lateinit var updateStatus: TextView
     private lateinit var playerModeGroup: RadioGroup
+    private lateinit var storageGroup: RadioGroup
+    private lateinit var storageInfo: TextView
+    private lateinit var maxStorageInput: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +48,14 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
 
+        storageGroup = findViewById(R.id.storage_group)
+        storageInfo = findViewById(R.id.storage_info)
+        maxStorageInput = findViewById(R.id.max_storage_input)
+        storageGroup.check(if (settings.storageMode == "sd") R.id.st_sd else R.id.st_internal)
+        maxStorageInput.setText(settings.maxStorageMb.toString())
+        storageGroup.setOnCheckedChangeListener { _, _ -> refreshStorageInfo() }
+        refreshStorageInfo()
+
         findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         findViewById<Button>(R.id.btn_yt_login).setOnClickListener {
@@ -61,7 +73,28 @@ class SettingsActivity : AppCompatActivity() {
             R.id.pm_tablet -> "tablet"
             else -> "mobile"
         }
+        settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
+        maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
+        refreshStorageInfo()
         Toast.makeText(this, "저장되었습니다", Toast.LENGTH_SHORT).show()
+    }
+
+    /** 차 내부·SD카드의 여유/사용 용량과 현재 저장 경로를 표시. */
+    private fun refreshStorageInfo() {
+        val mode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
+        val intBase = Storage.internalBase(this)
+        val intUsed = Storage.usedBytes(Storage.recordingsDir(this, "internal"))
+        val sb = StringBuilder()
+        sb.append("차 내부: 여유 ${Storage.formatSize(Storage.freeBytes(intBase))} · 녹음 ${Storage.formatSize(intUsed)}\n")
+        val sd = Storage.sdBase(this)
+        if (sd != null) {
+            val sdUsed = Storage.usedBytes(Storage.recordingsDir(this, "sd"))
+            sb.append("SD카드: 여유 ${Storage.formatSize(Storage.freeBytes(sd))} · 녹음 ${Storage.formatSize(sdUsed)}\n")
+        } else {
+            sb.append("SD카드: 없음\n")
+        }
+        sb.append("저장 경로: ${Storage.recordingsDir(this, mode).absolutePath}")
+        storageInfo.text = sb.toString()
     }
 
     private fun checkUpdate() {

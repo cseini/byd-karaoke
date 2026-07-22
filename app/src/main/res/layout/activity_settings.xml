@@ -121,6 +121,83 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="녹음 저장 위치"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="6dp" />
+
+            <RadioGroup
+                android:id="@+id/storage_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/st_internal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="차 내부 저장소" />
+
+                <RadioButton
+                    android:id="@+id/st_sd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="SD카드" />
+            </RadioGroup>
+
+            <TextView
+                android:id="@+id/storage_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:fontFamily="monospace"
+                android:text="용량 확인 중…" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="최대 사용 용량(MB):" />
+
+                <EditText
+                    android:id="@+id/max_storage_input"
+                    android:layout_width="100dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    android:inputType="number"
+                    android:importantForAutofill="no" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:textSize="11sp"
+                android:textColor="@color/tj_text_hint"
+                android:text="이 용량을 넘으면 오래된 녹음부터 자동으로 지웁니다." />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="앱 업데이트"
                 android:textSize="16sp"
                 android:textStyle="bold"

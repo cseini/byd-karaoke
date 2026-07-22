@@ -27,6 +27,7 @@ import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
+import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
 import com.cseini.byd.karaoke.player.WatchPlayer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
@@ -232,7 +233,8 @@ class PlaybackActivity : AppCompatActivity() {
             recStatus.text = "마이크 권한이 없어 채점 없이 재생만 합니다."
             return
         }
-        val file = File(getExternalFilesDir(null), "rec_${currentVideoId}_${System.currentTimeMillis()}.wav")
+        val dir = Storage.recordingsDir(this, settings.storageMode)
+        val file = File(dir, "rec_${currentVideoId}_${System.currentTimeMillis()}.wav")
         val err = recorder.start(file) { db ->
             runOnUiThread { if (recorder.isRecording) recStatus.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
@@ -269,6 +271,9 @@ class PlaybackActivity : AppCompatActivity() {
                     at = System.currentTimeMillis(),
                 )
             )
+            // 용량 상한 초과 시 오래된 녹음부터 자동 삭제
+            val pruned = Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes)
+            if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
             if (result == null) {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {

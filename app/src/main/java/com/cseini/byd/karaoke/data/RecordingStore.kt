@@ -45,6 +45,12 @@ class RecordingStore(context: Context) {
         persist()
     }
 
+    /** 자동 정리로 파일이 이미 삭제된 항목들을 목록에서 제거. */
+    fun removeByPaths(paths: List<String>) {
+        val set = paths.toHashSet()
+        if (items.removeAll { it.path in set }) persist()
+    }
+
     private fun persist() {
         prefs.edit().putString("recordings", gson.toJson(items)).apply()
     }

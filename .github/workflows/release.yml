@@ -23,9 +23,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Fetch Vosk Korean model
-        run: ./tools/fetch_vosk_model.sh
-
       - name: Build APK
         run: ./gradlew :app:assembleDebug --no-daemon
 
