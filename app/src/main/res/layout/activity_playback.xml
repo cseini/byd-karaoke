@@ -44,31 +44,79 @@
                 android:paddingTop="4dp"
                 android:text="대기 중" />
 
-            <!-- 다시듣기 싱크 보정: 반주 대비 내 목소리를 앞/뒤로 -->
+            <!-- 다시듣기 오디오 컨트롤: 시크바 + ±5/±10초 + 재생/일시정지 -->
             <LinearLayout
-                android:id="@+id/sync_row"
+                android:id="@+id/replay_controls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:orientation="vertical"
                 android:paddingTop="6dp"
                 android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/sync_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="@color/tj_cyan"
-                    android:minWidth="120dp"
-                    android:text="싱크 0ms" />
-
                 <SeekBar
-                    android:id="@+id/sync_seek"
-                    android:layout_width="0dp"
+                    android:id="@+id/replay_seek"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="3000" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/replay_time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textColor="@color/tj_cyan"
+                        android:text="0:00 / 0:00" />
+
+                    <Button
+                        android:id="@+id/replay_back10"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:text="⏪10" />
+
+                    <Button
+                        android:id="@+id/replay_back5"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:layout_marginStart="4dp"
+                        android:text="◀5" />
+
+                    <Button
+                        android:id="@+id/replay_play"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:layout_marginStart="4dp"
+                        app:backgroundTint="@color/tj_blue"
+                        android:text="⏸" />
+
+                    <Button
+                        android:id="@+id/replay_fwd5"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:layout_marginStart="4dp"
+                        android:text="5▶" />
+
+                    <Button
+                        android:id="@+id/replay_fwd10"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:layout_marginStart="4dp"
+                        android:text="10⏩" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout

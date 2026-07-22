@@ -12,6 +12,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -97,6 +98,11 @@ class PlaybackActivity : AppCompatActivity() {
 
     private lateinit var songTitle: TextView
     private lateinit var recStatus: TextView
+    private lateinit var replayControls: View
+    private lateinit var replaySeek: SeekBar
+    private lateinit var replayTime: TextView
+    private lateinit var replayPlay: Button
+    private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private lateinit var scoreOverlay: FrameLayout
     private lateinit var scoreTotal: TextView
     private lateinit var scoreGrade: TextView
@@ -167,6 +173,23 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
+
+        replayControls = findViewById(R.id.replay_controls)
+        replaySeek = findViewById(R.id.replay_seek)
+        replayTime = findViewById(R.id.replay_time)
+        replayPlay = findViewById(R.id.replay_play)
+        findViewById<Button>(R.id.replay_back10).setOnClickListener { seekReplay(-10000) }
+        findViewById<Button>(R.id.replay_back5).setOnClickListener { seekReplay(-5000) }
+        findViewById<Button>(R.id.replay_fwd5).setOnClickListener { seekReplay(5000) }
+        findViewById<Button>(R.id.replay_fwd10).setOnClickListener { seekReplay(10000) }
+        replayPlay.setOnClickListener { toggleReplayPlay() }
+        replaySeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
+                if (fromUser) mediaPlayer?.let { runCatching { it.seekTo(p) } }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
 
         setupReservePanel()
 
@@ -338,16 +361,71 @@ class PlaybackActivity : AppCompatActivity() {
                     replaying = false
                     true
                 }
-                setOnCompletionListener { recStatus.text = "다시 듣기 완료"; replaying = false }
+                setOnCompletionListener {
+                    recStatus.text = "다시 듣기 완료"
+                    replaying = false
+                    replayPlay.text = "▶"
+                    uiHandler.removeCallbacks(replayTicker)
+                }
                 setDataSource(file.absolutePath)
                 prepare()
                 start()
                 recStatus.text = "▶ 내 노래 다시 듣는 중 (${sizeKb}KB)"
+                replaySeek.max = duration
+                replaySeek.progress = 0
+                replayControls.visibility = View.VISIBLE
+                replayPlay.text = "⏸"
+                startReplayTicker()
             } catch (e: Exception) {
                 recStatus.text = "❗재생 실패: ${e.message} (파일 ${sizeKb}KB)"
                 replaying = false
             }
         }
+    }
+
+    private val replayTicker = object : Runnable {
+        override fun run() {
+            val mp = mediaPlayer ?: return
+            runCatching {
+                replaySeek.progress = mp.currentPosition
+                replayTime.text = "${fmtTime(mp.currentPosition)} / ${fmtTime(mp.duration)}"
+                replayPlay.text = if (mp.isPlaying) "⏸" else "▶"
+            }
+            uiHandler.postDelayed(this, 300)
+        }
+    }
+
+    private fun startReplayTicker() {
+        uiHandler.removeCallbacks(replayTicker)
+        uiHandler.post(replayTicker)
+    }
+
+    private fun hideReplayControls() {
+        uiHandler.removeCallbacks(replayTicker)
+        replayControls.visibility = View.GONE
+    }
+
+    private fun seekReplay(deltaMs: Int) {
+        val mp = mediaPlayer ?: return
+        runCatching {
+            mp.seekTo((mp.currentPosition + deltaMs).coerceIn(0, mp.duration))
+        }
+    }
+
+    private fun toggleReplayPlay() {
+        val mp = mediaPlayer ?: return
+        runCatching {
+            if (mp.isPlaying) {
+                mp.pause(); replayPlay.text = "▶"
+            } else {
+                mp.start(); replayPlay.text = "⏸"; replaying = true; startReplayTicker()
+            }
+        }
+    }
+
+    private fun fmtTime(ms: Int): String {
+        val s = ms / 1000
+        return "%d:%02d".format(s / 60, s % 60)
     }
 
     // ── 조작 버튼 ─────────────────────────────────────────────────
@@ -357,6 +435,7 @@ class PlaybackActivity : AppCompatActivity() {
         if (replaying) {
             replaying = false
             stopMediaPlayer()
+            hideReplayControls()
             recStatus.text = "정지됨"
             return
         }
@@ -432,6 +511,7 @@ class PlaybackActivity : AppCompatActivity() {
         candTitles = emptyList()
         candIndex = 0
         hideScoreOverlay()
+        hideReplayControls()
         recStatus.text = "대기 중"
     }
 
@@ -450,6 +530,7 @@ class PlaybackActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (recorder.isRecording) recorder.stop()
         stopMediaPlayer()
+        uiHandler.removeCallbacks(replayTicker)
         player.release()
         super.onDestroy()
     }
