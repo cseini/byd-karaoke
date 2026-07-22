@@ -109,7 +109,12 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     ) {
         stop()
         val file = File(context.cacheDir, "voice_query.wav")
-        val rec = AudioRecorder(context, settings, 16000)
+        // 음성검색: 통화용 소스(에코/노이즈 제거 내장) + AEC/NS/AGC 강제.
+        val rec = AudioRecorder(
+            context, settings, 16000,
+            sourceOverride = android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            forceEffects = true,
+        )
         recorder = rec
         val err = rec.start(file, null)
         if (err != null) { onError("마이크 오류: $err"); return }
