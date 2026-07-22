@@ -13,11 +13,30 @@ object Storage {
     fun internalBase(ctx: Context): File =
         ctx.getExternalFilesDirs(null).filterNotNull().firstOrNull() ?: ctx.filesDir
 
-    /** SD카드(이동식 두 번째 볼륨, 앱 전용). 없으면 null. */
+    /** SD카드. 앱 전용 볼륨이 안 잡히면(블랙박스 독점) Legacy 경로를 직접 스캔한다. 없으면 null. */
     fun sdBase(ctx: Context): File? {
         val dirs = ctx.getExternalFilesDirs(null).filterNotNull()
-        return dirs.firstOrNull { runCatching { Environment.isExternalStorageRemovable(it) }.getOrDefault(false) }
-            ?: dirs.getOrNull(1)
+        dirs.firstOrNull { runCatching { Environment.isExternalStorageRemovable(it) }.getOrDefault(false) }
+            ?.let { return it }
+        if (dirs.size >= 2) return dirs[1]
+        // 표준 API 로 SD 가 안 보이면(블랙박스가 독점 마운트) Legacy 경로를 직접 찾는다.
+        return findLegacySdVolume()
+    }
+
+    /**
+     * targetSdk 28 + Legacy Storage 에서 /storage 아래 물리 SD 볼륨을 직접 찾는다.
+     * 일렉트로 앱과 같은 전략 — getExternalFilesDirs 가 못 잡는 볼륨에 접근.
+     */
+    fun findLegacySdVolume(): File? {
+        val candidates = ArrayList<File>()
+        File("/storage").listFiles()?.forEach { v ->
+            if (v.name != "emulated" && v.name != "self") candidates.add(v)
+        }
+        listOf("/storage/sdcard1", "/mnt/external_sd", "/external_sd", "/storage/extSdCard")
+            .forEach { candidates.add(File(it)) }
+        return candidates.firstOrNull {
+            runCatching { it.isDirectory && it.canWrite() }.getOrDefault(false)
+        }
     }
 
     /** mode: "internal" | "sd"(없으면 내부로 폴백). */

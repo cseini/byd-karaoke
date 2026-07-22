@@ -10,9 +10,14 @@ android {
     defaultConfig {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 17
-        versionName = "1.7"
+        // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
+        // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
+        targetSdk = 28
+        versionCode = 18
+        versionName = "1.8"
+
+        // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
@@ -61,6 +66,16 @@ android {
         buildConfig = true
     }
 
+    // Vosk 모델 zip 은 이미 압축돼 있으니 aapt 가 재압축하지 않도록(빌드 속도·크기).
+    androidResources {
+        noCompress += "zip"
+    }
+
+    // 사이드로드(OTA) 전용 앱 — Play Store 의 targetSdk 최소치 검사는 해당 없음.
+    lint {
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
@@ -95,6 +110,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.10.0")
     // 미디어 세션/브라우저 — 차량 런처(Kinex) 미디어 위젯에 앱을 노출.
     implementation("androidx.media3:media3-session:1.10.0")
+
+    // 오프라인 음성인식(한국어) — 구형 WebView 라 puter STT 불가한 헤드유닛용.
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 

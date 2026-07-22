@@ -303,7 +303,15 @@ class DiagnosticsActivity : AppCompatActivity() {
             sb.append("       removable=$removable  여유=${Storage.formatSize(Storage.freeBytes(d))}\n")
         }
         sb.append("SD 감지(sdBase): ${Storage.sdBase(this)?.absolutePath ?: "없음"}\n")
-        sb.append("→ 볼륨이 [0] 하나뿐이면 SD가 블랙박스 전용이라 앱에서 접근 불가.\n")
+        // Legacy 직접 스캔 — targetSdk28+권한이면 여기서 SD 경로가 잡혀야 한다.
+        sb.append("/storage 하위 볼륨:\n")
+        val vols = runCatching { File("/storage").listFiles() }.getOrNull()
+        if (vols.isNullOrEmpty()) sb.append("  (목록 접근 불가/없음)\n")
+        else vols.forEach { v ->
+            val w = runCatching { v.canWrite() }.getOrDefault(false)
+            sb.append("  ${v.name}  쓰기=$w\n")
+        }
+        sb.append("Legacy SD: ${Storage.findLegacySdVolume()?.absolutePath ?: "없음"}\n")
         envInfo.text = sb.toString()
         Log.i(TAG, sb.toString())
     }
@@ -328,11 +336,15 @@ class DiagnosticsActivity : AppCompatActivity() {
     // ---------- 공통 ----------
 
     private fun ensureMicPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+        val needed = buildList {
+            if (ContextCompat.checkSelfPermission(this@DiagnosticsActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) add(Manifest.permission.RECORD_AUDIO)
+            if (ContextCompat.checkSelfPermission(this@DiagnosticsActivity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
+        if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), REQ_MIC)
     }
 
     override fun onRequestPermissionsResult(
