@@ -248,10 +248,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ensureMicPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+        val needed = buildList {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
+            // SD카드 저장(Legacy)용 쓰기 권한
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
+        if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
     }
 
     override fun onDestroy() {
