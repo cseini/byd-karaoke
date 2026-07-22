@@ -69,38 +69,31 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="재생 방식 (차 화면에서 잘 되는 걸로 골라 테스트)"
+                android:text="재생 방식"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_cyan"
                 android:paddingBottom="6dp" />
 
             <RadioGroup
-                android:id="@+id/player_mode_group"
+                android:id="@+id/engine_group"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
                 <RadioButton
-                    android:id="@+id/pm_mobile"
+                    android:id="@+id/eng_stream"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/tj_text_primary"
-                    android:text="모바일 유튜브 (m.youtube.com)" />
+                    android:text="스트림 재생 (광고 없음·로그인 불필요·모든 곡) — 권장" />
 
                 <RadioButton
-                    android:id="@+id/pm_desktop"
+                    android:id="@+id/eng_iframe"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/tj_text_primary"
-                    android:text="데스크톱 유튜브 (PC 버전)" />
-
-                <RadioButton
-                    android:id="@+id/pm_tablet"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="태블릿 모드 (iPad 버전)" />
+                    android:text="유튜브 IFrame (안정적이나 일부 곡 재생 불가·광고 있음)" />
             </RadioGroup>
 
             <Button

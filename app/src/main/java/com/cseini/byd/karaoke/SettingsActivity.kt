@@ -22,7 +22,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var keyless: CheckBox
     private lateinit var apiKey: EditText
     private lateinit var updateStatus: TextView
-    private lateinit var playerModeGroup: RadioGroup
+    private lateinit var engineGroup: RadioGroup
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
     private lateinit var maxStorageInput: EditText
@@ -35,17 +35,13 @@ class SettingsActivity : AppCompatActivity() {
         keyless = findViewById(R.id.chk_keyless)
         apiKey = findViewById(R.id.api_key_input)
         updateStatus = findViewById(R.id.update_status)
-        playerModeGroup = findViewById(R.id.player_mode_group)
+        engineGroup = findViewById(R.id.engine_group)
 
         keyless.isChecked = settings.keylessSearch
         apiKey.setText(settings.youtubeApiKey)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
-        playerModeGroup.check(
-            when (settings.playerMode) {
-                "desktop" -> R.id.pm_desktop
-                "tablet" -> R.id.pm_tablet
-                else -> R.id.pm_mobile
-            }
+        engineGroup.check(
+            if (settings.playbackEngine == "iframe") R.id.eng_iframe else R.id.eng_stream
         )
 
         storageGroup = findViewById(R.id.storage_group)
@@ -68,11 +64,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         settings.searchMode = if (keyless.isChecked) "keyless" else "api"
         settings.youtubeApiKey = apiKey.text.toString()
-        settings.playerMode = when (playerModeGroup.checkedRadioButtonId) {
-            R.id.pm_desktop -> "desktop"
-            R.id.pm_tablet -> "tablet"
-            else -> "mobile"
-        }
+        settings.playbackEngine =
+            if (engineGroup.checkedRadioButtonId == R.id.eng_iframe) "iframe" else "stream"
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

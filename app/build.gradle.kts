@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "com.cseini.byd.karaoke"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.1"
+        versionCode = 12
+        versionName = "1.2"
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
@@ -49,6 +49,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+        // NewPipeExtractor 는 java.time/java.nio 등을 써서 minSdk 26 에선 디슈가링 필요.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -85,8 +87,14 @@ dependencies {
     // 코루틴 (검색 네트워크)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // 유튜브 IFrame 재생
+    // 재생 방식 A — 유튜브 IFrame(공식 임베드). 임베드 허용 영상만 재생.
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
+
+    // 재생 방식 B — 유튜브 스트림 추출(NewPipe) → 네이티브 ExoPlayer 재생. 광고·로그인 없음.
+    implementation("androidx.media3:media3-exoplayer:1.10.0")
+    implementation("androidx.media3:media3-ui:1.10.0")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
     // YouTube Data API v3 검색
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

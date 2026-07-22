@@ -29,9 +29,12 @@ import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
-import com.cseini.byd.karaoke.player.WatchPlayer
+import com.cseini.byd.karaoke.player.IframePlayer
+import com.cseini.byd.karaoke.player.KaraokePlayer
+import com.cseini.byd.karaoke.player.PlayerCallbacks
+import com.cseini.byd.karaoke.player.StreamPlayer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
-import android.webkit.WebView
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,8 +93,7 @@ class PlaybackActivity : AppCompatActivity() {
         onPlayNow = { reserveToQueue(it, front = true) },
     )
 
-    private lateinit var webView: WebView
-    private lateinit var player: WatchPlayer
+    private lateinit var player: KaraokePlayer
 
     private lateinit var songTitle: TextView
     private lateinit var recStatus: TextView
@@ -118,6 +120,7 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var syncRow: View
     private lateinit var syncLabel: TextView
 
+    @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_playback)
@@ -151,19 +154,22 @@ class PlaybackActivity : AppCompatActivity() {
             recStatus.text = "▶ 저장된 노래 재생"
         }
 
-        webView = findViewById(R.id.web_player)
-        player = WatchPlayer(
-            webView,
-            settings.playerMode,
-            cbPlaying = {
-                if (replaying) startVoiceForReplay() else onSongPlaying()
+        val container = findViewById<FrameLayout>(R.id.player_container)
+        val callbacks = PlayerCallbacks(
+            onPlaying = { if (replaying) startVoiceForReplay() else onSongPlaying() },
+            onEnded = { if (replaying) onReplayEnded() else onSongEnded() },
+            onTime = { sec -> if (replaying) correctSyncDrift(sec) },
+            onEmbedBlocked = { onEmbedBlocked() },
+            onError = { msg ->
+                if (recorder.isRecording) recorder.stop()
+                recStatus.text = msg
             },
-            cbEnded = {
-                if (replaying) onReplayEnded() else onSongEnded()
-            },
-            cbTime = { sec -> if (replaying) correctSyncDrift(sec) },
         )
-        player.init()
+        player = if (settings.playbackEngine == "iframe") {
+            IframePlayer(this, container, lifecycle, callbacks)
+        } else {
+            StreamPlayer(this, container, lifecycleScope, callbacks)
+        }
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
         scoreOverlay.setOnClickListener { goToSearch() }
@@ -427,6 +433,41 @@ class PlaybackActivity : AppCompatActivity() {
         player.load(currentVideoId)
     }
 
+    // 임베드 차단(embeddable=false 또는 Content ID)은 IFrame 재생 시점에 드러난다.
+    // 검색 후보가 남아 있으면 다음 후보로, 없으면 대기열로 자동으로 넘어가 재생 가능한 곡을 찾는다.
+    private fun onEmbedBlocked() {
+        if (recorder.isRecording) recorder.stop()
+        // 1) 같은 검색의 다음 후보 자동 시도
+        if (candIndex + 1 < candIds.size) {
+            candIndex++
+            currentVideoId = candIds[candIndex]
+            songTitle.text = candTitles.getOrElse(candIndex) { "재생 중" }
+            recStatus.text = "재생 불가 영상 — 다음 후보 시도 중…"
+            replaying = false
+            resetForNewSongKeepCandidates()
+            player.load(currentVideoId)
+            return
+        }
+        // 2) 후보가 없으면 대기열
+        val next = queue.pollFirst()
+        if (next != null) {
+            toast("다음 곡으로 넘어갑니다: ${next.title}")
+            currentVideoId = next.videoId
+            songTitle.text = next.title
+            resetForNewSong()
+            player.load(currentVideoId)
+        } else {
+            recStatus.text = "재생 가능한 영상을 찾지 못했습니다.\n다른 검색어로 시도해보세요."
+        }
+    }
+
+    /** 후보 목록은 유지한 채(자동 넘김용) 곡 상태만 초기화. */
+    private fun resetForNewSongKeepCandidates() {
+        val ids = candIds; val titles = candTitles; val idx = candIndex
+        resetForNewSong()
+        candIds = ids; candTitles = titles; candIndex = idx
+    }
+
     private fun playNext() {
         hideScoreOverlay()
         stopMediaPlayer()
@@ -472,7 +513,7 @@ class PlaybackActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (recorder.isRecording) recorder.stop()
         stopMediaPlayer()
-        runCatching { webView.destroy() }
+        player.release()
         super.onDestroy()
     }
 
