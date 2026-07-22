@@ -66,7 +66,7 @@ class MixRecorder(
         override fun queueInput(inputBuffer: ByteBuffer) {
             val remaining = inputBuffer.remaining()
             if (remaining == 0) return
-            if (recording && accompPcm16 && accompBuffer.isNotEmpty()) {
+            if (recording && accompBuffer.isNotEmpty()) {
                 appendAccomp(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
             }
             val out = replaceOutputBuffer(remaining)
@@ -75,16 +75,27 @@ class MixRecorder(
         }
     }
 
-    /** 오디오 콜백: 모노 변환만 하고 accompRate 그대로 저장(할당·리샘플 없음). */
+    /** 오디오 콜백: 모노 변환만 하고 accompRate 그대로 저장(할당·리샘플 없음). 16bit·float 모두 처리. */
     private fun appendAccomp(bb: ByteBuffer) {
         var w = accompWrite.get()
         val ch = accompCh
         val buf = accompBuffer
         val size = buf.size
-        while (bb.remaining() >= 2 * ch && w < size) {
-            var sum = 0
-            for (c in 0 until ch) sum += bb.short.toInt()
-            buf[w++] = (sum / ch).toShort()
+        if (accompPcm16) {
+            while (bb.remaining() >= 2 * ch && w < size) {
+                var sum = 0
+                for (c in 0 until ch) sum += bb.short.toInt()
+                buf[w++] = (sum / ch).toShort()
+            }
+        } else {
+            // ENCODING_PCM_FLOAT — float(4byte) → 16bit 변환
+            while (bb.remaining() >= 4 * ch && w < size) {
+                var sum = 0f
+                for (c in 0 until ch) sum += bb.float
+                var v = (sum / ch * 32767f).toInt()
+                if (v > 32767) v = 32767 else if (v < -32768) v = -32768
+                buf[w++] = v.toShort()
+            }
         }
         accompWrite.set(w)
     }
