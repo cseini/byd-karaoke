@@ -12,6 +12,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("yt_api_key", "") ?: ""
         set(v) = prefs.edit().putString("yt_api_key", v.trim()).apply()
 
+    /** OpenAI API 키 — 온라인 음성검색(Whisper). 있으면 Vosk 대신 사용. */
+    var openaiApiKey: String
+        get() = prefs.getString("openai_key", "") ?: ""
+        set(v) = prefs.edit().putString("openai_key", v.trim()).apply()
+
     /**
      * 검색 방식: "keyless"(결과 페이지 파싱) | "api"(Data API v3).
      * 사용자가 명시적으로 고르지 않았으면, 키가 있으면 API(임베드 가능만 필터되어 재생 안정적),

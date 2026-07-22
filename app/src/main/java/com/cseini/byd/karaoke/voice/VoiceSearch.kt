@@ -14,11 +14,18 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.cseini.byd.karaoke.audio.AudioRecorder
 import com.cseini.byd.karaoke.data.SettingsStore
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 import kotlin.concurrent.thread
 
@@ -44,6 +51,11 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     @Volatile private var voskRunning = false
     private var voskThread: Thread? = null
 
+    private var whisperRec: AudioRecorder? = null
+    private val http by lazy {
+        OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).build()
+    }
+
     fun isAvailable(): Boolean = true
 
     /** onReady=듣기 시작, onProcessing=전사 중, onResult/onError=결과. */
@@ -54,6 +66,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onError: (String) -> Unit,
     ) {
         if (SpeechRecognizer.isRecognitionAvailable(context)) startSystem(onReady, onProcessing, onResult, onError)
+        else if (settings.openaiApiKey.isNotBlank()) startWhisperApi(onReady, onProcessing, onResult, onError)
         else startVosk(onReady, onProcessing, onResult, onError)
     }
 
@@ -67,6 +80,8 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         audioRecord = null
         voskRec?.run { runCatching { close() } }
         voskRec = null
+        whisperRec?.let { runCatching { it.stop() } }
+        whisperRec = null
     }
 
     // ── 경로 1: 시스템 SpeechRecognizer(GMS 있는 기기) ─────────────────
@@ -103,7 +118,58 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         r.startListening(intent)
     }
 
-    // ── 경로 2: Vosk 오프라인(한국어 소형 모델) + USB 마이크 직접 ──────
+    // ── 경로 2: OpenAI Whisper API(온라인, 정확도 최상) ───────────────
+
+    private fun startWhisperApi(
+        onReady: () -> Unit,
+        onProcessing: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        stop()
+        val file = File(context.cacheDir, "voice_query.wav")
+        val rec = AudioRecorder(context, settings, 16000)
+        whisperRec = rec
+        val err = rec.start(file, null)
+        if (err != null) { onError("마이크 오류: $err"); return }
+        onReady()
+        main.postDelayed({
+            rec.stop()
+            whisperRec = null
+            onProcessing()
+            thread(name = "whisper") { transcribeWhisper(file, onResult, onError) }
+        }, RECORD_MS)
+    }
+
+    private fun transcribeWhisper(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
+        try {
+            if (!file.exists() || file.length() < 2000) {
+                main.post { onError("녹음이 감지되지 않았습니다") }; return
+            }
+            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("model", "whisper-1")
+                .addFormDataPart("language", "ko")
+                .addFormDataPart("file", "voice.wav", file.asRequestBody("audio/wav".toMediaTypeOrNull()))
+                .build()
+            val req = Request.Builder()
+                .url("https://api.openai.com/v1/audio/transcriptions")
+                .addHeader("Authorization", "Bearer ${settings.openaiApiKey}")
+                .post(body).build()
+            http.newCall(req).execute().use { resp ->
+                val json = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) {
+                    main.post { onError("음성 인식 실패 (${resp.code}) — API 키를 확인하세요") }
+                    return
+                }
+                val text = runCatching { JSONObject(json).optString("text").trim() }.getOrDefault("")
+                main.post { if (text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(text) }
+            }
+        } catch (e: Exception) {
+            main.post { onError("음성 인식 오류: ${e.message}") }
+        }
+    }
+
+    // ── 경로 3: Vosk 오프라인(한국어 소형 모델) + USB 마이크 직접 ──────
 
     private fun startVosk(
         onReady: () -> Unit,

@@ -59,6 +59,15 @@
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
+            <EditText
+                android:id="@+id/openai_key_input"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp"
+                android:hint="OpenAI API 키 (음성검색용 · 선택)"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

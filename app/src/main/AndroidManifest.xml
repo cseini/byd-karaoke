@@ -79,6 +79,8 @@
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaLibraryService" />
+                <!-- 레거시 미디어 브라우저(구형 런처/위젯)도 발견할 수 있도록 -->
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
 
