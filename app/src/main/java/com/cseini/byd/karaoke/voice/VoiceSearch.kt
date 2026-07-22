@@ -147,9 +147,15 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 main.post { onError("녹음이 감지되지 않았습니다") }; return
             }
             // Groq(무료 티어) — OpenAI 호환. whisper-large-v3 로 한국어 정확도 높음.
+            // prompt 로 "한국 가요 제목/가수" 도메인을 알려줘 고유명사 인식률을 끌어올린다.
             val body = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("model", "whisper-large-v3-turbo")
                 .addFormDataPart("language", "ko")
+                .addFormDataPart(
+                    "prompt",
+                    "노래방에서 부를 대한민국 가요입니다. 가수 이름이나 노래 제목을 말합니다. " +
+                        "예: 아이유 좋은날, 임재범 너를 위해, 볼빨간사춘기 우주를줄게.",
+                )
                 .addFormDataPart("file", "voice.wav", file.asRequestBody("audio/wav".toMediaTypeOrNull()))
                 .build()
             val req = Request.Builder()
