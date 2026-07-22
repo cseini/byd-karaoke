@@ -161,6 +161,10 @@ class PlaybackActivity : AppCompatActivity() {
                 recStatus.text = msg
             },
         )
+        // syncRow 등은 startReplay() 안에서 쓰이므로 반드시 그 전에 초기화한다.
+        // (녹음함 재생은 onCreate 도중 바로 startReplay() 를 부른다 → 순서 어긋나면 크래시.)
+        setupSyncControl()
+
         player = StreamPlayer(this, container, lifecycleScope, callbacks)
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
@@ -170,8 +174,6 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
-
-        setupSyncControl()
 
         setupReservePanel()
 
