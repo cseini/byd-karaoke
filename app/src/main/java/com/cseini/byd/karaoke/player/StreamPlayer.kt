@@ -165,6 +165,7 @@ class StreamPlayer(
 
     override fun pause() { exo.pause() }
     override fun play() { exo.play() }
+    override fun currentPositionMs(): Long = exo.currentPosition
 
     override fun release() {
         loadToken++

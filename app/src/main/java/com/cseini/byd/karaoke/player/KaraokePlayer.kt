@@ -9,6 +9,8 @@ interface KaraokePlayer {
     fun pause()
     fun play()
     fun release()
+    /** 현재 재생 위치(ms). 반주-목소리 정렬용. */
+    fun currentPositionMs(): Long
 }
 
 /**

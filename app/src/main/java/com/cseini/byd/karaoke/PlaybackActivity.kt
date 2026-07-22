@@ -183,6 +183,7 @@ class PlaybackActivity : AppCompatActivity() {
         })
 
         player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
+        recorder.positionProvider = { player.currentPositionMs() }
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
         scoreOverlay.setOnClickListener { goToSearch() }
