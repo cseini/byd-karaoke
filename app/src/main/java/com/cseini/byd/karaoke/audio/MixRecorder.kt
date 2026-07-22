@@ -34,8 +34,8 @@ class MixRecorder(
         private const val RATE = 44100
         private const val MAX_QUEUE = RATE * 3   // 반주 큐 상한(3초). 초과분은 버려 지연 누적 방지.
         // 반주(디코딩 PCM)가 실제 재생·마이크보다 앞서는 만큼 보정.
-        // 실측(원본 vs 믹스 크로스코릴레이션): 387ms 보정 후 잔여 18ms → 합계 405ms.
-        private const val ACCOMP_PREFILL = RATE * 405 / 1000
+        // 실측(원본 vs 믹스 크로스코릴레이션) 387~451ms 변동 → 버퍼 고정과 함께 450ms 로 맞춤.
+        private const val ACCOMP_PREFILL = RATE * 450 / 1000
     }
 
     @Volatile private var recording = false

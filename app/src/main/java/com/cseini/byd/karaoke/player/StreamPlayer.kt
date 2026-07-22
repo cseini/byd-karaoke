@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
@@ -55,7 +56,16 @@ class StreamPlayer(
                 .setAudioProcessors(arrayOf(proc))
                 .build()
         }
-        return ExoPlayer.Builder(context, renderers).build()
+        // 재생 시작 전 버퍼를 고정(2.5초)해 디코딩 앞섬(반주 지터)을 매번 일정하게 한다.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                2500,
+                2500,
+            )
+            .build()
+        return ExoPlayer.Builder(context, renderers).setLoadControl(loadControl).build()
     }
     private val handler = Handler(Looper.getMainLooper())
     private var loadToken = 0
