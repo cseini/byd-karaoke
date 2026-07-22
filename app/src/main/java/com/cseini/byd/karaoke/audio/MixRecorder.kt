@@ -180,6 +180,9 @@ class MixRecorder(
         return outputFile
     }
 
+    /** 진단: 반주가 실제로 담겼는지 확인용. */
+    fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
+
     private fun findUsbInput(): AudioDeviceInfo? =
         (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
             .getDevices(AudioManager.GET_DEVICES_INPUTS)

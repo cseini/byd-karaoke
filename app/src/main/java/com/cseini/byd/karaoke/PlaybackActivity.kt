@@ -296,7 +296,7 @@ class PlaybackActivity : AppCompatActivity() {
             if (result == null) {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {
-                recStatus.text = "🎯 채점 완료 — 녹음함에서 다시 들을 수 있어요"
+                recStatus.text = "🎯 채점 완료 (${recorder.debugInfo()})"
                 showScoreOverlay(result.total, result.breakdown.lines().drop(1).joinToString("\n"))
             }
         }
