@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 31
-        versionName = "3.1"
+        versionCode = 32
+        versionName = "3.2"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -105,6 +105,8 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.10.0")
     // 미디어 세션/브라우저 — 차량 런처(Kinex) 미디어 위젯에 앱을 노출.
     implementation("androidx.media3:media3-session:1.10.0")
+    // 레거시 MediaBrowserServiceCompat — 구형 런처(Kinex)가 스캔하는 표준.
+    implementation("androidx.media:media:1.7.0")
 
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
