@@ -21,9 +21,11 @@ import kotlin.concurrent.thread
  * 반주(ExoPlayer 오디오)와 마이크 목소리를 한 트랙으로 합성 녹음한다.
  * → 다시듣기는 이 파일 하나만 재생하므로 싱크가 어긋날 수 없다.
  *
- * 핵심: 반주 PCM 을 곡 시간순으로 통째로 담아두고, 마이크 녹음의 매 순간
- * ExoPlayer 의 실제 재생 위치(positionProvider)를 읽어 그 위치의 반주와 합친다.
- * 재생 시작 타이밍/버퍼 지터와 무관하게 항상 정확히 정렬된다(프리필 불필요).
+ * 핵심: 반주 PCM 을 곡 시간순으로 담아두고, 마이크 녹음의 매 블록마다 ExoPlayer 의
+ * 실제 재생 위치를 읽어 그 위치의 반주와 합친다. 재생 타이밍/버퍼 지터와 무관하게 정렬된다.
+ *
+ * 오디오 콜백(queueInput)에서는 모노 변환만 하고(할당·리샘플 없음, 언더런 방지),
+ * 리샘플은 믹스 시 인덱스 계산으로 처리한다.
  */
 @UnstableApi
 class MixRecorder(
@@ -31,8 +33,9 @@ class MixRecorder(
     private val settings: SettingsStore,
 ) {
     companion object {
-        private const val RATE = 44100
-        private const val MAX_SECONDS = 360   // 곡당 최대 6분치 반주 버퍼(약 31MB, 녹음 시 할당)
+        private const val RATE = 44100          // 녹음(마이크)·저장 WAV 레이트
+        private const val MAX_ACCOMP_RATE = 48000
+        private const val MAX_SECONDS = 360     // 곡당 최대 6분치 반주
     }
 
     @Volatile private var recording = false
@@ -41,18 +44,17 @@ class MixRecorder(
         private set
     val isRecording: Boolean get() = recording
 
-    // 반주 PCM(모노 44.1k)을 곡 시간순으로 저장. 디코딩 순서 = 재생 시간순(0부터).
-    // 큰 배열이라 생성 시가 아니라 녹음 시작 때 할당한다(onCreate OOM 방지).
+    // 반주 PCM(모노, accompRate 기준)을 곡 시간순으로 저장. 녹음 시작 때 할당.
     private var accompBuffer = ShortArray(0)
     private val accompWrite = AtomicInteger(0)
-    @Volatile private var accompRate = RATE
+    @Volatile private var accompRate = 44100
     @Volatile private var accompCh = 2
     @Volatile private var accompPcm16 = true
 
     /** 현재 재생 위치(ms) 제공자 — 반주를 이 위치에 맞춰 믹스한다. */
     var positionProvider: (() -> Long)? = null
 
-    /** StreamPlayer 의 ExoPlayer 오디오 체인에 넣어 반주 PCM 을 시간순으로 담는다(패스스루). */
+    /** ExoPlayer 오디오 체인에 넣어 반주 PCM 을 담는다(패스스루). 콜백은 가볍게. */
     val accompProcessor: AudioProcessor = object : BaseAudioProcessor() {
         override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
             accompRate = inputAudioFormat.sampleRate
@@ -64,23 +66,26 @@ class MixRecorder(
         override fun queueInput(inputBuffer: ByteBuffer) {
             val remaining = inputBuffer.remaining()
             if (remaining == 0) return
-            if (recording && accompPcm16) appendAccomp(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
+            if (recording && accompPcm16 && accompBuffer.isNotEmpty()) {
+                appendAccomp(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
+            }
             val out = replaceOutputBuffer(remaining)
             out.put(inputBuffer)
             out.flip()
         }
     }
 
+    /** 오디오 콜백: 모노 변환만 하고 accompRate 그대로 저장(할당·리샘플 없음). */
     private fun appendAccomp(bb: ByteBuffer) {
-        val mono = ArrayList<Short>(bb.remaining() / 2)
-        while (bb.remaining() >= 2 * accompCh) {
-            var sum = 0
-            for (c in 0 until accompCh) sum += bb.short.toInt()
-            mono.add((sum / accompCh).toShort())
-        }
-        val resampled = if (accompRate == RATE) mono else resample(mono, accompRate, RATE)
         var w = accompWrite.get()
-        for (s in resampled) if (w < accompBuffer.size) accompBuffer[w++] = s
+        val ch = accompCh
+        val buf = accompBuffer
+        val size = buf.size
+        while (bb.remaining() >= 2 * ch && w < size) {
+            var sum = 0
+            for (c in 0 until ch) sum += bb.short.toInt()
+            buf[w++] = (sum / ch).toShort()
+        }
         accompWrite.set(w)
     }
 
@@ -103,8 +108,8 @@ class MixRecorder(
         }
         if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
-        if (accompBuffer.size != RATE * MAX_SECONDS) {
-            accompBuffer = runCatching { ShortArray(RATE * MAX_SECONDS) }.getOrElse {
+        if (accompBuffer.size != MAX_ACCOMP_RATE * MAX_SECONDS) {
+            accompBuffer = runCatching { ShortArray(MAX_ACCOMP_RATE * MAX_SECONDS) }.getOrElse {
                 record.release()
                 return "메모리 부족으로 녹음을 시작할 수 없습니다"
             }
@@ -122,15 +127,16 @@ class MixRecorder(
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
-                        // 이 블록의 시작 재생 위치 → 반주 버퍼 인덱스.
                         val posMs = positionProvider?.invoke() ?: 0L
-                        val base = (posMs * RATE / 1000L).toInt()
+                        val rate = accompRate
+                        val baseIdx = posMs * rate / 1000L        // 이 블록 시작의 반주 인덱스(accompRate 기준)
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
                             val voice = buf[i].toInt()
-                            val ai = base + i
+                            // 마이크 i번째(RATE) 샘플 시각의 반주 인덱스(accompRate)
+                            val ai = (baseIdx + i.toLong() * rate / RATE).toInt()
                             val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
-                            var m = voice + (acc * 6 / 10)   // 반주는 살짝 낮춰 합성
+                            var m = voice + (acc * 6 / 10)
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
                         }
@@ -156,23 +162,6 @@ class MixRecorder(
         worker?.join(1500)
         worker = null
         return outputFile
-    }
-
-    /** srcRate → dstRate 선형보간 리샘플(모노). */
-    private fun resample(input: List<Short>, srcRate: Int, dstRate: Int): List<Short> {
-        if (input.isEmpty()) return input
-        val ratio = dstRate.toDouble() / srcRate
-        val outLen = (input.size * ratio).toInt()
-        val out = ArrayList<Short>(outLen)
-        for (i in 0 until outLen) {
-            val srcPos = i / ratio
-            val idx = srcPos.toInt()
-            val frac = srcPos - idx
-            val s0 = input[idx.coerceIn(0, input.size - 1)].toInt()
-            val s1 = input[(idx + 1).coerceIn(0, input.size - 1)].toInt()
-            out.add((s0 + (s1 - s0) * frac).toInt().toShort())
-        }
-        return out
     }
 
     private fun findUsbInput(): AudioDeviceInfo? =
