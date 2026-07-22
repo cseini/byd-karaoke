@@ -70,10 +70,19 @@ class StreamPlayer(
     private val handler = Handler(Looper.getMainLooper())
     private var loadToken = 0
 
+    // ExoPlayer 는 메인 스레드에서만 접근 가능하므로, 재생 위치를 여기서 캐시하고
+    // 녹음 스레드(MixRecorder)는 캐시값+경과시간 보간으로 읽는다.
+    @Volatile private var cachedPositionMs = 0L
+    @Volatile private var cachedAtNanos = 0L
+
     private val ticker = object : Runnable {
         override fun run() {
-            if (exo.isPlaying) cb.onTime(exo.currentPosition / 1000f)
-            handler.postDelayed(this, 500)
+            if (exo.isPlaying) {
+                cachedPositionMs = exo.currentPosition
+                cachedAtNanos = System.nanoTime()
+                cb.onTime(cachedPositionMs / 1000f)
+            }
+            handler.postDelayed(this, 200)
         }
     }
 
@@ -165,7 +174,11 @@ class StreamPlayer(
 
     override fun pause() { exo.pause() }
     override fun play() { exo.play() }
-    override fun currentPositionMs(): Long = exo.currentPosition
+    override fun currentPositionMs(): Long {
+        if (cachedAtNanos == 0L) return cachedPositionMs
+        val elapsed = (System.nanoTime() - cachedAtNanos) / 1_000_000L
+        return cachedPositionMs + elapsed
+    }
 
     override fun release() {
         loadToken++
