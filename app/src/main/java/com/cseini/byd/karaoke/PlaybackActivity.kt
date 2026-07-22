@@ -153,6 +153,7 @@ class PlaybackActivity : AppCompatActivity() {
         webView = findViewById(R.id.web_player)
         player = WatchPlayer(
             webView,
+            settings.playerMode,
             cbPlaying = {
                 if (replaying) startVoiceForReplay() else onSongPlaying()
             },

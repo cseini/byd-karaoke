@@ -1,9 +1,11 @@
 package com.cseini.byd.karaoke
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +21,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var keyless: CheckBox
     private lateinit var apiKey: EditText
     private lateinit var updateStatus: TextView
+    private lateinit var playerModeGroup: RadioGroup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,13 +31,24 @@ class SettingsActivity : AppCompatActivity() {
         keyless = findViewById(R.id.chk_keyless)
         apiKey = findViewById(R.id.api_key_input)
         updateStatus = findViewById(R.id.update_status)
+        playerModeGroup = findViewById(R.id.player_mode_group)
 
         keyless.isChecked = settings.keylessSearch
         apiKey.setText(settings.youtubeApiKey)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
+        playerModeGroup.check(
+            when (settings.playerMode) {
+                "desktop" -> R.id.pm_desktop
+                "tablet" -> R.id.pm_tablet
+                else -> R.id.pm_mobile
+            }
+        )
 
         findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
+        findViewById<Button>(R.id.btn_yt_login).setOnClickListener {
+            startActivity(Intent(this, LoginActivity::class.java))
+        }
 
         NavBar.wire(this, SettingsActivity::class.java)
     }
@@ -42,6 +56,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         settings.searchMode = if (keyless.isChecked) "keyless" else "api"
         settings.youtubeApiKey = apiKey.text.toString()
+        settings.playerMode = when (playerModeGroup.checkedRadioButtonId) {
+            R.id.pm_desktop -> "desktop"
+            R.id.pm_tablet -> "tablet"
+            else -> "mobile"
+        }
         Toast.makeText(this, "저장되었습니다", Toast.LENGTH_SHORT).show()
     }
 

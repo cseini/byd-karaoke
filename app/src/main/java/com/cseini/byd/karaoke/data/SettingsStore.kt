@@ -37,6 +37,14 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("sync_offset_ms", 0)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
+    /**
+     * 재생 방식(헤드유닛 WebView 호환성 테스트용). 모두 유튜브 자체 페이지를 띄운다.
+     * "mobile"(m.youtube.com) | "desktop"(www, PC UA) | "tablet"(www, iPad UA).
+     */
+    var playerMode: String
+        get() = prefs.getString("player_mode", "mobile") ?: "mobile"
+        set(v) = prefs.edit().putString("player_mode", v).apply()
+
     var aecEnabled: Boolean
         get() = prefs.getBoolean("aec", false)
         set(v) = prefs.edit().putBoolean("aec", v).apply()

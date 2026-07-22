@@ -69,6 +69,58 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="재생 방식 (차 화면에서 잘 되는 걸로 골라 테스트)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="6dp" />
+
+            <RadioGroup
+                android:id="@+id/player_mode_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/pm_mobile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="모바일 유튜브 (m.youtube.com)" />
+
+                <RadioButton
+                    android:id="@+id/pm_desktop"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="데스크톱 유튜브 (PC 버전)" />
+
+                <RadioButton
+                    android:id="@+id/pm_tablet"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="태블릿 모드 (iPad 버전)" />
+            </RadioGroup>
+
+            <Button
+                android:id="@+id/btn_yt_login"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:backgroundTint="@color/tj_pink"
+                android:text="▶ 유튜브 로그인 (프리미엄이면 광고 제거)" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="앱 업데이트"
                 android:textSize="16sp"
                 android:textStyle="bold"

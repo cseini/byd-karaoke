@@ -1,6 +1,7 @@
 package com.cseini.byd.karaoke.player
 
 import android.annotation.SuppressLint
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -16,6 +17,7 @@ import android.webkit.WebViewClient
  */
 class WatchPlayer(
     private val webView: WebView,
+    private val mode: String,
     private val cbPlaying: () -> Unit,
     private val cbEnded: () -> Unit,
     private val cbTime: (Float) -> Unit,
@@ -26,10 +28,11 @@ class WatchPlayer(
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
-            userAgentString =
-                "Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            userAgentString = uaFor(mode)
         }
+        // 로그인(유튜브 프리미엄) 유지용 쿠키. 로그인하면 프리미엄이 광고를 서버에서 제거한다.
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         webView.addJavascriptInterface(Bridge(), "AndroidPlayer")
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
@@ -39,7 +42,24 @@ class WatchPlayer(
     }
 
     fun load(videoId: String) {
-        webView.loadUrl("https://m.youtube.com/watch?v=$videoId")
+        webView.loadUrl(urlFor(mode, videoId))
+    }
+
+    private fun urlFor(mode: String, videoId: String): String = when (mode) {
+        "desktop", "tablet" -> "https://www.youtube.com/watch?v=$videoId"
+        else -> "https://m.youtube.com/watch?v=$videoId"   // mobile
+    }
+
+    private fun uaFor(mode: String): String = when (mode) {
+        "desktop" ->
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "tablet" ->
+            "Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15 " +
+                "(KHTML, like Gecko) Version/16.0 Safari/605.1.15"
+        else ->
+            "Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     }
 
     fun pause() {
