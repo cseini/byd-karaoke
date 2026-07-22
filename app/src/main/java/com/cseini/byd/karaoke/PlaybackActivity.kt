@@ -164,16 +164,7 @@ class PlaybackActivity : AppCompatActivity() {
                 recStatus.text = msg
             },
         )
-        player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
-        if (replayOnly) startReplay() else player.load(currentVideoId)
-
-        scoreOverlay.setOnClickListener { goToSearch() }
-        findViewById<Button>(R.id.score_next).setOnClickListener { playNext() }
-        findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
-        findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
-        findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
-        findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
-
+        // replay 컨트롤은 startReplay() 안에서 쓰이므로 그 전에 초기화한다(녹음함 재생 크래시 방지).
         replayControls = findViewById(R.id.replay_controls)
         replaySeek = findViewById(R.id.replay_seek)
         replayTime = findViewById(R.id.replay_time)
@@ -190,6 +181,16 @@ class PlaybackActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(sb: SeekBar) {}
             override fun onStopTrackingTouch(sb: SeekBar) {}
         })
+
+        player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
+        if (replayOnly) startReplay() else player.load(currentVideoId)
+
+        scoreOverlay.setOnClickListener { goToSearch() }
+        findViewById<Button>(R.id.score_next).setOnClickListener { playNext() }
+        findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
+        findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
+        findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
+        findViewById<Button>(R.id.btn_next).setOnClickListener { playNext() }
 
         setupReservePanel()
 
