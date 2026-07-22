@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.cseini.byd.karaoke.audio.WavIo
+import com.cseini.byd.karaoke.data.Storage
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
@@ -291,6 +292,18 @@ class DiagnosticsActivity : AppCompatActivity() {
         for (d in inputs) {
             sb.append("  - type=${typeName(d.type)} id=${d.id} \"${d.productName}\"\n")
         }
+
+        // 저장소 볼륨 — SD카드 감지 진단. 블랙박스가 SD를 독점하면 앱에는 볼륨이 하나만 보인다.
+        sb.append("\n저장소 볼륨(getExternalFilesDirs):\n")
+        val extDirs = getExternalFilesDirs(null)
+        extDirs.forEachIndexed { i, d ->
+            if (d == null) { sb.append("  [$i] null\n"); return@forEachIndexed }
+            val removable = runCatching { android.os.Environment.isExternalStorageRemovable(d) }.getOrDefault(false)
+            sb.append("  [$i] ${d.absolutePath}\n")
+            sb.append("       removable=$removable  여유=${Storage.formatSize(Storage.freeBytes(d))}\n")
+        }
+        sb.append("SD 감지(sdBase): ${Storage.sdBase(this)?.absolutePath ?: "없음"}\n")
+        sb.append("→ 볼륨이 [0] 하나뿐이면 SD가 블랙박스 전용이라 앱에서 접근 불가.\n")
         envInfo.text = sb.toString()
         Log.i(TAG, sb.toString())
     }

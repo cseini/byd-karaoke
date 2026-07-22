@@ -378,16 +378,30 @@ class PlaybackActivity : AppCompatActivity() {
         }
         if (voiceStarted) return
         voiceStarted = true
+        // 녹음 파일이 사실상 비어 있으면(캡처 실패) 목소리가 없으니 그 사실을 명확히 알린다.
+        val sizeKb = file.length() / 1024
         mediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            // 비동기 재생 오류는 이 리스너로만 잡힌다 — 이게 없으면 완전 무음 실패였다.
+            setOnErrorListener { _, what, extra ->
+                recStatus.text = "❗내 목소리 재생 오류 (코드 $what/$extra, 파일 ${sizeKb}KB)"
+                true
+            }
+            setOnCompletionListener { recStatus.text = "내 목소리 재생 완료 (반주는 계속)" }
             try {
                 setDataSource(file.absolutePath)
-                setOnCompletionListener { recStatus.text = "내 목소리 재생 완료 (반주는 계속)" }
                 prepare()
                 // 반주 대비 목소리를 앞당기려면(+offset) 그만큼 뒤 지점부터 시작
                 if (syncOffsetMs > 0) seekTo(syncOffsetMs)
                 start()
+                recStatus.text = "▶ 반주+내 목소리 재생 중 (녹음 ${sizeKb}KB)"
             } catch (e: Exception) {
-                toast("녹음 재생 실패: ${e.message}")
+                recStatus.text = "❗녹음 재생 실패: ${e.message} (파일 ${sizeKb}KB)"
             }
         }
     }
