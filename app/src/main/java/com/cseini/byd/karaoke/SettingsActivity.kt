@@ -20,6 +20,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
     private lateinit var openaiKey: EditText
+    private lateinit var geminiModelGroup: RadioGroup
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -31,9 +32,11 @@ class SettingsActivity : AppCompatActivity() {
         settings = SettingsStore(this)
 
         openaiKey = findViewById(R.id.openai_key_input)
+        geminiModelGroup = findViewById(R.id.gemini_model_group)
         updateStatus = findViewById(R.id.update_status)
 
         openaiKey.setText(settings.openaiApiKey)
+        geminiModelGroup.check(if (settings.geminiModel == "flash-lite") R.id.gm_lite else R.id.gm_flash)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
 
         storageGroup = findViewById(R.id.storage_group)
@@ -52,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun save() {
         settings.openaiApiKey = openaiKey.text.toString()
+        settings.geminiModel = if (geminiModelGroup.checkedRadioButtonId == R.id.gm_lite) "flash-lite" else "flash"
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

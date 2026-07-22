@@ -32,7 +32,7 @@ class MixRecorder(
 ) {
     companion object {
         private const val RATE = 44100
-        private const val MAX_SECONDS = 480   // 곡당 최대 8분치 반주 버퍼
+        private const val MAX_SECONDS = 360   // 곡당 최대 6분치 반주 버퍼(약 31MB, 녹음 시 할당)
     }
 
     @Volatile private var recording = false
@@ -42,7 +42,8 @@ class MixRecorder(
     val isRecording: Boolean get() = recording
 
     // 반주 PCM(모노 44.1k)을 곡 시간순으로 저장. 디코딩 순서 = 재생 시간순(0부터).
-    private val accompBuffer = ShortArray(RATE * MAX_SECONDS)
+    // 큰 배열이라 생성 시가 아니라 녹음 시작 때 할당한다(onCreate OOM 방지).
+    private var accompBuffer = ShortArray(0)
     private val accompWrite = AtomicInteger(0)
     @Volatile private var accompRate = RATE
     @Volatile private var accompCh = 2
@@ -102,6 +103,12 @@ class MixRecorder(
         }
         if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
+        if (accompBuffer.size != RATE * MAX_SECONDS) {
+            accompBuffer = runCatching { ShortArray(RATE * MAX_SECONDS) }.getOrElse {
+                record.release()
+                return "메모리 부족으로 녹음을 시작할 수 없습니다"
+            }
+        }
         accompWrite.set(0)
         val writer = WavIo.Writer(outFile, RATE)
         outputFile = outFile

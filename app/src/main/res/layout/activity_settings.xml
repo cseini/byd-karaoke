@@ -59,6 +59,32 @@
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
+            <RadioGroup
+                android:id="@+id/gemini_model_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <RadioButton
+                    android:id="@+id/gm_flash"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="정확 (flash · 250회/일)" />
+
+                <RadioButton
+                    android:id="@+id/gm_lite"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="한도↑ (flash-lite · 1000회/일)" />
+            </RadioGroup>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

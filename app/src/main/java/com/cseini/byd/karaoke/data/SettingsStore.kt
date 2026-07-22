@@ -17,6 +17,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("openai_key", "") ?: ""
         set(v) = prefs.edit().putString("openai_key", v.trim()).apply()
 
+    /** Gemini 음성검색 모델: "flash"(정확, 250회/일) | "flash-lite"(빠름, 1000회/일). */
+    var geminiModel: String
+        get() = prefs.getString("gemini_model", "flash") ?: "flash"
+        set(v) = prefs.edit().putString("gemini_model", v).apply()
+
     /**
      * 검색 방식: "keyless"(결과 페이지 파싱) | "api"(Data API v3).
      * 사용자가 명시적으로 고르지 않았으면, 키가 있으면 API(임베드 가능만 필터되어 재생 안정적),
