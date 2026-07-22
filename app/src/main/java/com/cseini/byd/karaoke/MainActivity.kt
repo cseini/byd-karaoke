@@ -41,6 +41,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var results: RecyclerView
     private lateinit var historySection: View
     private lateinit var historyEmpty: TextView
+    private lateinit var voiceOverlay: View
+    private lateinit var voiceIcon: TextView
+    private lateinit var voiceText: TextView
+    private lateinit var voiceSub: TextView
     private var lastResults: List<QueueItem> = emptyList()
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
@@ -64,6 +68,11 @@ class MainActivity : AppCompatActivity() {
         status = findViewById(R.id.status)
         historySection = findViewById(R.id.history_section)
         historyEmpty = findViewById(R.id.history_empty)
+        voiceOverlay = findViewById(R.id.voice_overlay)
+        voiceIcon = findViewById(R.id.voice_icon)
+        voiceText = findViewById(R.id.voice_text)
+        voiceSub = findViewById(R.id.voice_sub)
+        voiceOverlay.setOnClickListener { hideVoiceOverlay() }
 
         results = findViewById(R.id.results)
         results.apply {
@@ -165,15 +174,62 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             ensureMicPermission(); toast("마이크 권한이 필요합니다"); return
         }
-        status.text = "🎙 음성인식 준비 중… (첫 실행은 몇 초 걸립니다)"
+        showVoiceOverlay("🎙", "준비 중…", "잠깐만요")
         voice.start(
-            onReady = { status.text = "🎙 말씀하세요…" },
+            onReady = {
+                beepStart()
+                showVoiceOverlay("🎙", "말씀하세요", "노래 제목이나 가수를 말하면 검색해요")
+                pulseVoiceIcon()
+            },
+            onProcessing = {
+                beepEnd()
+                showVoiceOverlay("🌀", "인식 중…", "잠시만 기다려주세요")
+            },
             onResult = { text ->
+                hideVoiceOverlay()
                 searchInput.setText(text)
                 doSearch()
             },
-            onError = { status.text = it },
+            onError = {
+                showVoiceOverlay("⚠️", "다시 시도해주세요", it)
+                voiceOverlay.postDelayed({ hideVoiceOverlay() }, 1800)
+                status.text = it
+            },
         )
+    }
+
+    // ── 음성 인식 플로팅 오버레이 + 효과음 ─────────────────────────────
+
+    private fun showVoiceOverlay(icon: String, text: String, sub: String) {
+        voiceIcon.text = icon
+        voiceText.text = text
+        voiceSub.text = sub
+        voiceOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideVoiceOverlay() {
+        voiceIcon.clearAnimation()
+        voiceOverlay.visibility = View.GONE
+    }
+
+    private fun pulseVoiceIcon() {
+        voiceIcon.animate().scaleX(1.15f).scaleY(1.15f).setDuration(500).withEndAction {
+            voiceIcon.animate().scaleX(1f).scaleY(1f).setDuration(500).withEndAction {
+                if (voiceOverlay.visibility == View.VISIBLE) pulseVoiceIcon()
+            }.start()
+        }.start()
+    }
+
+    private fun beepStart() = runCatching {
+        android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 90)
+            .also { it.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 160) }
+            .let { tg -> voiceOverlay.postDelayed({ tg.release() }, 400) }
+    }
+
+    private fun beepEnd() = runCatching {
+        android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 90)
+            .also { it.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 220) }
+            .let { tg -> voiceOverlay.postDelayed({ tg.release() }, 500) }
     }
 
     private fun reserve(item: QueueItem) {

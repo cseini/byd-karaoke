@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -134,3 +138,51 @@
 
     <include layout="@layout/include_navbar" />
 </LinearLayout>
+
+    <!-- 음성 인식 플로팅 오버레이 -->
+    <FrameLayout
+        android:id="@+id/voice_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6050510"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/voice_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎙"
+                android:textSize="110sp" />
+
+            <TextView
+                android:id="@+id/voice_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="12dp"
+                android:text="말씀하세요"
+                android:textSize="30sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:shadowColor="@color/tj_cyan"
+                android:shadowRadius="18" />
+
+            <TextView
+                android:id="@+id/voice_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp"
+                android:text="노래 제목이나 가수를 말하면 검색해요"
+                android:textSize="15sp"
+                android:textColor="@color/tj_text_secondary" />
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

@@ -40,12 +40,19 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     private var lastDataUrl: String? = null
     private var cbResult: ((String) -> Unit)? = null
     private var cbError: ((String) -> Unit)? = null
+    private var cbProcessing: (() -> Unit)? = null
 
     fun isAvailable(): Boolean = true   // Puter 는 네트워크만 있으면 됨
 
-    fun start(onReady: () -> Unit, onResult: (String) -> Unit, onError: (String) -> Unit) {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) startSystem(onReady, onResult, onError)
-        else startWhisper(onReady, onResult, onError)
+    /** onReady=듣기 시작, onProcessing=녹음 끝나 전사 중, onResult/onError=결과. */
+    fun start(
+        onReady: () -> Unit,
+        onProcessing: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) startSystem(onReady, onProcessing, onResult, onError)
+        else startWhisper(onReady, onProcessing, onResult, onError)
     }
 
     fun stop() {
@@ -57,7 +64,12 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
 
     // ── 경로 1: 시스템 SpeechRecognizer(GMS 있는 기기) ─────────────────
 
-    private fun startSystem(onReady: () -> Unit, onResult: (String) -> Unit, onError: (String) -> Unit) {
+    private fun startSystem(
+        onReady: () -> Unit,
+        onProcessing: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
         stop()
         val r = SpeechRecognizer.createSpeechRecognizer(context)
         recognizer = r
@@ -70,7 +82,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             }
             override fun onError(error: Int) = onError(errorText(error))
             override fun onBeginningOfSpeech() {}
-            override fun onEndOfSpeech() {}
+            override fun onEndOfSpeech() = onProcessing()
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -87,10 +99,16 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     // ── 경로 2: Puter Whisper(오프라인 기기용, 온라인 전사) ─────────────
 
     @SuppressLint("MissingPermission")
-    private fun startWhisper(onReady: () -> Unit, onResult: (String) -> Unit, onError: (String) -> Unit) {
+    private fun startWhisper(
+        onReady: () -> Unit,
+        onProcessing: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
         val activity = context as? Activity ?: run { onError("음성 인식을 시작할 수 없습니다"); return }
         cbResult = onResult
         cbError = onError
+        cbProcessing = onProcessing
         ensureWebView(activity)
 
         val file = File(context.cacheDir, "voice_query.wav")
@@ -105,6 +123,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     private fun finishAndTranscribe(file: File) {
         recorder?.let { runCatching { it.stop() } }
         recorder = null
+        cbProcessing?.invoke()
         val bytes = runCatching { file.readBytes() }.getOrNull()
         if (bytes == null || bytes.size < 2000) { cbError?.invoke("녹음이 감지되지 않았습니다"); return }
         lastDataUrl = "data:audio/wav;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
