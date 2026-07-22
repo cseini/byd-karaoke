@@ -20,7 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.cseini.byd.karaoke.audio.AudioRecorder
+import com.cseini.byd.karaoke.audio.MixRecorder
 import com.cseini.byd.karaoke.audio.WavIo
 import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
@@ -45,6 +45,7 @@ import java.io.File
  * 녹음은 마이크로 반주(차 스피커)+목소리를 한 트랙에 함께 담으므로, 다시 듣기는
  * 그 파일 하나만 재생한다(두 번째 플레이어가 없어 싱크가 어긋날 일이 없다).
  */
+@UnstableApi
 class PlaybackActivity : AppCompatActivity() {
 
     companion object {
@@ -81,7 +82,7 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var settings: SettingsStore
     private lateinit var queue: QueueStore
     private lateinit var recordings: RecordingStore
-    private lateinit var recorder: AudioRecorder
+    private lateinit var recorder: MixRecorder
     private lateinit var repo: YouTubeRepository
 
     private lateinit var reservePanel: View
@@ -109,14 +110,10 @@ class PlaybackActivity : AppCompatActivity() {
     private var scored = false
     private var replayOnly = false   // 녹음함에서 진입: 채점·녹음 없이 다시듣기만
     private var replaying = false     // 다시듣기 재생 중(반주+목소리 동시)
-    private var voiceStarted = false
-    private var syncOffsetMs = 0      // 반주 대비 목소리 보정(ms)
     private var lastRecording: File? = null
     private var mediaPlayer: MediaPlayer? = null
     private var scoreAnimator: ValueAnimator? = null
 
-    private lateinit var syncRow: View
-    private lateinit var syncLabel: TextView
 
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -126,7 +123,7 @@ class PlaybackActivity : AppCompatActivity() {
         settings = SettingsStore(this)
         queue = QueueStore(this)
         recordings = RecordingStore(this)
-        recorder = AudioRecorder(this, settings)
+        recorder = MixRecorder(this, settings)
         repo = YouTubeRepository()
 
         songTitle = findViewById(R.id.song_title)
@@ -152,20 +149,16 @@ class PlaybackActivity : AppCompatActivity() {
 
         val container = findViewById<FrameLayout>(R.id.player_container)
         val callbacks = PlayerCallbacks(
-            onPlaying = { if (replaying) startVoiceForReplay() else onSongPlaying() },
-            onEnded = { if (replaying) onReplayEnded() else onSongEnded() },
-            onTime = { sec -> if (replaying) correctSyncDrift(sec) },
+            onPlaying = { onSongPlaying() },
+            onEnded = { onSongEnded() },
+            onTime = { },
             onEmbedBlocked = { onEmbedBlocked() },
             onError = { msg ->
                 if (recorder.isRecording) recorder.stop()
                 recStatus.text = msg
             },
         )
-        // syncRow 등은 startReplay() 안에서 쓰이므로 반드시 그 전에 초기화한다.
-        // (녹음함 재생은 onCreate 도중 바로 startReplay() 를 부른다 → 순서 어긋나면 크래시.)
-        setupSyncControl()
-
-        player = StreamPlayer(this, container, lifecycleScope, callbacks)
+        player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
         scoreOverlay.setOnClickListener { goToSearch() }
@@ -323,31 +316,7 @@ class PlaybackActivity : AppCompatActivity() {
         finish()
     }
 
-    // ── 다시 듣기: 반주(유튜브) + 내 목소리(녹음)를 싱크 맞춰 동시 재생 ────
-
-    private fun setupSyncControl() {
-        syncRow = findViewById(R.id.sync_row)
-        syncLabel = findViewById(R.id.sync_label)
-        syncOffsetMs = settings.syncOffsetMs
-        val seek = findViewById<android.widget.SeekBar>(R.id.sync_seek)
-        seek.progress = syncOffsetMs + 1500   // -1500..+1500 → 0..3000
-        updateSyncLabel()
-        seek.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: android.widget.SeekBar, p: Int, fromUser: Boolean) {
-                syncOffsetMs = p - 1500
-                updateSyncLabel()
-            }
-            override fun onStartTrackingTouch(sb: android.widget.SeekBar) {}
-            override fun onStopTrackingTouch(sb: android.widget.SeekBar) {
-                settings.syncOffsetMs = syncOffsetMs   // 다음 재생에도 유지
-            }
-        })
-    }
-
-    private fun updateSyncLabel() {
-        val sign = if (syncOffsetMs > 0) "+" else ""
-        syncLabel.text = "싱크 $sign${syncOffsetMs}ms"
-    }
+    // ── 다시 듣기: 저장된 믹스 파일(반주+목소리) 하나만 재생 → 싱크 어긋날 일 없음 ────
 
     private fun startReplay() {
         val file = lastRecording
@@ -355,28 +324,8 @@ class PlaybackActivity : AppCompatActivity() {
         hideScoreOverlay()
         stopMediaPlayer()
         replaying = true
-        voiceStarted = false
-        syncRow.visibility = View.VISIBLE
-        recStatus.text = "▶ 반주+내 목소리 다시 듣는 중… (싱크가 어긋나면 아래 바로 조정)"
-        // 반주를 처음부터. PLAYING 되는 순간 목소리를 올린다.
-        player.load(currentVideoId)
-    }
-
-    /** 반주가 재생되기 시작하면 목소리를 올린다(보정값 반영). */
-    private fun startVoiceForReplay() {
-        val file = lastRecording ?: return
-        val mp = mediaPlayer
-        if (mp != null) {   // 버퍼링 후 재개
-            runCatching { if (!mp.isPlaying) mp.start() }
-            return
-        }
-        if (voiceStarted) return
-        voiceStarted = true
-        // 녹음 파일이 사실상 비어 있으면(캡처 실패) 목소리가 없으니 그 사실을 명확히 알린다.
         val sizeKb = file.length() / 1024
         mediaPlayer = MediaPlayer().apply {
-            // setAudioAttributes 등 준비 전체를 try 로 감싼다 — 일부 헤드유닛에선 여기서
-            // 예외가 나 앱이 통째로 튕겼다(다시듣기→검색창 복귀의 원인).
             try {
                 setAudioAttributes(
                     android.media.AudioAttributes.Builder()
@@ -384,37 +333,21 @@ class PlaybackActivity : AppCompatActivity() {
                         .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                // 비동기 재생 오류는 이 리스너로만 잡힌다 — 이게 없으면 완전 무음 실패였다.
                 setOnErrorListener { _, what, extra ->
-                    recStatus.text = "❗내 목소리 재생 오류 (코드 $what/$extra, 파일 ${sizeKb}KB)"
+                    recStatus.text = "❗재생 오류 (코드 $what/$extra, 파일 ${sizeKb}KB)"
+                    replaying = false
                     true
                 }
-                setOnCompletionListener { recStatus.text = "내 목소리 재생 완료 (반주는 계속)" }
+                setOnCompletionListener { recStatus.text = "다시 듣기 완료"; replaying = false }
                 setDataSource(file.absolutePath)
                 prepare()
-                // 반주 대비 목소리를 앞당기려면(+offset) 그만큼 뒤 지점부터 시작
-                if (syncOffsetMs > 0) seekTo(syncOffsetMs)
                 start()
-                recStatus.text = "▶ 반주+내 목소리 재생 중 (녹음 ${sizeKb}KB)"
+                recStatus.text = "▶ 내 노래 다시 듣는 중 (${sizeKb}KB)"
             } catch (e: Exception) {
-                recStatus.text = "❗녹음 재생 실패: ${e.message} (파일 ${sizeKb}KB)"
+                recStatus.text = "❗재생 실패: ${e.message} (파일 ${sizeKb}KB)"
+                replaying = false
             }
         }
-    }
-
-    /** 반주 진행 시각(sec) 기준으로 목소리 위치가 크게 어긋나면 맞춘다. */
-    private fun correctSyncDrift(second: Float) {
-        val mp = mediaPlayer ?: return
-        if (!mp.isPlaying) return
-        val target = (second * 1000).toInt() + syncOffsetMs
-        if (target < 0) return
-        val drift = target - mp.currentPosition
-        if (kotlin.math.abs(drift) > 350) runCatching { mp.seekTo(target) }
-    }
-
-    private fun onReplayEnded() {
-        replaying = false
-        recStatus.text = "다시 듣기 완료"
     }
 
     // ── 조작 버튼 ─────────────────────────────────────────────────
@@ -423,9 +356,7 @@ class PlaybackActivity : AppCompatActivity() {
     private fun onStopPressed() {
         if (replaying) {
             replaying = false
-            player.pause()
             stopMediaPlayer()
-            syncRow.visibility = View.GONE
             recStatus.text = "정지됨"
             return
         }
@@ -438,7 +369,6 @@ class PlaybackActivity : AppCompatActivity() {
         stopMediaPlayer()
         if (recorder.isRecording) recorder.stop()
         replaying = false
-        syncRow.visibility = View.GONE
         resetForNewSong()
         player.load(currentVideoId)
     }
@@ -496,14 +426,12 @@ class PlaybackActivity : AppCompatActivity() {
         scored = false
         replayOnly = false
         replaying = false
-        voiceStarted = false
         lastRecording = null
         // 다른 곡(대기열/다시부르기)로 넘어가면 이전 검색 후보는 폐기
         candIds = emptyList()
         candTitles = emptyList()
         candIndex = 0
         hideScoreOverlay()
-        syncRow.visibility = View.GONE
         recStatus.text = "대기 중"
     }
 

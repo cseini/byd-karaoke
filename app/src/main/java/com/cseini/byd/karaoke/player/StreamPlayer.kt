@@ -8,9 +8,13 @@ import android.widget.FrameLayout
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
@@ -33,10 +37,26 @@ class StreamPlayer(
     container: FrameLayout,
     private val scope: CoroutineScope,
     private val cb: PlayerCallbacks,
+    accompProcessor: AudioProcessor? = null,
 ) : KaraokePlayer {
 
     private val playerView = PlayerView(context)
-    private val exo = ExoPlayer.Builder(context).build()
+    private val exo = buildExo(context, accompProcessor)
+
+    private fun buildExo(context: Context, proc: AudioProcessor?): ExoPlayer {
+        if (proc == null) return ExoPlayer.Builder(context).build()
+        // 반주 오디오를 합성 녹음(MixRecorder)에 넘기기 위해 오디오 처리 체인에 프로세서를 끼운다.
+        val renderers = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): AudioSink = DefaultAudioSink.Builder(context)
+                .setAudioProcessors(arrayOf(proc))
+                .build()
+        }
+        return ExoPlayer.Builder(context, renderers).build()
+    }
     private val handler = Handler(Looper.getMainLooper())
     private var loadToken = 0
 

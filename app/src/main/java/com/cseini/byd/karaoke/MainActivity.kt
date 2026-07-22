@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -37,6 +38,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voice: VoiceSearch
 
     private lateinit var searchInput: EditText
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private val searchDebounce = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingSearch: Runnable? = null
     private lateinit var status: TextView
     private lateinit var results: RecyclerView
     private lateinit var historySection: View
@@ -93,6 +97,14 @@ class MainActivity : AppCompatActivity() {
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { doSearch(); true } else false
+        }
+        // 타이핑마다 자동 검색(디바운스) — 비슷한 곡이 바로 위에 뜨도록.
+        searchInput.doAfterTextChanged { text ->
+            pendingSearch?.let { searchDebounce.removeCallbacks(it) }
+            val q = text?.toString()?.trim().orEmpty()
+            if (q.length >= 2) {
+                pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 450) }
+            }
         }
 
         ensureMicPermission()
@@ -152,7 +164,8 @@ class MainActivity : AppCompatActivity() {
         val q = searchInput.text.toString().trim()
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
         status.text = "검색 중…"
-        lifecycleScope.launch {
+        searchJob?.cancel()   // 실시간 타이핑 중 이전 검색은 취소
+        searchJob = lifecycleScope.launch {
             when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)) {
                 is YouTubeRepository.Result.Ok -> {
                     lastResults = r.items
