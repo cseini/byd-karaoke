@@ -147,7 +147,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 ),
             )
             val req = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${settings.openaiApiKey}")
+                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${settings.openaiApiKey}")
                 .post(payload.toString().toRequestBody("application/json".toMediaTypeOrNull()))
                 .build()
             http.newCall(req).execute().use { resp ->
