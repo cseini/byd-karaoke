@@ -11,8 +11,8 @@ android {
         applicationId = "com.cseini.byd.karaoke"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "1.4"
+        versionCode = 15
+        versionName = "1.5"
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
@@ -93,6 +93,8 @@ dependencies {
     // 재생 방식 B — 유튜브 스트림 추출(NewPipe) → 네이티브 ExoPlayer 재생. 광고·로그인 없음.
     implementation("androidx.media3:media3-exoplayer:1.10.0")
     implementation("androidx.media3:media3-ui:1.10.0")
+    // 미디어 세션/브라우저 — 차량 런처(Kinex) 미디어 위젯에 앱을 노출.
+    implementation("androidx.media3:media3-session:1.10.0")
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
