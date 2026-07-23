@@ -42,10 +42,15 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("mic_source", "VOICE_RECOGNITION") ?: "VOICE_RECOGNITION"
         set(v) = prefs.edit().putString("mic_source", v).apply()
 
-    /** 다시듣기 싱크 보정(ms). 유튜브 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. */
+    /** 녹음 싱크 보정(ms). 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. */
     var syncOffsetMs: Int
         get() = prefs.getInt("sync_offset_ms", 0)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
+
+    /** 음성 검색 후 첫 곡을 3초 뒤 자동 재생. */
+    var autoPlayVoiceFirst: Boolean
+        get() = prefs.getBoolean("auto_play_voice", false)
+        set(v) = prefs.edit().putBoolean("auto_play_voice", v).apply()
 
     /** 녹음 품질(Hz). 낮을수록 용량↓·채점↑빠름. 22050(표준)/16000(절약)/11025(최소). */
     var recordRateHz: Int

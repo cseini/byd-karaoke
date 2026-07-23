@@ -39,6 +39,8 @@ class StreamPlayer(
     private val scope: CoroutineScope,
     private val cb: PlayerCallbacks,
     accompProcessor: AudioProcessor? = null,
+    // 다시듣기 전용: 가사 화면만 필요하므로 가장 가벼운 저화질 영상만 재생(구형 헤드유닛 끊김 방지).
+    private val lowRes: Boolean = false,
 ) : KaraokePlayer {
 
     private val playerView = PlayerView(context)
@@ -141,6 +143,24 @@ class StreamPlayer(
         extractor.fetchPage()
         val dsf = DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT)
 
+        // 다시듣기(lowRes): 소리는 녹음 파일로 나가므로 오디오 트랙 없이 가장 낮은 화질 영상만.
+        // 단일 트랙 progressive 라 병합(MergingMediaSource)·고화질 디코딩 부담이 없어 훨씬 부드럽다.
+        if (lowRes) {
+            val muxedLow = extractor.videoStreams
+                .filter { it.content.isNotEmpty() && resolutionValue(it.resolution) > 0 }
+                .minByOrNull { resolutionValue(it.resolution) }
+            if (muxedLow != null) {
+                return ProgressiveMediaSource.Factory(dsf).createMediaSource(MediaItem.fromUri(muxedLow.content))
+            }
+            val videoLow = extractor.videoOnlyStreams
+                .filter { it.content.isNotEmpty() && resolutionValue(it.resolution) > 0 }
+                .minByOrNull { resolutionValue(it.resolution) }
+            if (videoLow != null) {
+                return ProgressiveMediaSource.Factory(dsf).createMediaSource(MediaItem.fromUri(videoLow.content))
+            }
+            // 영상 스트림이 없으면 아래 일반 경로로 폴백
+        }
+
         // 1) muxed(영상+소리 한 트랙)가 있으면 가장 화질 좋은 것으로 단순 재생
         val muxed = extractor.videoStreams
             .filter { it.content.isNotEmpty() }
@@ -176,6 +196,7 @@ class StreamPlayer(
     override fun play() { exo.play() }
     override fun setVolume(v: Float) { exo.volume = v }
     override fun seekTo(ms: Long) { runCatching { exo.seekTo(ms.coerceAtLeast(0)) } }
+    override fun isPlaying(): Boolean = exo.isPlaying
     override fun currentPositionMs(): Long {
         if (cachedAtNanos == 0L) return cachedPositionMs
         val elapsed = (System.nanoTime() - cachedAtNanos) / 1_000_000L

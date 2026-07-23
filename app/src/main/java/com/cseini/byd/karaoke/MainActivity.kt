@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.CheckBox
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
@@ -47,7 +48,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceIcon: TextView
     private lateinit var voiceText: TextView
     private lateinit var voiceSub: TextView
+    private lateinit var autoplayCheck: CheckBox
     private var lastResults: List<QueueItem> = emptyList()
+    private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
+    private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var autoPlayRunnable: Runnable? = null
     private val adapter = ResultAdapter(
         onPlayNow = { playFromResults(it) },
     )
@@ -72,6 +77,9 @@ class MainActivity : AppCompatActivity() {
         voiceIcon = findViewById(R.id.voice_icon)
         voiceText = findViewById(R.id.voice_text)
         voiceSub = findViewById(R.id.voice_sub)
+        autoplayCheck = findViewById(R.id.chk_autoplay)
+        autoplayCheck.isChecked = settings.autoPlayVoiceFirst
+        autoplayCheck.setOnCheckedChangeListener { _, checked -> settings.autoPlayVoiceFirst = checked }
         voiceOverlay.setOnClickListener { hideVoiceOverlay() }
 
         results = findViewById(R.id.results)
@@ -93,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         }
         // 타이핑마다 자동 검색(디바운스) — 비슷한 곡이 바로 위에 뜨도록.
         searchInput.doAfterTextChanged { text ->
+            cancelAutoPlay()   // 사용자가 직접 타이핑하면 자동재생 취소
             pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             val q = text?.toString()?.trim().orEmpty()
             if (q.length >= 2) {
@@ -134,9 +143,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshHistory()
-        // 음성 버튼은 Gemini 키가 있을 때만 노출
-        findViewById<Button>(R.id.btn_voice).visibility =
-            if (settings.openaiApiKey.isNotBlank()) View.VISIBLE else View.GONE
+        // 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출
+        val voiceOn = settings.openaiApiKey.isNotBlank()
+        findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
+        autoplayCheck.visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
 
     /** 같은 곡은 가장 최근 것만, 최신순으로 히스토리 타일에 노출. */
@@ -159,6 +169,9 @@ class MainActivity : AppCompatActivity() {
     private fun doSearch() {
         val q = searchInput.text.toString().trim()
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
+        val autoPlay = pendingAutoPlay   // 이번 검색이 음성 트리거였는지 확정
+        pendingAutoPlay = false
+        cancelAutoPlay()                 // 진행 중인 카운트다운은 중단
         status.text = "검색 중…"
         searchJob?.cancel()   // 실시간 타이핑 중 이전 검색은 취소
         searchJob = lifecycleScope.launch {
@@ -168,13 +181,43 @@ class MainActivity : AppCompatActivity() {
                     adapter.submit(r.items)
                     showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
+                    if (autoPlay && settings.autoPlayVoiceFirst && r.items.isNotEmpty()) {
+                        startAutoPlayCountdown(r.items.first())
+                    }
                 }
                 is YouTubeRepository.Result.Error -> status.text = r.message
             }
         }
     }
 
+    /** 음성 검색 결과 첫 곡을 3초 카운트 후 자동 재생. 그 사이 다른 조작을 하면 취소. */
+    private fun startAutoPlayCountdown(item: QueueItem) {
+        cancelAutoPlay()
+        val r = object : Runnable {
+            var n = 3
+            override fun run() {
+                if (n <= 0) {
+                    autoPlayRunnable = null
+                    playFromResults(item)
+                    return
+                }
+                status.text = "🎤 ${n}초 후 '${item.title}' 자동 재생… (다른 곡을 누르면 취소)"
+                n--
+                autoPlayHandler.postDelayed(this, 1000)
+            }
+        }
+        autoPlayRunnable = r
+        autoPlayHandler.post(r)
+    }
+
+    private fun cancelAutoPlay() {
+        autoPlayRunnable?.let { autoPlayHandler.removeCallbacks(it) }
+        autoPlayRunnable = null
+        pendingAutoPlay = false
+    }
+
     private fun startVoice() {
+        cancelAutoPlay()
         if (!voice.isAvailable()) {
             toast("이 기기는 음성 인식을 지원하지 않습니다. 타이핑으로 검색하세요.")
             return
@@ -197,6 +240,8 @@ class MainActivity : AppCompatActivity() {
             onResult = { text ->
                 hideVoiceOverlay()
                 searchInput.setText(text)
+                pendingSearch?.let { searchDebounce.removeCallbacks(it) }  // 타이핑 디바운스 중복 검색 방지
+                pendingAutoPlay = true   // 즉시재생 옵션이 켜져 있으면 이 검색 뒤 첫 곡 자동재생
                 doSearch()
             },
             onError = {
@@ -242,11 +287,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playNow(item: QueueItem) {
+        cancelAutoPlay()
         startActivity(PlaybackActivity.intent(this, item.videoId, item.title, fromQueue = false))
     }
 
     /** 검색 결과에서 부르기: 재생 불가 영상이면 뒤 후보로 자동으로 넘어가도록 목록을 함께 넘긴다. */
     private fun playFromResults(item: QueueItem) {
+        cancelAutoPlay()
         val idx = lastResults.indexOfFirst { it.videoId == item.videoId }.coerceAtLeast(0)
         startActivity(PlaybackActivity.intentWithCandidates(this, lastResults, idx))
     }
@@ -262,7 +309,13 @@ class MainActivity : AppCompatActivity() {
         if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
     }
 
+    override fun onPause() {
+        super.onPause()
+        cancelAutoPlay()   // 화면을 떠나면(네비바 등) 자동재생 취소
+    }
+
     override fun onDestroy() {
+        cancelAutoPlay()
         voice.stop()
         super.onDestroy()
     }

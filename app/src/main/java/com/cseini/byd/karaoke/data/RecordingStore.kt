@@ -45,6 +45,15 @@ class RecordingStore(context: Context) {
         persist()
     }
 
+    /** 여러 녹음을 한꺼번에 삭제. */
+    fun removeItems(list: List<RecordingItem>) {
+        val paths = list.map { it.path }.toHashSet()
+        if (paths.isEmpty()) return
+        list.forEach { runCatching { File(it.path).delete() } }
+        items.removeAll { it.path in paths }
+        persist()
+    }
+
     /** 자동 정리로 파일이 이미 삭제된 항목들을 목록에서 제거. */
     fun removeByPaths(paths: List<String>) {
         val set = paths.toHashSet()

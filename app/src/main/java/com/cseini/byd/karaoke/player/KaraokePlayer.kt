@@ -15,6 +15,8 @@ interface KaraokePlayer {
     fun setVolume(v: Float)
     /** 지정 위치(ms)로 탐색. 다시듣기 시크바 드래그 시 영상을 녹음 위치에 맞춘다. */
     fun seekTo(ms: Long)
+    /** 실제 재생 중인지. 다시듣기 영상 정렬 시점 판단용. */
+    fun isPlaying(): Boolean
 }
 
 /**

@@ -104,6 +104,8 @@ class PlaybackActivity : AppCompatActivity() {
     private var replayOnly = false   // 녹음함에서 진입: 채점·녹음 없이 다시듣기만
     private var replaying = false     // 다시듣기 재생 중(반주+목소리 동시)
     private var replayVideo = false   // 다시듣기 때 유튜브 영상(음소거)을 함께 재생 중
+    private var replayVideoAligned = false  // 영상을 녹음 위치로 최초 1회 맞췄는지
+    private var replaySeekCooldown = 0      // 재정렬 후 쿨다운(틱 단위) — 잦은 seek 재버퍼링 방지
     private var lastRecording: File? = null
     private var mediaPlayer: MediaPlayer? = null
     private var scoreAnimator: ValueAnimator? = null
@@ -176,7 +178,8 @@ class PlaybackActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(sb: SeekBar) {}
         })
 
-        player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
+        // 다시듣기는 가사 화면만 필요 → 저화질 영상으로 재생(구형 헤드유닛 끊김 방지).
+        player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor, lowRes = replayOnly)
         if (replayOnly) {
             // 다시듣기: 노래 부르기용 버튼(정지·다시부르기·다음곡·예약)은 숨기고 재생/정지만 남긴다.
             songControls.visibility = View.GONE
@@ -324,9 +327,11 @@ class PlaybackActivity : AppCompatActivity() {
         hideScoreOverlay()
         stopMediaPlayer()
         replaying = true
-        // 영상은 음소거로 함께 재생(가사 화면). 녹음 소리에 맞춰 ticker 가 위치를 보정한다.
+        // 영상은 음소거로 함께 재생(가사 화면). 녹음 소리에 맞춰 최초 1회만 정렬한다.
         if (currentVideoId.isNotBlank()) {
             replayVideo = true
+            replayVideoAligned = false
+            replaySeekCooldown = 0
             player.setVolume(0f)
             player.load(currentVideoId)
         }
@@ -375,10 +380,20 @@ class PlaybackActivity : AppCompatActivity() {
                 replaySeek.progress = pos
                 replayTime.text = "${fmtTime(pos)} / ${fmtTime(mp.duration)}"
                 replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생"
-                // 영상을 녹음 소리에 맞춰 따라오게 — 드리프트가 0.5초 넘으면 영상 위치를 보정
-                if (replayVideo && mp.isPlaying &&
-                    kotlin.math.abs(player.currentPositionMs() - pos) > 500) {
-                    player.seekTo(pos.toLong())
+                // 영상 위치 맞추기: 매 틱 seek 하면 재버퍼링으로 끊기므로,
+                // 영상이 실제 재생되기 시작하면 '한 번'만 녹음 위치로 맞추고 그대로 둔다.
+                // 이후엔 크게 어긋났을 때만(1.5초↑) 쿨다운을 두고 드물게 재정렬한다.
+                if (replayVideo && mp.isPlaying && player.isPlaying()) {
+                    if (replaySeekCooldown > 0) replaySeekCooldown--
+                    val drift = kotlin.math.abs(player.currentPositionMs() - pos)
+                    if (!replayVideoAligned) {
+                        player.seekTo(pos.toLong())
+                        replayVideoAligned = true
+                        replaySeekCooldown = 20   // 약 6초
+                    } else if (drift > 1500 && replaySeekCooldown == 0) {
+                        player.seekTo(pos.toLong())
+                        replaySeekCooldown = 20
+                    }
                 }
             }
             uiHandler.postDelayed(this, 300)
