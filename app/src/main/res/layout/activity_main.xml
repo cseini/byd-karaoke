@@ -21,7 +21,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🎤 BYD YT노래방"
+            android:text="🎤 노래방"
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="@color/tj_pink"
