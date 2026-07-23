@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.data.QueueItem
-import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
@@ -32,7 +31,6 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
-    private lateinit var queue: QueueStore
     private lateinit var recordings: RecordingStore
     private lateinit var repo: YouTubeRepository
     private lateinit var voice: VoiceSearch
@@ -51,7 +49,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceSub: TextView
     private var lastResults: List<QueueItem> = emptyList()
     private val adapter = ResultAdapter(
-        onReserve = { reserve(it) },
         onPlayNow = { playFromResults(it) },
     )
     private val historyAdapter = HistoryAdapter(
@@ -63,7 +60,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         settings = SettingsStore(this)
-        queue = QueueStore(this)
         recordings = RecordingStore(this)
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
@@ -243,11 +239,6 @@ class MainActivity : AppCompatActivity() {
         android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 90)
             .also { it.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 220) }
             .let { tg -> voiceOverlay.postDelayed({ tg.release() }, 500) }
-    }
-
-    private fun reserve(item: QueueItem) {
-        queue.add(item)
-        toast("예약: ${item.title}")
     }
 
     private fun playNow(item: QueueItem) {

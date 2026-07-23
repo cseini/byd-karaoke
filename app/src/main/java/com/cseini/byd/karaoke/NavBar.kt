@@ -18,7 +18,6 @@ object NavBar {
             )
         }
         bind(activity, R.id.nav_search, MainActivity::class.java, current, ::go)
-        bind(activity, R.id.nav_queue, QueueActivity::class.java, current, ::go)
         bind(activity, R.id.nav_recordings, RecordingsActivity::class.java, current, ::go)
         bind(activity, R.id.nav_ranking, RankingActivity::class.java, current, ::go)
         bind(activity, R.id.nav_settings, SettingsActivity::class.java, current, ::go)

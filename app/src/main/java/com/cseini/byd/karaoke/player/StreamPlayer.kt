@@ -174,6 +174,8 @@ class StreamPlayer(
 
     override fun pause() { exo.pause() }
     override fun play() { exo.play() }
+    override fun setVolume(v: Float) { exo.volume = v }
+    override fun seekTo(ms: Long) { runCatching { exo.seekTo(ms.coerceAtLeast(0)) } }
     override fun currentPositionMs(): Long {
         if (cachedAtNanos == 0L) return cachedPositionMs
         val elapsed = (System.nanoTime() - cachedAtNanos) / 1_000_000L

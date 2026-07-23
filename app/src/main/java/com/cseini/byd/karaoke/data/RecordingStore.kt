@@ -14,7 +14,7 @@ data class RecordingItem(
     val at: Long = 0L,
 )
 
-/** 녹음 목록. SharedPreferences 에 JSON 영속(QueueStore 와 같은 방식). */
+/** 녹음 목록. SharedPreferences 에 JSON 으로 영속. */
 class RecordingStore(context: Context) {
 
     private val prefs = context.getSharedPreferences("karaoke_recordings", Context.MODE_PRIVATE)

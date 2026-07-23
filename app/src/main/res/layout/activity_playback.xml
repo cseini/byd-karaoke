@@ -44,7 +44,7 @@
                 android:paddingTop="4dp"
                 android:text="대기 중" />
 
-            <!-- 다시듣기 오디오 컨트롤: 시크바 + ±5/±10초 + 재생/일시정지 -->
+            <!-- 다시듣기 컨트롤: 시크바(드래그로 영상·녹음 동시 이동) + 재생/정지 -->
             <LinearLayout
                 android:id="@+id/replay_controls"
                 android:layout_width="match_parent"
@@ -74,52 +74,17 @@
                         android:text="0:00 / 0:00" />
 
                     <Button
-                        android:id="@+id/replay_back10"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:text="⏪10" />
-
-                    <Button
-                        android:id="@+id/replay_back5"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:layout_marginStart="4dp"
-                        android:text="◀5" />
-
-                    <Button
                         android:id="@+id/replay_play"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:layout_marginStart="4dp"
+                        android:minWidth="120dp"
                         app:backgroundTint="@color/tj_blue"
-                        android:text="⏸" />
-
-                    <Button
-                        android:id="@+id/replay_fwd5"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:layout_marginStart="4dp"
-                        android:text="5▶" />
-
-                    <Button
-                        android:id="@+id/replay_fwd10"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:layout_marginStart="4dp"
-                        android:text="10⏩" />
+                        android:text="⏸ 정지" />
                 </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/song_controls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -141,107 +106,10 @@
                     android:layout_marginStart="6dp"
                     app:backgroundTint="@color/tj_orange"
                     android:text="다시 부르기" />
-
-                <Button
-                    android:id="@+id/btn_next"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    app:backgroundTint="@color/tj_blue"
-                    android:text="다음 곡" />
-
-                <Button
-                    android:id="@+id/btn_reserve_search"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    app:backgroundTint="@color/tj_pink"
-                    android:text="🔍 예약" />
             </LinearLayout>
         </LinearLayout>
 
         <include layout="@layout/include_navbar" />
-    </LinearLayout>
-
-    <!-- 부르는 중 검색·예약 패널: 재생을 끊지 않고 다음 곡을 예약한다. -->
-    <LinearLayout
-        android:id="@+id/reserve_panel"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:background="#F00A0A1A"
-        android:clickable="true"
-        android:focusable="true"
-        android:padding="14dp"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="🎫 다음 곡 예약"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_pink" />
-
-            <Button
-                android:id="@+id/btn_reserve_close"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="닫기" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingTop="10dp"
-            android:gravity="center_vertical">
-
-            <EditText
-                android:id="@+id/reserve_input"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:hint="노래 제목·가수로 검색"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:importantForAutofill="no" />
-
-            <Button
-                android:id="@+id/reserve_search_btn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                app:backgroundTint="@color/tj_cyan"
-                android:textColor="@color/tj_bg_deep"
-                android:text="검색" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/reserve_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp"
-            android:textSize="13sp"
-            android:textColor="@color/tj_text_secondary"
-            android:text="검색해서 예약할 곡을 고르세요." />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/reserve_results"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
     </LinearLayout>
 
     <!-- 노래방식 점수 연출: 탭하면 닫힘 -->
@@ -303,27 +171,13 @@
                 android:textColor="@color/tj_text_secondary"
                 android:fontFamily="monospace" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/score_retry"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingTop="24dp">
-
-                <Button
-                    android:id="@+id/score_retry"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:backgroundTint="@color/tj_orange"
-                    android:text="다시 부르기" />
-
-                <Button
-                    android:id="@+id/score_next"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    app:backgroundTint="@color/tj_blue"
-                    android:text="다음 곡 ▶" />
-            </LinearLayout>
+                android:layout_marginTop="24dp"
+                app:backgroundTint="@color/tj_orange"
+                android:text="다시 부르기" />
 
             <TextView
                 android:layout_width="wrap_content"
