@@ -112,6 +112,7 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_search).setOnClickListener { doSearch() }
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
+        findViewById<Button>(R.id.btn_reserve_server).setOnClickListener { showReserveServer() }
         NavBar.wire(this, MainActivity::class.java)
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
@@ -252,6 +253,27 @@ class MainActivity : AppCompatActivity() {
         autoPlayRunnable = null
         pendingAutoPlay = false
         if (::autoplayOverlay.isInitialized) hideAutoplayOverlay()
+    }
+
+    /** 예약 서버를 켜고 접속 QR을 띄운다(끄기 버튼 포함). 예약 목록 관리는 재생 화면에서. */
+    private fun showReserveServer() {
+        val url = com.cseini.byd.karaoke.share.ReserveServer.start(this)
+        if (url == null) {
+            toast("네트워크에 연결돼 있지 않습니다. 폰 핫스팟에 차를 연결하세요.")
+            return
+        }
+        val view = layoutInflater.inflate(R.layout.dialog_reserve, null)
+        view.findViewById<android.widget.ImageView>(R.id.reserve_qr)
+            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
+        view.findViewById<TextView>(R.id.reserve_url).text = url
+        AlertDialog.Builder(this)
+            .setView(view)
+            .setPositiveButton("닫기", null)
+            .setNegativeButton("예약 서버 끄기") { _, _ ->
+                com.cseini.byd.karaoke.share.ReserveServer.stop()
+                toast("예약 서버를 껐습니다")
+            }
+            .show()
     }
 
     private fun startVoice() {

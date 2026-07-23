@@ -124,11 +124,64 @@
                     android:layout_marginStart="6dp"
                     android:visibility="gone"
                     app:backgroundTint="@color/tj_pink"
-                    android:text="다음 예약곡 ▶" />
+                    android:text="🎫 예약목록" />
             </LinearLayout>
         </LinearLayout>
 
         <include layout="@layout/include_navbar" />
+    </LinearLayout>
+
+    <!-- 예약 목록 패널: 폰으로 예약된 곡 순서 + 부르기/취소 -->
+    <LinearLayout
+        android:id="@+id/reserve_queue_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#F00A0A1A"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🎫 예약된 곡"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_pink" />
+
+            <Button
+                android:id="@+id/btn_queue_close"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="닫기" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/queue_panel_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="24dp"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/tj_text_secondary"
+            android:text="아직 예약된 곡이 없어요.\n승객이 폰으로 예약하면 여기에 순서대로 쌓여요." />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/queue_panel_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="10dp" />
     </LinearLayout>
 
     <!-- 노래방식 점수 연출: 탭하면 닫힘 -->
@@ -140,6 +193,19 @@
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
+
+        <TextView
+            android:id="@+id/score_next_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:paddingTop="20dp"
+            android:paddingHorizontal="20dp"
+            android:gravity="center"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/tj_cyan"
+            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="match_parent"

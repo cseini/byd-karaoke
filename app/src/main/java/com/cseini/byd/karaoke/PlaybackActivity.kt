@@ -7,7 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.SeekBar
@@ -17,6 +19,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.audio.MixRecorder
 import com.cseini.byd.karaoke.audio.WavIo
 import com.cseini.byd.karaoke.data.QueueItem
@@ -96,6 +100,14 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var scoreTotal: TextView
     private lateinit var scoreGrade: TextView
     private lateinit var scoreDetail: TextView
+    private lateinit var scoreNextInfo: TextView
+    private lateinit var reserveQueuePanel: View
+    private lateinit var queuePanelEmpty: TextView
+    private val queueAdapter = ReserveQueueAdapter(
+        onPlay = { playReserved(it) },
+        onDelete = { queue.removeByVideoId(it.videoId); refreshQueuePanel() },
+    )
+    private var scoreCountdownRunnable: Runnable? = null
 
     private var currentVideoId = ""
     private var candIds: List<String> = emptyList()
@@ -130,6 +142,16 @@ class PlaybackActivity : AppCompatActivity() {
         scoreTotal = findViewById(R.id.score_total)
         scoreGrade = findViewById(R.id.score_grade)
         scoreDetail = findViewById(R.id.score_detail)
+        scoreNextInfo = findViewById(R.id.score_next_info)
+        reserveQueuePanel = findViewById(R.id.reserve_queue_panel)
+        queuePanelEmpty = findViewById(R.id.queue_panel_empty)
+        findViewById<RecyclerView>(R.id.queue_panel_list).apply {
+            layoutManager = LinearLayoutManager(this@PlaybackActivity)
+            adapter = queueAdapter
+        }
+        findViewById<Button>(R.id.btn_queue_close).setOnClickListener {
+            reserveQueuePanel.visibility = View.GONE
+        }
 
         currentVideoId = intent.getStringExtra("videoId").orEmpty()
         songTitle.text = intent.getStringExtra("title") ?: "재생 중"
@@ -198,7 +220,7 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
-        findViewById<Button>(R.id.btn_next_reserved).setOnClickListener { playNextReserved() }
+        findViewById<Button>(R.id.btn_next_reserved).setOnClickListener { openQueuePanel() }
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -253,6 +275,9 @@ class PlaybackActivity : AppCompatActivity() {
             val pruned = Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes)
             if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
             recStatus.text = "🎵 녹음 저장됨 — 녹음함에서 들을 수 있어요"
+            // 채점 화면이 없으므로, 예약곡이 있으면 상태줄에 카운트하며 5초 뒤 자동 넘김
+            queue.reload()
+            queue.peekFirst()?.let { startAutoAdvance(it, overlay = false) }
             return
         }
         recStatus.text = "채점 중…"
@@ -292,10 +317,12 @@ class PlaybackActivity : AppCompatActivity() {
     // ── 노래방식 점수 연출 ─────────────────────────────────────────
 
     private fun showScoreOverlay(total: Int, detail: String) {
-        // 예약된 곡이 남아 있으면 '다음 예약곡' 버튼 노출
+        // 예약된 곡이 남아 있으면 '다음 예약곡' 버튼 + 5초 뒤 자동 재생 카운트다운
         queue.reload()
+        val next = queue.peekFirst()
         findViewById<Button>(R.id.score_next).visibility =
-            if (queue.size() > 0) View.VISIBLE else View.GONE
+            if (next != null) View.VISIBLE else View.GONE
+        if (next != null) startAutoAdvance(next, overlay = true) else cancelScoreCountdown()
         scoreDetail.text = detail
         scoreTotal.text = "0"
         scoreGrade.text = when {
@@ -320,12 +347,14 @@ class PlaybackActivity : AppCompatActivity() {
 
     private fun hideScoreOverlay() {
         scoreAnimator?.cancel()
+        cancelScoreCountdown()
         scoreOverlay.visibility = View.GONE
     }
 
     /** 점수 화면을 탭하면 노래 화면이 아니라 검색 홈으로 나간다. */
     private fun goToSearch() {
         scoreAnimator?.cancel()
+        cancelScoreCountdown()
         startActivity(Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         })
@@ -446,6 +475,7 @@ class PlaybackActivity : AppCompatActivity() {
 
     /** 정지 = 즉시 채점(일시정지 개념 없음). 다시 듣는 중이면 재생만 멈춘다. */
     private fun onStopPressed() {
+        cancelScoreCountdown()
         if (replaying) {
             replaying = false
             stopMediaPlayer()
@@ -466,34 +496,86 @@ class PlaybackActivity : AppCompatActivity() {
         player.load(currentVideoId)
     }
 
-    // 예약(폰 리모컨)곡이 부르는 도중에도 들어올 수 있어, 주기적으로 '다음 예약곡' 버튼 노출을 갱신.
+    // 예약(폰 리모컨)곡이 부르는 도중에도 들어올 수 있어, 주기적으로 예약목록 버튼·패널을 갱신.
     private val queuePoll = object : Runnable {
         override fun run() {
             if (!replayOnly) {
                 queue.reload()
                 findViewById<Button>(R.id.btn_next_reserved).visibility =
                     if (queue.size() > 0) View.VISIBLE else View.GONE
+                if (reserveQueuePanel.visibility == View.VISIBLE) refreshQueuePanel()
             }
             uiHandler.postDelayed(this, 2500)
         }
     }
 
-    /** 예약 대기열의 다음 곡을 꺼내 부른다. */
+    private fun openQueuePanel() {
+        cancelScoreCountdown()   // 목록을 열어 직접 고르면 자동 넘김 취소
+        refreshQueuePanel()
+        reserveQueuePanel.visibility = View.VISIBLE
+    }
+
+    private fun refreshQueuePanel() {
+        queue.reload()
+        val items = queue.all()
+        queueAdapter.submit(items)
+        queuePanelEmpty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    /** 예약 목록에서 특정 곡을 골라 바로 부른다. */
+    private fun playReserved(item: QueueItem) {
+        queue.removeByVideoId(item.videoId)
+        reserveQueuePanel.visibility = View.GONE
+        loadNewSong(item.videoId, item.title)
+    }
+
+    /** 예약 대기열의 맨 앞 곡을 꺼내 부른다. */
     private fun playNextReserved() {
         val next = queue.pollFirst()
         if (next == null) { toast("예약된 곡이 없습니다"); return }
+        loadNewSong(next.videoId, next.title)
+    }
+
+    private fun loadNewSong(videoId: String, title: String) {
+        cancelScoreCountdown()
         hideScoreOverlay()
         stopMediaPlayer()
         if (recorder.isRecording) recorder.stop()
         replaying = false
-        currentVideoId = next.videoId
-        songTitle.text = next.title
+        currentVideoId = videoId
+        songTitle.text = title
         resetForNewSong()
         player.load(currentVideoId)
     }
 
+    // ── 곡이 끝나고 아무것도 안 누르면 5초 뒤 다음 예약곡 자동 재생 ─────────────
+    // 채점 켬 → 점수화면 상단(scoreNextInfo)에, 채점 끔 → 상태줄(recStatus)에 카운트 표시.
+    private fun startAutoAdvance(next: QueueItem, overlay: Boolean) {
+        cancelScoreCountdown()
+        if (overlay) scoreNextInfo.visibility = View.VISIBLE
+        val r = object : Runnable {
+            var n = 5
+            override fun run() {
+                if (n <= 0) { scoreCountdownRunnable = null; playNextReserved(); return }
+                val msg = "${n}초 후 다음 예약곡 ▶ '${next.title}' 자동 재생"
+                if (overlay) scoreNextInfo.text = msg else recStatus.text = msg
+                n--
+                uiHandler.postDelayed(this, 1000)
+            }
+        }
+        scoreCountdownRunnable = r
+        uiHandler.post(r)
+    }
+
+    private fun cancelScoreCountdown() {
+        scoreCountdownRunnable?.let { uiHandler.removeCallbacks(it) }
+        scoreCountdownRunnable = null
+        if (::scoreNextInfo.isInitialized) scoreNextInfo.visibility = View.GONE
+    }
+
     /** 취소: 채점·저장 없이 녹음 파일을 버리고 검색 홈으로. */
     private fun cancelSong() {
+        cancelScoreCountdown()
         scored = true   // onStop 자동 저장 방지
         val file = if (recorder.isRecording) recorder.stop() else lastRecording
         file?.let { runCatching { it.delete() } }
@@ -555,6 +637,7 @@ class PlaybackActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         uiHandler.removeCallbacks(queuePoll)
+        cancelScoreCountdown()   // 백그라운드로 가면 자동 넘김 중단
         // 정지·완곡을 안 누르고 화면을 벗어나도, 부르던 녹음은 최근 목록에 남긴다(채점 없이 저장).
         if (recorder.isRecording && recordStarted && !scored) {
             scored = true
@@ -584,9 +667,45 @@ class PlaybackActivity : AppCompatActivity() {
         stopMediaPlayer()
         uiHandler.removeCallbacks(replayTicker)
         uiHandler.removeCallbacks(queuePoll)
+        cancelScoreCountdown()
         player.release()
         super.onDestroy()
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+}
+
+/** 재생 화면 예약 목록: 순서·부르기·취소. */
+private class ReserveQueueAdapter(
+    val onPlay: (QueueItem) -> Unit,
+    val onDelete: (QueueItem) -> Unit,
+) : RecyclerView.Adapter<ReserveQueueAdapter.VH>() {
+
+    private val items = ArrayList<QueueItem>()
+
+    fun submit(list: List<QueueItem>) {
+        items.clear()
+        items.addAll(list)
+        notifyDataSetChanged()
+    }
+
+    class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val num: TextView = v.findViewById(R.id.q_num)
+        val title: TextView = v.findViewById(R.id.q_title)
+        val play: Button = v.findViewById(R.id.q_play)
+        val delete: Button = v.findViewById(R.id.q_delete)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
+        VH(LayoutInflater.from(parent.context).inflate(R.layout.item_queue_reserve, parent, false))
+
+    override fun getItemCount() = items.size
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val item = items[position]
+        holder.num.text = "${position + 1}"
+        holder.title.text = item.title
+        holder.play.setOnClickListener { onPlay(item) }
+        holder.delete.setOnClickListener { onDelete(item) }
+    }
 }
