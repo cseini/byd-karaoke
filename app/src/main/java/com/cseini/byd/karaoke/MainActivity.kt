@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity() {
             adapter = this@MainActivity.adapter
         }
         findViewById<RecyclerView>(R.id.history).apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 3)
+            layoutManager = GridLayoutManager(this@MainActivity, 4)
             adapter = this@MainActivity.historyAdapter
         }
 

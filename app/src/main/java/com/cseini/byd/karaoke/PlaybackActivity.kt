@@ -190,6 +190,7 @@ class PlaybackActivity : AppCompatActivity() {
 
         scoreOverlay.setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
+        findViewById<Button>(R.id.score_close).setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
 
@@ -272,7 +273,11 @@ class PlaybackActivity : AppCompatActivity() {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {
                 recStatus.text = "🎯 채점 완료 — 녹음함에서 다시 들을 수 있어요"
-                val detail = result.breakdown.lines().drop(1).joinToString("\n") + "\n\n[${recorder.debugInfo()}]"
+                // 점수 항목만 표시(총점 줄·기술 설명·디버그 정보는 제외)
+                val detail = result.breakdown.lines()
+                    .drop(1)
+                    .filterNot { it.startsWith("(") }
+                    .joinToString("\n")
                 showScoreOverlay(result.total, detail)
             }
         }
