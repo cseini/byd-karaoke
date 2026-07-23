@@ -195,9 +195,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingTop="20dp"
-                android:text="취소하려면 화면을 탭하세요"
+                android:text="🎙 화면을 탭하면 취소하고 다시 말할 수 있어요"
                 android:textSize="15sp"
-                android:textColor="@color/tj_text_secondary" />
+                android:textColor="@color/tj_cyan" />
         </LinearLayout>
     </FrameLayout>
 

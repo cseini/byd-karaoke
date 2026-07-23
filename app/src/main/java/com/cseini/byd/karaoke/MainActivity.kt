@@ -90,7 +90,11 @@ class MainActivity : AppCompatActivity() {
         autoplayOverlay = findViewById(R.id.autoplay_overlay)
         autoplayTitle = findViewById(R.id.autoplay_title)
         autoplayCount = findViewById(R.id.autoplay_count)
-        autoplayOverlay.setOnClickListener { cancelAutoPlay(); status.text = "자동 재생을 취소했습니다." }
+        // 카운트다운 화면을 탭하면 자동재생을 취소하고 곧바로 다시 음성검색 대기로 들어간다.
+        autoplayOverlay.setOnClickListener {
+            cancelAutoPlay()
+            startVoice()
+        }
         voiceOverlay.setOnClickListener { hideVoiceOverlay() }
 
         results = findViewById(R.id.results)
