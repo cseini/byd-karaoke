@@ -26,6 +26,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var syncLabel: TextView
     private lateinit var rateGroup: RadioGroup
     private lateinit var scoringCheck: CheckBox
+    private lateinit var claritySeek: SeekBar
+    private lateinit var clarityLabel: TextView
+    private lateinit var echoSeek: SeekBar
+    private lateinit var echoLabel: TextView
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -65,6 +69,25 @@ class SettingsActivity : AppCompatActivity() {
         scoringCheck = findViewById(R.id.chk_scoring)
         scoringCheck.isChecked = settings.scoringEnabled
 
+        claritySeek = findViewById(R.id.clarity_seek)
+        clarityLabel = findViewById(R.id.clarity_label)
+        echoSeek = findViewById(R.id.echo_seek)
+        echoLabel = findViewById(R.id.echo_label)
+        claritySeek.progress = settings.voiceClarity
+        echoSeek.progress = settings.voiceEcho
+        clarityLabel.text = "명료 ${settings.voiceClarity}"
+        echoLabel.text = "에코 ${settings.voiceEcho}"
+        claritySeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) { clarityLabel.text = "명료 $p" }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+        echoSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) { echoLabel.text = "에코 $p" }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
         maxStorageInput = findViewById(R.id.max_storage_input)
@@ -94,6 +117,8 @@ class SettingsActivity : AppCompatActivity() {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
+        settings.voiceClarity = claritySeek.progress
+        settings.voiceEcho = echoSeek.progress
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

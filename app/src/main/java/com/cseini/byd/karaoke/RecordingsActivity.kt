@@ -23,6 +23,7 @@ class RecordingsActivity : AppCompatActivity() {
     private lateinit var empty: TextView
     private val adapter = RecordingAdapter(
         onPlay = { startActivity(PlaybackActivity.replayIntent(this, it)) },
+        onShare = { shareRecording(it) },
         onDelete = { confirmDelete(it) },
     )
 
@@ -51,6 +52,28 @@ class RecordingsActivity : AppCompatActivity() {
         empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
     }
 
+    private fun shareRecording(item: RecordingItem) {
+        val src = java.io.File(item.path)
+        if (!src.exists()) {
+            android.widget.Toast.makeText(this, "파일이 없습니다", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val dir = java.io.File(cacheDir, "share").apply { mkdirs() }
+            val dst = java.io.File(dir, src.name)
+            src.copyTo(dst, overwrite = true)
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", dst)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "audio/x-wav"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(android.content.Intent.createChooser(send, "녹음 공유"))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "공유 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun confirmDelete(item: RecordingItem) {
         AlertDialog.Builder(this)
             .setTitle("녹음 삭제")
@@ -63,6 +86,7 @@ class RecordingsActivity : AppCompatActivity() {
 
 private class RecordingAdapter(
     val onPlay: (RecordingItem) -> Unit,
+    val onShare: (RecordingItem) -> Unit,
     val onDelete: (RecordingItem) -> Unit,
 ) : RecyclerView.Adapter<RecordingAdapter.VH>() {
 
@@ -79,6 +103,7 @@ private class RecordingAdapter(
         val title: TextView = v.findViewById(R.id.rec_title)
         val sub: TextView = v.findViewById(R.id.rec_sub)
         val play: Button = v.findViewById(R.id.btn_play)
+        val share: Button = v.findViewById(R.id.btn_share)
         val delete: Button = v.findViewById(R.id.btn_delete)
     }
 
@@ -93,6 +118,7 @@ private class RecordingAdapter(
         val scoreText = if (item.score >= 0) "🎯 ${item.score}점" else "채점 없음"
         holder.sub.text = "$scoreText · ${dateFmt.format(Date(item.at))}"
         holder.play.setOnClickListener { onPlay(item) }
+        holder.share.setOnClickListener { onShare(item) }
         holder.delete.setOnClickListener { onDelete(item) }
         holder.itemView.setOnClickListener { onPlay(item) }
     }

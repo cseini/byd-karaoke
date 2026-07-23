@@ -57,6 +57,16 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("scoring", true)
         set(v) = prefs.edit().putBoolean("scoring", v).apply()
 
+    /** 목소리 명료도(0~100). 고음 강조로 먹먹함을 줄인다. */
+    var voiceClarity: Int
+        get() = prefs.getInt("voice_clarity", 45)
+        set(v) = prefs.edit().putInt("voice_clarity", v.coerceIn(0, 100)).apply()
+
+    /** 목소리 에코(0~100). 노래방 리버브 느낌. */
+    var voiceEcho: Int
+        get() = prefs.getInt("voice_echo", 20)
+        set(v) = prefs.edit().putInt("voice_echo", v.coerceIn(0, 100)).apply()
+
     /** 녹음 저장 위치: "internal"(차 내부) | "sd"(SD카드). */
     var storageMode: String
         get() = prefs.getString("storage_mode", "internal") ?: "internal"

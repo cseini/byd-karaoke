@@ -132,16 +132,30 @@ class MixRecorder(
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
             var readPos = (startPosMs + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
             val step = accompRate.toDouble() / rate
+            // 목소리 처리: 명료도(고음 강조 pre-emphasis) + 에코(리버브)
+            val clarity = settings.voiceClarity / 100.0 * 0.9
+            val echoDecay = settings.voiceEcho / 100.0 * 0.55
+            val echoLen = (rate * 130 / 1000).coerceAtLeast(1)   // ~130ms 지연
+            val echo = FloatArray(echoLen)
+            var echoIdx = 0
+            var prevX = 0.0
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
-                            val voice = buf[i].toInt()
+                            val x = buf[i].toDouble()
+                            var v = x + clarity * (x - prevX)    // 명료: 고음 강조
+                            prevX = x
+                            if (echoDecay > 0.0) {               // 에코
+                                v += echoDecay * echo[echoIdx]
+                                echo[echoIdx] = v.toFloat()
+                                echoIdx = (echoIdx + 1) % echoLen
+                            }
                             val ai = readPos.toInt()
                             val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
-                            var m = voice + (acc * 6 / 10)
+                            var m = v.toInt() + (acc * 6 / 10)
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
                             readPos += step
