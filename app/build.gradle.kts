@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 53
-        versionName = "3.23"
+        versionCode = 54
+        versionName = "3.24"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -116,6 +116,11 @@ dependencies {
 
     // 히스토리 타일 썸네일 로딩
     implementation("io.coil-kt:coil:2.6.0")
+
+    // 녹음 공유 — 차량엔 공유 대상 앱이 없어, 앱이 직접 작은 HTTP 서버를 띄우고
+    // QR(로컬 URL)을 보여주면 휴대폰이 같은 네트워크에서 브라우저로 내려받는다.
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("com.google.zxing:core:3.5.3")
 
     // 단위 테스트 (순수 Kotlin DSP·채점 검증 — 차 없이 실행)
     testImplementation("junit:junit:4.13.2")

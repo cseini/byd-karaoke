@@ -496,7 +496,26 @@ class PlaybackActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (recorder.isRecording) recorder.stop()
+        // 정지·완곡을 안 누르고 화면을 벗어나도, 부르던 녹음은 최근 목록에 남긴다(채점 없이 저장).
+        if (recorder.isRecording && recordStarted && !scored) {
+            scored = true
+            val file = recorder.stop()
+            if (file != null && file.exists()) {
+                recordings.add(
+                    RecordingItem(
+                        path = file.absolutePath,
+                        videoId = currentVideoId,
+                        title = songTitle.text.toString(),
+                        score = -1,
+                        at = System.currentTimeMillis(),
+                    )
+                )
+                val pruned = Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes)
+                if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
+            }
+        } else if (recorder.isRecording) {
+            recorder.stop()
+        }
         stopMediaPlayer()
         player.pause()   // 화면을 벗어나면 반주도 멈춤
     }

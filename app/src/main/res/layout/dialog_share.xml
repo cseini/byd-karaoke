@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@color/tj_bg"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📲 휴대폰으로 받기"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/tj_cyan" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp"
+        android:gravity="center"
+        android:textSize="13sp"
+        android:textColor="@color/tj_text_secondary"
+        android:text="휴대폰을 차량 핫스팟(또는 같은 WiFi)에 연결한 뒤\n아래 QR을 카메라로 찍으면 다운로드됩니다." />
+
+    <ImageView
+        android:id="@+id/share_qr"
+        android:layout_width="240dp"
+        android:layout_height="240dp"
+        android:background="#FFFFFF"
+        android:padding="8dp"
+        android:contentDescription="QR" />
+
+    <TextView
+        android:id="@+id/share_url"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="10dp"
+        android:textSize="13sp"
+        android:textColor="@color/tj_gold"
+        android:fontFamily="monospace"
+        android:textIsSelectable="true" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
+        android:gravity="center"
+        android:textSize="11sp"
+        android:textColor="@color/tj_text_hint"
+        android:text="QR이 안 되면 휴대폰 브라우저에 위 주소를 직접 입력하세요." />
+</LinearLayout>

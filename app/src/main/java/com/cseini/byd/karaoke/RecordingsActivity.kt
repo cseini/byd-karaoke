@@ -79,26 +79,55 @@ class RecordingsActivity : AppCompatActivity() {
         empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
     }
 
+    private var shareServer: com.cseini.byd.karaoke.share.FileShareServer? = null
+
+    /** 차량엔 공유 앱이 없으므로, 앱이 HTTP 서버를 띄우고 QR(로컬 URL)로 휴대폰이 직접 받게 한다. */
     private fun shareRecording(item: RecordingItem) {
         val src = java.io.File(item.path)
         if (!src.exists()) {
             android.widget.Toast.makeText(this, "파일이 없습니다", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
-        try {
-            val dir = java.io.File(cacheDir, "share").apply { mkdirs() }
-            val dst = java.io.File(dir, src.name)
-            src.copyTo(dst, overwrite = true)
-            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", dst)
-            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                type = "audio/x-wav"
-                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(android.content.Intent.createChooser(send, "녹음 공유"))
-        } catch (e: Exception) {
-            android.widget.Toast.makeText(this, "공유 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        val ip = com.cseini.byd.karaoke.share.localIpAddress()
+        if (ip == null) {
+            android.widget.Toast.makeText(
+                this, "네트워크에 연결돼 있지 않습니다. 차량 핫스팟을 켜거나 WiFi에 연결하세요.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
         }
+        stopShareServer()
+        try {
+            val server = com.cseini.byd.karaoke.share.FileShareServer(src)
+            server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+            shareServer = server
+            val url = "http://$ip:${server.listeningPort}/"
+            showShareDialog(url)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "공유 서버 시작 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showShareDialog(url: String) {
+        val view = layoutInflater.inflate(R.layout.dialog_share, null)
+        view.findViewById<android.widget.ImageView>(R.id.share_qr)
+            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
+        view.findViewById<TextView>(R.id.share_url).text = url
+        AlertDialog.Builder(this)
+            .setView(view)
+            .setPositiveButton("닫기", null)
+            .setOnDismissListener { stopShareServer() }   // 다이얼로그 닫으면 서버 종료
+            .show()
+    }
+
+    private fun stopShareServer() {
+        shareServer?.let { runCatching { it.stop() } }
+        shareServer = null
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stopShareServer()
     }
 
     private fun confirmDelete(item: RecordingItem) {
