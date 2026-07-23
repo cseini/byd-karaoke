@@ -28,8 +28,12 @@ import com.cseini.byd.karaoke.update.UpdateManager
 import com.cseini.byd.karaoke.voice.VoiceSearch
 import kotlinx.coroutines.launch
 
-/** 검색 홈. 타이핑/음성 검색 → 예약 또는 바로 부르기. */
+/** 검색 홈. 타이핑/음성 검색 → 바로 부르기. */
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val DEFAULT_HINT = "검색어를 입력하거나 음성 버튼을 누르세요."
+    }
 
     private lateinit var settings: SettingsStore
     private lateinit var recordings: RecordingStore
@@ -143,13 +147,17 @@ class MainActivity : AppCompatActivity() {
     // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        cancelAutoPlay()
         searchInput.setText("")
+        status.text = DEFAULT_HINT
         showHistory()
     }
 
     override fun onResume() {
         super.onResume()
         refreshHistory()
+        // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
+        if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         // 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출
         val voiceOn = settings.openaiApiKey.isNotBlank()
         findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
