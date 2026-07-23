@@ -47,6 +47,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("sync_offset_ms", 0)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
+    /** 녹음 품질(Hz). 낮을수록 용량↓·채점↑빠름. 22050(표준)/16000(절약)/11025(최소). */
+    var recordRateHz: Int
+        get() = prefs.getInt("record_rate", 22050)
+        set(v) = prefs.edit().putInt("record_rate", v).apply()
+
     /** 녹음 저장 위치: "internal"(차 내부) | "sd"(SD카드). */
     var storageMode: String
         get() = prefs.getString("storage_mode", "internal") ?: "internal"

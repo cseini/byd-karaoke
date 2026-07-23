@@ -32,11 +32,13 @@ class MixRecorder(
     private val settings: SettingsStore,
 ) {
     companion object {
-        private const val RATE = 22050          // 녹음·저장 레이트(용량 절반, 음성/피치엔 충분)
         private const val MAX_ACCOMP_RATE = 48000
         private const val MAX_SECONDS = 360
         private const val ACCOMP_ADVANCE_MS = 36 // 실측: 반주가 36ms 늦어 그만큼 당겨 보정
     }
+
+    // 녹음·저장 레이트(설정). 낮을수록 용량↓·채점↑빠름.
+    private val rate = settings.recordRateHz
 
     @Volatile private var recording = false
     private var worker: Thread? = null
@@ -103,11 +105,11 @@ class MixRecorder(
     @SuppressLint("MissingPermission")
     fun start(outFile: File, startPosMs: Long, onLevel: ((Float) -> Unit)? = null): String? {
         if (recording) return "이미 녹음 중"
-        val minBuf = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val minBuf = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
         val record = try {
             AudioRecord(
-                settings.micSourceConst(), RATE,
+                settings.micSourceConst(), rate,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf * 2
             )
         } catch (e: Exception) {
@@ -119,7 +121,7 @@ class MixRecorder(
         }
         if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
-        val writer = WavIo.Writer(outFile, RATE)
+        val writer = WavIo.Writer(outFile, rate)
         outputFile = outFile
         record.startRecording()
         recording = true
@@ -129,7 +131,7 @@ class MixRecorder(
             val out = ShortArray(minBuf)
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
             var readPos = (startPosMs + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
-            val step = accompRate.toDouble() / RATE
+            val step = accompRate.toDouble() / rate
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)

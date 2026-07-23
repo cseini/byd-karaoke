@@ -24,6 +24,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var geminiModelGroup: RadioGroup
     private lateinit var syncSeek: SeekBar
     private lateinit var syncLabel: TextView
+    private lateinit var rateGroup: RadioGroup
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -52,6 +53,15 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(sb: SeekBar) {}
         })
 
+        rateGroup = findViewById(R.id.rate_group)
+        rateGroup.check(
+            when (settings.recordRateHz) {
+                16000 -> R.id.rate_save
+                11025 -> R.id.rate_min
+                else -> R.id.rate_standard
+            }
+        )
+
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
         maxStorageInput = findViewById(R.id.max_storage_input)
@@ -75,6 +85,11 @@ class SettingsActivity : AppCompatActivity() {
         settings.openaiApiKey = openaiKey.text.toString()
         settings.geminiModel = if (geminiModelGroup.checkedRadioButtonId == R.id.gm_lite) "flash-lite" else "flash"
         settings.syncOffsetMs = syncSeek.progress - 300
+        settings.recordRateHz = when (rateGroup.checkedRadioButtonId) {
+            R.id.rate_save -> 16000
+            R.id.rate_min -> 11025
+            else -> 22050
+        }
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

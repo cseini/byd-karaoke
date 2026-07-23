@@ -142,6 +142,64 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="녹음 품질"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="2dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:paddingBottom="6dp"
+                android:text="낮을수록 용량이 줄고 채점이 빨라집니다(반주 음질은 조금 낮아짐)." />
+
+            <RadioGroup
+                android:id="@+id/rate_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/rate_standard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="표준\n22kHz" />
+
+                <RadioButton
+                    android:id="@+id/rate_save"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="절약\n16kHz" />
+
+                <RadioButton
+                    android:id="@+id/rate_min"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="최소\n11kHz" />
+            </RadioGroup>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="녹음 저장 위치"
                 android:textSize="16sp"
                 android:textStyle="bold"
