@@ -22,7 +22,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.audio.MixRecorder
-import com.cseini.byd.karaoke.audio.WavIo
 import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
@@ -278,8 +277,9 @@ class PlaybackActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.Default) {
                 runCatching {
-                    val wav = WavIo.read(file)
-                    ScoringEngine.score(wav.samples, wav.sampleRate)
+                    // 믹스가 아니라 목소리(마이크 원음)만 채점 — 반주로 인한 고득점 방지.
+                    val (samples, sr) = recorder.voiceForScoring()
+                    ScoringEngine.score(samples, sr)
                 }.getOrNull()
             }
             recordings.add(
@@ -298,6 +298,13 @@ class PlaybackActivity : AppCompatActivity() {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {
                 recStatus.text = "🎯 채점 완료 — 녹음함에서 다시 들을 수 있어요"
+                // 진단 로그(변별력 점검용): 발성비율이 높은데 안 불렀다면 반주 누출 의심.
+                android.util.Log.d(
+                    "KaraokeScore",
+                    "total=${result.total} voiced%=${result.voicedPct} f0=${result.medianF0.toInt()} " +
+                        "acc=${result.pitchAccuracy} stab=${result.pitchStability} beat=${result.beatConsistency} " +
+                        "vol=${result.volumeDynamics} vib=${result.vibratoReach}",
+                )
                 // 점수 항목만 표시(총점 줄·기술 설명·디버그 정보는 제외)
                 val detail = result.breakdown.lines()
                     .drop(1)

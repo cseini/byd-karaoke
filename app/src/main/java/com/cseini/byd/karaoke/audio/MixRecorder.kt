@@ -49,6 +49,10 @@ class MixRecorder(
     // 반주 PCM(모노, accompRate 기준)을 곡 시간순으로 저장. 재생 시작(onConfigure) 때 리셋/할당.
     private var accompBuffer = ShortArray(0)
     private val accompWrite = AtomicInteger(0)
+
+    // 채점용 목소리(마이크 원음, rate 기준). 믹스가 아니라 목소리만 채점해 반주로 인한 고득점을 막는다.
+    private var voiceBuffer = ShortArray(0)
+    @Volatile private var voiceWrite = 0
     @Volatile private var accompRate = 44100
     @Volatile private var accompCh = 2
     @Volatile private var accompPcm16 = true
@@ -121,6 +125,12 @@ class MixRecorder(
         }
         if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
+        // 채점용 목소리 버퍼 준비(rate 기준, 최대 MAX_SECONDS).
+        if (voiceBuffer.size != rate * MAX_SECONDS) {
+            voiceBuffer = runCatching { ShortArray(rate * MAX_SECONDS) }.getOrDefault(ShortArray(0))
+        }
+        voiceWrite = 0
+
         val writer = WavIo.Writer(outFile, rate)
         outputFile = outFile
         record.startRecording()
@@ -143,6 +153,15 @@ class MixRecorder(
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
+                        // 채점용 목소리 원음 저장(반주 섞기 전).
+                        if (voiceBuffer.isNotEmpty()) {
+                            val room = voiceBuffer.size - voiceWrite
+                            val cnt = if (n < room) n else room
+                            if (cnt > 0) {
+                                System.arraycopy(buf, 0, voiceBuffer, voiceWrite, cnt)
+                                voiceWrite += cnt
+                            }
+                        }
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
                             val x = buf[i].toDouble()
@@ -182,6 +201,13 @@ class MixRecorder(
         worker?.join(1500)
         worker = null
         return outputFile
+    }
+
+    /** 채점용 목소리(마이크 원음)를 정규화 float 로. rate 와 함께 반환. */
+    fun voiceForScoring(): Pair<FloatArray, Int> {
+        val nSamp = voiceWrite.coerceAtMost(voiceBuffer.size)
+        val out = FloatArray(nSamp) { voiceBuffer[it] / 32768f }
+        return out to rate
     }
 
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
