@@ -32,9 +32,10 @@ class MixRecorder(
     private val settings: SettingsStore,
 ) {
     companion object {
-        private const val RATE = 44100
+        private const val RATE = 22050          // 녹음·저장 레이트(용량 절반, 음성/피치엔 충분)
         private const val MAX_ACCOMP_RATE = 48000
         private const val MAX_SECONDS = 360
+        private const val ACCOMP_ADVANCE_MS = 36 // 실측: 반주가 36ms 늦어 그만큼 당겨 보정
     }
 
     @Volatile private var recording = false
@@ -126,8 +127,8 @@ class MixRecorder(
         worker = thread(name = "mix-recorder") {
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
-            // 녹음 시작 시점의 재생 위치에서 반주를 읽기 시작, 이후 연속 진행.
-            var readPos = startPosMs * accompRate / 1000.0
+            // 녹음 시작 시점의 재생 위치에서 반주를 읽기 시작(+실측 보정), 이후 연속 진행.
+            var readPos = (startPosMs + ACCOMP_ADVANCE_MS) * accompRate / 1000.0
             val step = accompRate.toDouble() / RATE
             try {
                 while (recording) {
