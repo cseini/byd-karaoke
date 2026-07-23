@@ -92,6 +92,52 @@
                 android:layout_marginBottom="18dp"
                 android:background="@color/tj_divider" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="다시듣기 싱크 보정"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="2dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:paddingBottom="6dp"
+                android:text="다시듣기에서 목소리가 느리면 왼쪽(−), 빠르면 오른쪽(+)으로. 조정 후 새로 녹음하면 적용됩니다." />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/sync_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="90dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_cyan"
+                    android:text="0 ms" />
+
+                <SeekBar
+                    android:id="@+id/sync_seek"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="600" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
 
             <TextView
                 android:layout_width="wrap_content"

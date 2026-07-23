@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -21,6 +22,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var settings: SettingsStore
     private lateinit var openaiKey: EditText
     private lateinit var geminiModelGroup: RadioGroup
+    private lateinit var syncSeek: SeekBar
+    private lateinit var syncLabel: TextView
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -39,6 +42,16 @@ class SettingsActivity : AppCompatActivity() {
         geminiModelGroup.check(if (settings.geminiModel == "flash-lite") R.id.gm_lite else R.id.gm_flash)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
 
+        syncSeek = findViewById(R.id.sync_seek)
+        syncLabel = findViewById(R.id.sync_label)
+        syncSeek.progress = (settings.syncOffsetMs + 300).coerceIn(0, 600)
+        updateSyncLabel()
+        syncSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) = updateSyncLabel()
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
+
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
         maxStorageInput = findViewById(R.id.max_storage_input)
@@ -53,9 +66,15 @@ class SettingsActivity : AppCompatActivity() {
         NavBar.wire(this, SettingsActivity::class.java)
     }
 
+    private fun updateSyncLabel() {
+        val v = syncSeek.progress - 300
+        syncLabel.text = "${if (v > 0) "+" else ""}$v ms"
+    }
+
     private fun save() {
         settings.openaiApiKey = openaiKey.text.toString()
         settings.geminiModel = if (geminiModelGroup.checkedRadioButtonId == R.id.gm_lite) "flash-lite" else "flash"
+        settings.syncOffsetMs = syncSeek.progress - 300
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

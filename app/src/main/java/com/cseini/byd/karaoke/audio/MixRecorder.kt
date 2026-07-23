@@ -127,8 +127,8 @@ class MixRecorder(
         worker = thread(name = "mix-recorder") {
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
-            // 녹음 시작 시점의 재생 위치에서 반주를 읽기 시작(+실측 보정), 이후 연속 진행.
-            var readPos = (startPosMs + ACCOMP_ADVANCE_MS) * accompRate / 1000.0
+            // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
+            var readPos = (startPosMs + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
             val step = accompRate.toDouble() / RATE
             try {
                 while (recording) {
