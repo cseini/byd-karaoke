@@ -43,7 +43,7 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
                    border-radius:10px;text-decoration:none;font-size:18px">⬇ 다운로드</a></p>
                 </body></html>
             """.trimIndent()
-            newFixedLengthResponse(Response.Status.OK, "text/html", html)
+            newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
         }
     }
 

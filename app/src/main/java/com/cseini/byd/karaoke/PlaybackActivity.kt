@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.cseini.byd.karaoke.audio.MixRecorder
 import com.cseini.byd.karaoke.audio.WavIo
 import com.cseini.byd.karaoke.data.QueueItem
+import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
@@ -77,6 +78,7 @@ class PlaybackActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
     private lateinit var recordings: RecordingStore
+    private lateinit var queue: QueueStore
     private lateinit var recorder: MixRecorder
     private lateinit var repo: YouTubeRepository
 
@@ -118,6 +120,7 @@ class PlaybackActivity : AppCompatActivity() {
 
         settings = SettingsStore(this)
         recordings = RecordingStore(this)
+        queue = QueueStore(this)
         recorder = MixRecorder(this, settings)
         repo = YouTubeRepository()
 
@@ -190,10 +193,12 @@ class PlaybackActivity : AppCompatActivity() {
 
         scoreOverlay.setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.score_retry).setOnClickListener { retry() }
+        findViewById<Button>(R.id.score_next).setOnClickListener { playNextReserved() }
         findViewById<Button>(R.id.score_close).setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
+        findViewById<Button>(R.id.btn_next_reserved).setOnClickListener { playNextReserved() }
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -287,6 +292,10 @@ class PlaybackActivity : AppCompatActivity() {
     // ── 노래방식 점수 연출 ─────────────────────────────────────────
 
     private fun showScoreOverlay(total: Int, detail: String) {
+        // 예약된 곡이 남아 있으면 '다음 예약곡' 버튼 노출
+        queue.reload()
+        findViewById<Button>(R.id.score_next).visibility =
+            if (queue.size() > 0) View.VISIBLE else View.GONE
         scoreDetail.text = detail
         scoreTotal.text = "0"
         scoreGrade.text = when {
@@ -457,6 +466,32 @@ class PlaybackActivity : AppCompatActivity() {
         player.load(currentVideoId)
     }
 
+    // 예약(폰 리모컨)곡이 부르는 도중에도 들어올 수 있어, 주기적으로 '다음 예약곡' 버튼 노출을 갱신.
+    private val queuePoll = object : Runnable {
+        override fun run() {
+            if (!replayOnly) {
+                queue.reload()
+                findViewById<Button>(R.id.btn_next_reserved).visibility =
+                    if (queue.size() > 0) View.VISIBLE else View.GONE
+            }
+            uiHandler.postDelayed(this, 2500)
+        }
+    }
+
+    /** 예약 대기열의 다음 곡을 꺼내 부른다. */
+    private fun playNextReserved() {
+        val next = queue.pollFirst()
+        if (next == null) { toast("예약된 곡이 없습니다"); return }
+        hideScoreOverlay()
+        stopMediaPlayer()
+        if (recorder.isRecording) recorder.stop()
+        replaying = false
+        currentVideoId = next.videoId
+        songTitle.text = next.title
+        resetForNewSong()
+        player.load(currentVideoId)
+    }
+
     /** 취소: 채점·저장 없이 녹음 파일을 버리고 검색 홈으로. */
     private fun cancelSong() {
         scored = true   // onStop 자동 저장 방지
@@ -511,8 +546,15 @@ class PlaybackActivity : AppCompatActivity() {
         mediaPlayer = null
     }
 
+    override fun onResume() {
+        super.onResume()
+        uiHandler.removeCallbacks(queuePoll)
+        uiHandler.post(queuePoll)
+    }
+
     override fun onStop() {
         super.onStop()
+        uiHandler.removeCallbacks(queuePoll)
         // 정지·완곡을 안 누르고 화면을 벗어나도, 부르던 녹음은 최근 목록에 남긴다(채점 없이 저장).
         if (recorder.isRecording && recordStarted && !scored) {
             scored = true
@@ -541,6 +583,7 @@ class PlaybackActivity : AppCompatActivity() {
         if (recorder.isRecording) recorder.stop()
         stopMediaPlayer()
         uiHandler.removeCallbacks(replayTicker)
+        uiHandler.removeCallbacks(queuePoll)
         player.release()
         super.onDestroy()
     }

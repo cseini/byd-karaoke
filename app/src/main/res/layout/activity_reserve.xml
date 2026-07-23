@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/tj_bg"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📱 폰으로 예약"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/tj_pink"
+            android:shadowColor="@color/tj_pink_dark"
+            android:shadowRadius="12" />
+
+        <Button
+            android:id="@+id/btn_back"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="닫기" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/divider_gradient" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingTop="10dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:text="휴대폰 핫스팟에 차와 승객 폰을 모두 연결한 뒤\n서버를 켜고 QR을 스캔하면 폰에서 예약할 수 있어요." />
+
+                <Button
+                    android:id="@+id/btn_toggle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:backgroundTint="@color/tj_green"
+                    android:textColor="@color/tj_bg_deep"
+                    android:text="예약 서버 켜기" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/server_box"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingTop="12dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/reserve_qr"
+                    android:layout_width="200dp"
+                    android:layout_height="200dp"
+                    android:background="#FFFFFF"
+                    android:padding="8dp"
+                    android:contentDescription="QR" />
+
+                <TextView
+                    android:id="@+id/reserve_url"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
+                    android:textSize="14sp"
+                    android:textColor="@color/tj_gold"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="🎫 예약된 곡"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan" />
+
+            <TextView
+                android:id="@+id/queue_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp"
+                android:textSize="13sp"
+                android:textColor="@color/tj_text_secondary"
+                android:text="아직 예약된 곡이 없어요." />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/queue_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="6dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <include layout="@layout/include_navbar" />
+</LinearLayout>

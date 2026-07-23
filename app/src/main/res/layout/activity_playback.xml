@@ -115,6 +115,16 @@
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
                     android:text="취소" />
+
+                <Button
+                    android:id="@+id/btn_next_reserved"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/tj_pink"
+                    android:text="다음 예약곡 ▶" />
             </LinearLayout>
         </LinearLayout>
 
@@ -192,6 +202,15 @@
                     android:layout_height="wrap_content"
                     app:backgroundTint="@color/tj_orange"
                     android:text="다시 부르기" />
+
+                <Button
+                    android:id="@+id/score_next"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/tj_pink"
+                    android:text="다음 예약곡 ▶" />
 
                 <Button
                     android:id="@+id/score_close"

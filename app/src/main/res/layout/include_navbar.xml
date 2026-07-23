@@ -18,6 +18,16 @@
         android:text="🔍\n검색" />
 
     <Button
+        android:id="@+id/nav_reserve"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="13sp"
+        android:textColor="@color/tj_text_secondary"
+        android:text="📱\n예약" />
+
+    <Button
         android:id="@+id/nav_recordings"
         style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="0dp"

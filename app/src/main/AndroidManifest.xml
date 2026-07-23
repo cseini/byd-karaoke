@@ -58,6 +58,11 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
+            android:name=".ReserveActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <activity
             android:name=".LoginActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
