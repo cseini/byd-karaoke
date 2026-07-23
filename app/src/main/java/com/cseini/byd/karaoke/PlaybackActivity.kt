@@ -276,6 +276,22 @@ class PlaybackActivity : AppCompatActivity() {
             recStatus.text = "녹음 파일이 없어 채점을 건너뜁니다."
             return
         }
+        if (!settings.scoringEnabled) {
+            // 채점 끔 — 즉시 녹음만 저장.
+            recordings.add(
+                RecordingItem(
+                    path = file.absolutePath,
+                    videoId = currentVideoId,
+                    title = songTitle.text.toString(),
+                    score = -1,
+                    at = System.currentTimeMillis(),
+                )
+            )
+            val pruned = Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes)
+            if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
+            recStatus.text = "🎵 녹음 저장됨 — 녹음함에서 들을 수 있어요"
+            return
+        }
         recStatus.text = "채점 중…"
         lifecycleScope.launch {
             val result = withContext(Dispatchers.Default) {

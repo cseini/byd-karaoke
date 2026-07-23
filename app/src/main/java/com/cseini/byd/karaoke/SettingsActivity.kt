@@ -25,6 +25,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var syncSeek: SeekBar
     private lateinit var syncLabel: TextView
     private lateinit var rateGroup: RadioGroup
+    private lateinit var scoringCheck: CheckBox
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -61,6 +62,8 @@ class SettingsActivity : AppCompatActivity() {
                 else -> R.id.rate_standard
             }
         )
+        scoringCheck = findViewById(R.id.chk_scoring)
+        scoringCheck.isChecked = settings.scoringEnabled
 
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
@@ -90,6 +93,7 @@ class SettingsActivity : AppCompatActivity() {
             R.id.rate_min -> 11025
             else -> 22050
         }
+        settings.scoringEnabled = scoringCheck.isChecked
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

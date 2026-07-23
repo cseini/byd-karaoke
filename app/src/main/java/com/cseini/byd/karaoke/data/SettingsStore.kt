@@ -52,6 +52,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("record_rate", 22050)
         set(v) = prefs.edit().putInt("record_rate", v).apply()
 
+    /** 채점 사용. 끄면 녹음만 즉시 저장(채점 계산 생략). */
+    var scoringEnabled: Boolean
+        get() = prefs.getBoolean("scoring", true)
+        set(v) = prefs.edit().putBoolean("scoring", v).apply()
+
     /** 녹음 저장 위치: "internal"(차 내부) | "sd"(SD카드). */
     var storageMode: String
         get() = prefs.getString("storage_mode", "internal") ?: "internal"

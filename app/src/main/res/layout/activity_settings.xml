@@ -190,6 +190,14 @@
                     android:text="최소\n11kHz" />
             </RadioGroup>
 
+            <CheckBox
+                android:id="@+id/chk_scoring"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/tj_text_primary"
+                android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
