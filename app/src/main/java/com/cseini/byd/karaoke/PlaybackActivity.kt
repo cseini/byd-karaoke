@@ -193,6 +193,7 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.score_close).setOnClickListener { goToSearch() }
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
+        findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -454,6 +455,17 @@ class PlaybackActivity : AppCompatActivity() {
         replaying = false
         resetForNewSong()
         player.load(currentVideoId)
+    }
+
+    /** 취소: 채점·저장 없이 녹음 파일을 버리고 검색 홈으로. */
+    private fun cancelSong() {
+        scored = true   // onStop 자동 저장 방지
+        val file = if (recorder.isRecording) recorder.stop() else lastRecording
+        file?.let { runCatching { it.delete() } }
+        lastRecording = null
+        stopMediaPlayer()
+        player.pause()
+        goToSearch()
     }
 
     // 재생 불가(임베드 차단 등) 영상이면 같은 검색의 다음 후보로 자동으로 넘어간다.
