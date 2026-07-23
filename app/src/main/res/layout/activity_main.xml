@@ -141,23 +141,93 @@
     <include layout="@layout/include_navbar" />
 </LinearLayout>
 
-    <!-- 음성 검색 후 자동재생 카운트다운 오버레이 (화면 탭하면 취소) -->
+    <!-- 음성 검색 후 자동재생 카운트다운 오버레이: 좌=다시 검색 / 우=취소 -->
     <FrameLayout
         android:id="@+id/autoplay_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#E6050510"
-        android:clickable="true"
-        android:focusable="true"
         android:visibility="gone">
 
+        <!-- 두 개의 큰 탭 영역 -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/autoplay_left"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="#1A00E5FF">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎙"
+                    android:textSize="60sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="10dp"
+                    android:text="다시 검색"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="2dp"
+                android:layout_height="match_parent"
+                android:background="#33FFFFFF" />
+
+            <LinearLayout
+                android:id="@+id/autoplay_right"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="#1AFF3B30">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✕"
+                    android:textSize="60sp"
+                    android:textColor="@color/tj_red" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="10dp"
+                    android:text="취소"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_red" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 상단 중앙: 곡 제목 + 카운트 (탭은 아래 영역으로 통과) -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_gravity="top|center_horizontal"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="24dp">
+            android:paddingTop="24dp"
+            android:paddingHorizontal="24dp"
+            android:duplicateParentState="false"
+            android:clickable="false"
+            android:focusable="false">
 
             <TextView
                 android:id="@+id/autoplay_title"
@@ -165,7 +235,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="곡 제목"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_text_primary"
                 android:maxLines="2"
@@ -175,29 +245,20 @@
                 android:id="@+id/autoplay_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="8dp"
-                android:text="3"
-                android:textSize="150sp"
+                android:paddingTop="4dp"
+                android:text="5"
+                android:textSize="120sp"
                 android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:shadowColor="@color/tj_cyan"
+                android:textColor="@color/tj_gold"
+                android:shadowColor="@color/tj_gold_deep"
                 android:shadowRadius="24" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="12dp"
                 android:text="곧 자동으로 재생됩니다"
-                android:textSize="17sp"
-                android:textColor="@color/tj_cyan" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingTop="20dp"
-                android:text="🎙 화면을 탭하면 취소하고 다시 말할 수 있어요"
-                android:textSize="15sp"
-                android:textColor="@color/tj_cyan" />
+                android:textSize="16sp"
+                android:textColor="@color/tj_text_secondary" />
         </LinearLayout>
     </FrameLayout>
 

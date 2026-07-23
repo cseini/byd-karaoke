@@ -57,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var autoplayOverlay: View
     private lateinit var autoplayTitle: TextView
     private lateinit var autoplayCount: TextView
+    private lateinit var autoplayLeft: View
+    private lateinit var autoplayRight: View
     private var lastResults: List<QueueItem> = emptyList()
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -91,11 +93,11 @@ class MainActivity : AppCompatActivity() {
         autoplayOverlay = findViewById(R.id.autoplay_overlay)
         autoplayTitle = findViewById(R.id.autoplay_title)
         autoplayCount = findViewById(R.id.autoplay_count)
-        // 카운트다운 화면을 탭하면 자동재생을 취소하고 곧바로 다시 음성검색 대기로 들어간다.
-        autoplayOverlay.setOnClickListener {
-            cancelAutoPlay()
-            startVoice()
-        }
+        autoplayLeft = findViewById(R.id.autoplay_left)
+        autoplayRight = findViewById(R.id.autoplay_right)
+        // 좌측 = 취소하고 다시 음성검색 / 우측 = 취소만
+        autoplayLeft.setOnClickListener { cancelAutoPlay(); startVoice() }
+        autoplayRight.setOnClickListener { cancelAutoPlay(); status.text = "자동 재생을 취소했습니다." }
         voiceOverlay.setOnClickListener { hideVoiceOverlay() }
 
         results = findViewById(R.id.results)
@@ -217,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         autoplayTitle.text = item.title
         autoplayOverlay.visibility = View.VISIBLE
         val r = object : Runnable {
-            var n = 3
+            var n = 5
             override fun run() {
                 if (n <= 0) {
                     autoPlayRunnable = null
