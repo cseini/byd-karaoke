@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
@@ -60,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var autoPlayRunnable: Runnable? = null
+    private var lastVolKeyCode = 0               // 볼륨 버튼 따닥(더블프레스) 감지용
+    private var lastVolKeyTime = 0L
     private val adapter = ResultAdapter(
         onPlayNow = { playFromResults(it) },
     )
@@ -342,6 +346,42 @@ class MainActivity : AppCompatActivity() {
                 != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
         if (needed.isNotEmpty()) ActivityCompat.requestPermissions(this, needed.toTypedArray(), 1)
+    }
+
+    /**
+     * 물리(블루투스) 마이크 버튼으로 음성검색 진입.
+     * - 볼륨 ±: 0.5초 안에 두 번 누르면(따닥) 음성검색. 볼륨 조절은 그대로 되도록 가로채지 않는다.
+     * - 마이크 버튼이 미디어키/헤드셋훅을 보내면 그 즉시 음성검색(소비).
+     * 어떤 키를 보내는지는 기기마다 달라, 반응하는 버튼을 확인해 확정한다.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    val now = SystemClock.elapsedRealtime()
+                    if (event.keyCode == lastVolKeyCode && now - lastVolKeyTime in 1..500) {
+                        lastVolKeyTime = 0L
+                        hardwareVoiceTrigger()
+                    } else {
+                        lastVolKeyCode = event.keyCode; lastVolKeyTime = now
+                    }
+                    // 소비하지 않음 → 볼륨은 정상 동작
+                }
+                KeyEvent.KEYCODE_HEADSETHOOK,
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_VOICE_ASSIST -> {
+                    if (settings.openaiApiKey.isNotBlank()) { hardwareVoiceTrigger(); return true }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun hardwareVoiceTrigger() {
+        if (settings.openaiApiKey.isBlank()) return
+        cancelAutoPlay()
+        startVoice()
     }
 
     override fun onPause() {
