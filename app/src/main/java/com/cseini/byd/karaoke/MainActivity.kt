@@ -151,6 +151,7 @@ class MainActivity : AppCompatActivity() {
 
     /** 같은 곡은 가장 최근 것만, 최신순으로 히스토리 타일에 노출. */
     private fun refreshHistory() {
+        recordings.reload()   // 재생 화면에서 방금 저장된 녹음까지 반영
         val recent = recordings.all().distinctBy { it.videoId }
         historyAdapter.submit(recent)
         historyEmpty.visibility = if (recent.isEmpty()) View.VISIBLE else View.GONE

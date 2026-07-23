@@ -73,6 +73,7 @@ class RecordingsActivity : AppCompatActivity() {
     }
 
     private fun refresh() {
+        store.reload()
         val items = store.all()
         adapter.submit(items)   // 선택 상태 초기화 포함
         updateSelectionBar(0)

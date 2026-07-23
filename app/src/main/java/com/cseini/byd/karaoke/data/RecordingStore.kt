@@ -22,6 +22,12 @@ class RecordingStore(context: Context) {
     private val items = ArrayList<RecordingItem>()
 
     init {
+        reload()
+    }
+
+    /** SharedPreferences 에서 최신 목록을 다시 읽어온다(다른 화면에서 추가된 녹음 반영). */
+    fun reload() {
+        items.clear()
         prefs.getString("recordings", null)?.let { json ->
             val type = object : TypeToken<List<RecordingItem>>() {}.type
             runCatching { gson.fromJson<List<RecordingItem>>(json, type) }
