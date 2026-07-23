@@ -18,10 +18,9 @@
         android:gravity="center_vertical">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🎤 노래방"
+            android:text="🎤 BYD YT노래방"
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="@color/tj_pink"
@@ -29,14 +28,6 @@
             android:shadowRadius="16"
             android:shadowDx="0"
             android:shadowDy="0" />
-
-        <Button
-            android:id="@+id/btn_diag"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="진단" />
     </LinearLayout>
 
     <View

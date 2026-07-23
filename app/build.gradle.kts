@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 50
-        versionName = "3.20"
+        versionCode = 51
+        versionName = "3.21"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -96,9 +96,6 @@ dependencies {
 
     // 코루틴 (검색 네트워크)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // 재생 방식 A — 유튜브 IFrame(공식 임베드). 임베드 허용 영상만 재생.
-    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
 
     // 재생 방식 B — 유튜브 스트림 추출(NewPipe) → 네이티브 ExoPlayer 재생. 광고·로그인 없음.
     implementation("androidx.media3:media3-exoplayer:1.10.0")

@@ -66,13 +66,6 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
-        <activity
-            android:name=".DiagnosticsActivity"
-            android:exported="false"
-            android:hardwareAccelerated="true"
-            android:keepScreenOn="true"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
-
         <!-- 차량 런처(Kinex 등) 미디어 위젯 노출용 미디어 브라우저/세션 서비스 -->
         <service
             android:name=".media.KaraokeMediaService"

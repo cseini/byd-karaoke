@@ -90,9 +90,6 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_search).setOnClickListener { doSearch() }
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
-        findViewById<Button>(R.id.btn_diag).setOnClickListener {
-            startActivity(Intent(this, DiagnosticsActivity::class.java))
-        }
         NavBar.wire(this, MainActivity::class.java)
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
