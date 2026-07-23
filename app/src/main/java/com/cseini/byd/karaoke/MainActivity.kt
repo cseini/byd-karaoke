@@ -49,6 +49,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceText: TextView
     private lateinit var voiceSub: TextView
     private lateinit var autoplayCheck: CheckBox
+    private lateinit var autoplayOverlay: View
+    private lateinit var autoplayTitle: TextView
+    private lateinit var autoplayCount: TextView
     private var lastResults: List<QueueItem> = emptyList()
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -80,6 +83,10 @@ class MainActivity : AppCompatActivity() {
         autoplayCheck = findViewById(R.id.chk_autoplay)
         autoplayCheck.isChecked = settings.autoPlayVoiceFirst
         autoplayCheck.setOnCheckedChangeListener { _, checked -> settings.autoPlayVoiceFirst = checked }
+        autoplayOverlay = findViewById(R.id.autoplay_overlay)
+        autoplayTitle = findViewById(R.id.autoplay_title)
+        autoplayCount = findViewById(R.id.autoplay_count)
+        autoplayOverlay.setOnClickListener { cancelAutoPlay(); status.text = "자동 재생을 취소했습니다." }
         voiceOverlay.setOnClickListener { hideVoiceOverlay() }
 
         results = findViewById(R.id.results)
@@ -191,18 +198,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 음성 검색 결과 첫 곡을 3초 카운트 후 자동 재생. 그 사이 다른 조작을 하면 취소. */
+    /** 음성 검색 결과 첫 곡을 3초 카운트 후 자동 재생. 화면을 탭하거나 다른 조작을 하면 취소. */
     private fun startAutoPlayCountdown(item: QueueItem) {
         cancelAutoPlay()
+        autoplayTitle.text = item.title
+        autoplayOverlay.visibility = View.VISIBLE
         val r = object : Runnable {
             var n = 3
             override fun run() {
                 if (n <= 0) {
                     autoPlayRunnable = null
+                    hideAutoplayOverlay()
                     playFromResults(item)
                     return
                 }
-                status.text = "🎤 ${n}초 후 '${item.title}' 자동 재생… (다른 곡을 누르면 취소)"
+                autoplayCount.text = "$n"
+                pulseAutoplayCount()
                 n--
                 autoPlayHandler.postDelayed(this, 1000)
             }
@@ -211,10 +222,21 @@ class MainActivity : AppCompatActivity() {
         autoPlayHandler.post(r)
     }
 
+    private fun pulseAutoplayCount() {
+        autoplayCount.scaleX = 1.4f; autoplayCount.scaleY = 1.4f
+        autoplayCount.animate().scaleX(1f).scaleY(1f).setDuration(400).start()
+    }
+
+    private fun hideAutoplayOverlay() {
+        autoplayCount.animate().cancel()
+        autoplayOverlay.visibility = View.GONE
+    }
+
     private fun cancelAutoPlay() {
         autoPlayRunnable?.let { autoPlayHandler.removeCallbacks(it) }
         autoPlayRunnable = null
         pendingAutoPlay = false
+        if (::autoplayOverlay.isInitialized) hideAutoplayOverlay()
     }
 
     private fun startVoice() {
