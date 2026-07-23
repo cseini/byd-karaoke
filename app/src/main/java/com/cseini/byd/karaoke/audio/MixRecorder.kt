@@ -19,13 +19,12 @@ import kotlin.concurrent.thread
 
 /**
  * 반주(ExoPlayer 오디오)와 마이크 목소리를 한 트랙으로 합성 녹음한다.
- * → 다시듣기는 이 파일 하나만 재생하므로 싱크가 어긋날 수 없다.
  *
- * 핵심: 반주 PCM 을 곡 시간순으로 담아두고, 마이크 녹음의 매 블록마다 ExoPlayer 의
- * 실제 재생 위치를 읽어 그 위치의 반주와 합친다. 재생 타이밍/버퍼 지터와 무관하게 정렬된다.
+ * 핵심: 반주 PCM 을 재생 시작(곡 0초)부터 시간순으로 담고(accompBuffer[k] = 곡 k/rate 초),
+ * 녹음은 시작 시점의 재생 위치(startPosMs)에서 반주를 읽기 시작해 마이크와 함께 순차 진행한다.
+ * ExoPlayer 의 디코딩 앞섬(버퍼)과 무관하게 정확히 정렬된다.
  *
- * 오디오 콜백(queueInput)에서는 모노 변환만 하고(할당·리샘플 없음, 언더런 방지),
- * 리샘플은 믹스 시 인덱스 계산으로 처리한다.
+ * 오디오 콜백(queueInput)에서는 모노 변환만 한다(언더런 방지, 리샘플은 믹스 시 인덱스로).
  */
 @UnstableApi
 class MixRecorder(
@@ -33,9 +32,9 @@ class MixRecorder(
     private val settings: SettingsStore,
 ) {
     companion object {
-        private const val RATE = 44100          // 녹음(마이크)·저장 WAV 레이트
+        private const val RATE = 44100
         private const val MAX_ACCOMP_RATE = 48000
-        private const val MAX_SECONDS = 360     // 곡당 최대 6분치 반주
+        private const val MAX_SECONDS = 360
     }
 
     @Volatile private var recording = false
@@ -44,38 +43,38 @@ class MixRecorder(
         private set
     val isRecording: Boolean get() = recording
 
-    // 반주 PCM(모노, accompRate 기준)을 곡 시간순으로 저장. 녹음 시작 때 할당.
+    // 반주 PCM(모노, accompRate 기준)을 곡 시간순으로 저장. 재생 시작(onConfigure) 때 리셋/할당.
     private var accompBuffer = ShortArray(0)
     private val accompWrite = AtomicInteger(0)
     @Volatile private var accompRate = 44100
     @Volatile private var accompCh = 2
     @Volatile private var accompPcm16 = true
 
-    /** 현재 재생 위치(ms) 제공자 — 반주를 이 위치에 맞춰 믹스한다. */
-    var positionProvider: (() -> Long)? = null
-
-    /** ExoPlayer 오디오 체인에 넣어 반주 PCM 을 담는다(패스스루). 콜백은 가볍게. */
+    /** ExoPlayer 오디오 체인에 넣어 반주 PCM 을 재생 시작부터 담는다(패스스루). */
     val accompProcessor: AudioProcessor = object : BaseAudioProcessor() {
         override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
             accompRate = inputAudioFormat.sampleRate
             accompCh = if (inputAudioFormat.channelCount > 0) inputAudioFormat.channelCount else 2
             accompPcm16 = inputAudioFormat.encoding == C.ENCODING_PCM_16BIT
+            // 새 재생 시작 → 반주 버퍼 리셋(곡 0초부터 다시 담는다).
+            accompWrite.set(0)
+            if (accompBuffer.size != MAX_ACCOMP_RATE * MAX_SECONDS) {
+                accompBuffer = runCatching { ShortArray(MAX_ACCOMP_RATE * MAX_SECONDS) }.getOrDefault(ShortArray(0))
+            }
             return inputAudioFormat
         }
 
         override fun queueInput(inputBuffer: ByteBuffer) {
             val remaining = inputBuffer.remaining()
             if (remaining == 0) return
-            if (recording && accompBuffer.isNotEmpty()) {
-                appendAccomp(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
-            }
+            if (accompBuffer.isNotEmpty()) appendAccomp(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
             val out = replaceOutputBuffer(remaining)
             out.put(inputBuffer)
             out.flip()
         }
     }
 
-    /** 오디오 콜백: 모노 변환만 하고 accompRate 그대로 저장(할당·리샘플 없음). 16bit·float 모두 처리. */
+    /** 오디오 콜백: 모노 변환만(할당·리샘플 없음). 16bit·float 모두 처리. */
     private fun appendAccomp(bb: ByteBuffer) {
         var w = accompWrite.get()
         val ch = accompCh
@@ -88,7 +87,6 @@ class MixRecorder(
                 buf[w++] = (sum / ch).toShort()
             }
         } else {
-            // ENCODING_PCM_FLOAT — float(4byte) → 16bit 변환
             while (bb.remaining() >= 4 * ch && w < size) {
                 var sum = 0f
                 for (c in 0 until ch) sum += bb.float
@@ -100,8 +98,9 @@ class MixRecorder(
         accompWrite.set(w)
     }
 
+    /** startPosMs = 녹음 시작 시점의 재생 위치(ms). 여기서부터 반주를 읽는다. */
     @SuppressLint("MissingPermission")
-    fun start(outFile: File, onLevel: ((Float) -> Unit)? = null): String? {
+    fun start(outFile: File, startPosMs: Long, onLevel: ((Float) -> Unit)? = null): String? {
         if (recording) return "이미 녹음 중"
         val minBuf = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
@@ -119,13 +118,6 @@ class MixRecorder(
         }
         if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
-        if (accompBuffer.size != MAX_ACCOMP_RATE * MAX_SECONDS) {
-            accompBuffer = runCatching { ShortArray(MAX_ACCOMP_RATE * MAX_SECONDS) }.getOrElse {
-                record.release()
-                return "메모리 부족으로 녹음을 시작할 수 없습니다"
-            }
-        }
-        accompWrite.set(0)
         val writer = WavIo.Writer(outFile, RATE)
         outputFile = outFile
         record.startRecording()
@@ -134,18 +126,13 @@ class MixRecorder(
         worker = thread(name = "mix-recorder") {
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
-            // 시작점만 재생 위치로 정렬하고, 이후엔 반주를 연속으로 읽는다(끊김 방지).
-            var readPos = -1.0
-            var step = 1.0   // 마이크 1샘플당 반주 진행(accompRate/RATE)
+            // 녹음 시작 시점의 재생 위치에서 반주를 읽기 시작, 이후 연속 진행.
+            var readPos = startPosMs * accompRate / 1000.0
+            val step = accompRate.toDouble() / RATE
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
                     if (n > 0) {
-                        if (readPos < 0) {
-                            // 녹음 시작 = 재생 시작(곡 0). 반주도 0부터 순차로 읽는다.
-                            step = accompRate.toDouble() / RATE
-                            readPos = 0.0
-                        }
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
                             val voice = buf[i].toInt()
@@ -180,7 +167,6 @@ class MixRecorder(
         return outputFile
     }
 
-    /** 진단: 반주가 실제로 담겼는지 확인용. */
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
 
     private fun findUsbInput(): AudioDeviceInfo? =

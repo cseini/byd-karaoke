@@ -183,7 +183,6 @@ class PlaybackActivity : AppCompatActivity() {
         })
 
         player = StreamPlayer(this, container, lifecycleScope, callbacks, recorder.accompProcessor)
-        recorder.positionProvider = { player.currentPositionMs() }
         if (replayOnly) startReplay() else player.load(currentVideoId)
 
         scoreOverlay.setOnClickListener { goToSearch() }
@@ -257,7 +256,8 @@ class PlaybackActivity : AppCompatActivity() {
             .replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
         val file = File(dir, "${safeTitle}_${ts}.wav")
-        val err = recorder.start(file) { db ->
+        val startPos = player.currentPositionMs()   // 녹음 시작 시점의 재생 위치
+        val err = recorder.start(file, startPos) { db ->
             runOnUiThread { if (recorder.isRecording) recStatus.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
         if (err != null) {
