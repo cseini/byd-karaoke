@@ -101,11 +101,10 @@ class PlaybackActivity : AppCompatActivity() {
     private lateinit var scoreGrade: TextView
     private lateinit var scoreDetail: TextView
     private lateinit var scoreNextInfo: TextView
-    private lateinit var reserveQueuePanel: View
-    private lateinit var queuePanelEmpty: TextView
+    private lateinit var queueSide: View
     private val queueAdapter = ReserveQueueAdapter(
         onPlay = { playReserved(it) },
-        onDelete = { queue.removeByVideoId(it.videoId); refreshQueuePanel() },
+        onDelete = { queue.removeByVideoId(it.videoId); refreshQueueSide() },
     )
     private var scoreCountdownRunnable: Runnable? = null
 
@@ -143,14 +142,10 @@ class PlaybackActivity : AppCompatActivity() {
         scoreGrade = findViewById(R.id.score_grade)
         scoreDetail = findViewById(R.id.score_detail)
         scoreNextInfo = findViewById(R.id.score_next_info)
-        reserveQueuePanel = findViewById(R.id.reserve_queue_panel)
-        queuePanelEmpty = findViewById(R.id.queue_panel_empty)
-        findViewById<RecyclerView>(R.id.queue_panel_list).apply {
+        queueSide = findViewById(R.id.queue_side)
+        findViewById<RecyclerView>(R.id.queue_side_list).apply {
             layoutManager = LinearLayoutManager(this@PlaybackActivity)
             adapter = queueAdapter
-        }
-        findViewById<Button>(R.id.btn_queue_close).setOnClickListener {
-            reserveQueuePanel.visibility = View.GONE
         }
 
         currentVideoId = intent.getStringExtra("videoId").orEmpty()
@@ -220,7 +215,6 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
-        findViewById<Button>(R.id.btn_next_reserved).setOnClickListener { openQueuePanel() }
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -496,36 +490,26 @@ class PlaybackActivity : AppCompatActivity() {
         player.load(currentVideoId)
     }
 
-    // 예약(폰 리모컨)곡이 부르는 도중에도 들어올 수 있어, 주기적으로 예약목록 버튼·패널을 갱신.
+    // 예약(폰 리모컨)곡이 부르는 도중에도 들어올 수 있어, 주기적으로 옆 예약 목록을 갱신.
     private val queuePoll = object : Runnable {
         override fun run() {
-            if (!replayOnly) {
-                queue.reload()
-                findViewById<Button>(R.id.btn_next_reserved).visibility =
-                    if (queue.size() > 0) View.VISIBLE else View.GONE
-                if (reserveQueuePanel.visibility == View.VISIBLE) refreshQueuePanel()
-            }
+            if (!replayOnly) refreshQueueSide()
             uiHandler.postDelayed(this, 2500)
         }
     }
 
-    private fun openQueuePanel() {
-        cancelScoreCountdown()   // 목록을 열어 직접 고르면 자동 넘김 취소
-        refreshQueuePanel()
-        reserveQueuePanel.visibility = View.VISIBLE
-    }
-
-    private fun refreshQueuePanel() {
+    /** 플레이어 옆 상시 예약 목록 갱신(예약 있을 때만 노출). */
+    private fun refreshQueueSide() {
+        if (replayOnly) { queueSide.visibility = View.GONE; return }
         queue.reload()
         val items = queue.all()
         queueAdapter.submit(items)
-        queuePanelEmpty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+        queueSide.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
     }
 
     /** 예약 목록에서 특정 곡을 골라 바로 부른다. */
     private fun playReserved(item: QueueItem) {
         queue.removeByVideoId(item.videoId)
-        reserveQueuePanel.visibility = View.GONE
         loadNewSong(item.videoId, item.title)
     }
 
@@ -690,21 +674,19 @@ private class ReserveQueueAdapter(
     }
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
-        val num: TextView = v.findViewById(R.id.q_num)
         val title: TextView = v.findViewById(R.id.q_title)
         val play: Button = v.findViewById(R.id.q_play)
         val delete: Button = v.findViewById(R.id.q_delete)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-        VH(LayoutInflater.from(parent.context).inflate(R.layout.item_queue_reserve, parent, false))
+        VH(LayoutInflater.from(parent.context).inflate(R.layout.item_queue_side, parent, false))
 
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
-        holder.num.text = "${position + 1}"
-        holder.title.text = item.title
+        holder.title.text = "${position + 1}. ${item.title}"
         holder.play.setOnClickListener { onPlay(item) }
         holder.delete.setOnClickListener { onDelete(item) }
     }
