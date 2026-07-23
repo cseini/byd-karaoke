@@ -51,21 +51,37 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
         s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 }
 
-/** 현재 붙어 있는 네트워크의 사설 IPv4(핫스팟/WiFi)를 찾는다. 없으면 null. */
+/**
+ * 휴대폰이 접근할 수 있는 WiFi/핫스팟 IPv4 를 찾는다.
+ * 차량은 셀룰러(데이터망) 인터페이스도 있고 그 IP 도 10.x 사설망이라, 단순히 사설망을
+ * 먼저 고르면 폰이 닿지 못하는 셀룰러 IP(예: 10.229.x)가 잡힌다. 그래서 인터페이스
+ * 이름으로 WiFi(wlan/ap)를 우선하고 셀룰러(rmnet 등)는 배제한다.
+ */
 fun localIpAddress(): String? {
-    val candidates = ArrayList<String>()
+    var best: String? = null
+    var bestScore = -1
     runCatching {
         for (ni in NetworkInterface.getNetworkInterfaces()) {
             if (!ni.isUp || ni.isLoopback) continue
+            val name = ni.name.lowercase()
+            val isWifi = name.startsWith("wlan") || name.startsWith("ap") ||
+                name.startsWith("swlan") || name.contains("wifi") || name.startsWith("p2p")
+            val isCellular = name.startsWith("rmnet") || name.startsWith("rev_rmnet") ||
+                name.startsWith("ccmni") || name.startsWith("pdp") || name.startsWith("clat")
             for (addr in ni.inetAddresses) {
                 if (addr.isLoopbackAddress || addr !is Inet4Address) continue
                 val ip = addr.hostAddress ?: continue
-                if (addr.isSiteLocalAddress) return ip   // 192.168.* / 10.* / 172.16-31.*
-                candidates.add(ip)
+                val score = when {
+                    isWifi -> 4
+                    isCellular -> 0
+                    addr.isSiteLocalAddress -> 2
+                    else -> 1
+                }
+                if (score > bestScore) { bestScore = score; best = ip }
             }
         }
     }
-    return candidates.firstOrNull()
+    return best
 }
 
 /** 문자열을 QR 비트맵으로. */
