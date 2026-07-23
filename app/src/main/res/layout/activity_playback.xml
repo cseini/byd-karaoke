@@ -25,19 +25,19 @@
             <!-- 예약된 곡: 플레이어 옆에 상시 노출(예약 있을 때만). 순서·부르기·취소. -->
             <LinearLayout
                 android:id="@+id/queue_side"
-                android:layout_width="168dp"
+                android:layout_width="320dp"
                 android:layout_height="match_parent"
                 android:orientation="vertical"
                 android:background="@color/tj_panel"
-                android:padding="6dp"
+                android:padding="10dp"
                 android:visibility="gone">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingBottom="4dp"
+                    android:paddingBottom="6dp"
                     android:text="🎫 예약된 곡"
-                    android:textSize="13sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"
                     android:textColor="@color/tj_cyan" />
 
@@ -129,7 +129,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     app:backgroundTint="@color/tj_red"
-                    android:text="⏹ 정지" />
+                    android:text="⏹ 노래 종료" />
 
                 <Button
                     android:id="@+id/btn_retry"

@@ -538,7 +538,7 @@ class PlaybackActivity : AppCompatActivity() {
         cancelScoreCountdown()
         if (overlay) scoreNextInfo.visibility = View.VISIBLE
         val r = object : Runnable {
-            var n = 5
+            var n = 10
             override fun run() {
                 if (n <= 0) { scoreCountdownRunnable = null; playNextReserved(); return }
                 val msg = "${n}초 후 다음 예약곡 ▶ '${next.title}' 자동 재생"
