@@ -56,6 +56,7 @@ object ReserveServer {
             return when {
                 uri.startsWith("/search") -> handleSearch(q("q"))
                 uri.startsWith("/reserve") -> handleReserve(q("videoId"), q("title"), q("channel"))
+                uri.startsWith("/cancel") -> handleCancel(q("videoId"))
                 uri.startsWith("/queue") -> handleQueue()
                 else -> json(Response.Status.OK, "text/html; charset=utf-8", PAGE)
             }
@@ -78,6 +79,11 @@ object ReserveServer {
         private fun handleReserve(videoId: String, title: String, channel: String): Response {
             if (videoId.isBlank()) return jsonBody("{\"ok\":false}")
             queue.add(QueueItem(videoId, title.ifBlank { "예약곡" }, channel))
+            return jsonBody("{\"ok\":true}")
+        }
+
+        private fun handleCancel(videoId: String): Response {
+            if (videoId.isNotBlank()) queue.removeByVideoId(videoId)
             return jsonBody("{\"ok\":true}")
         }
 
@@ -112,7 +118,9 @@ object ReserveServer {
  .item .c{font-size:12px;color:#8ab}
  .res{background:#ff3b8b}
  h3{color:#ffcf3f;margin:18px 0 8px}
- .q{background:#141428;border-left:4px solid #41e0ff;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:15px}
+ .q{background:#141428;border-left:4px solid #41e0ff;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:15px;display:flex;align-items:center;gap:8px}
+ .q .qt{flex:1}
+ .cx{background:#33334a;color:#ffb3b3;padding:8px 12px;font-size:13px}
  .empty{color:#889;font-size:14px;padding:8px 0}
  .num{display:inline-block;min-width:22px;color:#41e0ff;font-weight:bold}
 </style></head><body>
@@ -151,8 +159,11 @@ object ReserveServer {
      var res=await fetch('/queue'); var d=await res.json();
      var q=document.getElementById('queue');
      if(!d.items.length){q.innerHTML='<div class="empty">아직 예약된 곡이 없어요.</div>';return}
-     q.innerHTML=d.items.map(function(it,i){return '<div class="q"><span class="num">'+(i+1)+'</span> '+esc(it.title)+'</div>'}).join('');
+     q.innerHTML=d.items.map(function(it,i){return '<div class="q"><span class="num">'+(i+1)+'</span><span class="qt">'+esc(it.title)+'</span><button class="cx" onclick="cancelRes(\''+it.videoId+'\')">취소</button></div>'}).join('');
    }catch(e){}
+ }
+ async function cancelRes(vid){
+   try{ await fetch('/cancel?videoId='+encodeURIComponent(vid)); loadQueue(); }catch(e){}
  }
  document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
  loadQueue(); setInterval(loadQueue,3000);
