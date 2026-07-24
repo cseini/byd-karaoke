@@ -148,24 +148,7 @@ class MainActivity : AppCompatActivity() {
         if (!settings.keylessSearch && !settings.hasApiKey()) {
             status.text = "먼저 [설정]에서 API 키를 입력하거나 '키 없이 검색'을 켜세요."
         }
-        checkOtaUpdate()
-    }
-
-    /** GitHub Releases 에 새 버전이 있으면 내려받아 설치 화면을 띄운다. */
-    private fun checkOtaUpdate() {
-        lifecycleScope.launch {
-            val release = UpdateManager.checkForUpdate() ?: return@launch
-            toast("새 버전 v${release.version} 다운로드 중…")
-            val apk = UpdateManager.download(this@MainActivity, release) { p ->
-                runOnUiThread { status.text = "업데이트 다운로드 중… $p%" }
-            }
-            if (apk == null) {
-                status.text = "업데이트 다운로드 실패 — 네트워크 확인 후 앱을 다시 시작하세요"
-                return@launch
-            }
-            status.text = "v${release.version} 설치를 진행하세요"
-            UpdateManager.install(this@MainActivity, apk)
-        }
+        // 앱 실행 시 자동 업데이트는 끔(설치 실패 대응). 업데이트는 설정 → 앱 업데이트에서 수동으로.
     }
 
     // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.

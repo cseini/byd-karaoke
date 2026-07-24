@@ -18,7 +18,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:largeHeap="true"
         android:resizeableActivity="true"
         android:usesCleartextTraffic="true"
@@ -77,7 +77,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.cseini.byd.karaoke.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

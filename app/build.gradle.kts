@@ -13,11 +13,26 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 83
-        versionName = "3.53"
+        versionCode = 84
+        versionName = "3.54"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
+    }
+
+    // prod = 라이브 앱(노래방), test = 실험용 별도 앱(노래방테스트). applicationId 가 달라 함께 설치된다.
+    flavorDimensions += "variant"
+    productFlavors {
+        create("prod") {
+            dimension = "variant"
+            manifestPlaceholders["appLabel"] = "노래방"
+        }
+        create("lab") {
+            dimension = "variant"
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            manifestPlaceholders["appLabel"] = "노래방테스트"
+        }
     }
 
     // keystore/ota.keystore 가 있으면 그 키로 서명해 어느 PC/CI 에서 빌드해도
