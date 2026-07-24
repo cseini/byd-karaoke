@@ -112,9 +112,11 @@ class MixRecorder(
         if (recording) return "이미 녹음 중"
         val minBuf = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
-        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백해서 연다.
-        val opened = MicRouting.open(context, rate, minBuf * 2, settings.micSourceConst(), settings.preferUsbMic)
-            ?: return "마이크를 열 수 없습니다(장치·권한 확인)"
+        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백해서 연다. 사용자가 소스를 강제했으면 그걸 우선.
+        val opened = MicRouting.open(
+            context, rate, minBuf * 2,
+            settings.forcedMicSource(), android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION, settings.preferUsbMic
+        ) ?: return "마이크를 열 수 없습니다(장치·권한 확인)"
         val record = opened.record
         // 내장(통화) 마이크는 스피커 반주가 섞여 들어오므로 에코·잡음 제거를 켠다(믹스 이중 반주 방지).
         if (opened.builtin) {

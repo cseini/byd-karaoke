@@ -2,6 +2,10 @@ package com.cseini.byd.karaoke.update
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.cseini.byd.karaoke.BuildConfig
 import com.google.gson.Gson
@@ -88,6 +92,21 @@ object UpdateManager {
         }
 
     fun install(context: Context, apk: File) {
+        // Android 8+: 이 앱에 "이 출처의 앱 설치 허용" 권한이 없으면 업데이트 설치가 막힌다.
+        // (다운로드는 되는데 설치가 안 되는 가장 흔한 원인) → 설정 화면으로 안내하고 켠 뒤 다시 시도하게 한다.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(
+                context, "업데이트 설치 권한이 필요합니다. '이 출처 허용'을 켠 뒤 업데이트를 다시 확인하세요.",
+                Toast.LENGTH_LONG
+            ).show()
+            runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+            return
+        }
         val uri = FileProvider.getUriForFile(
             context, "${BuildConfig.APPLICATION_ID}.fileprovider", apk
         )

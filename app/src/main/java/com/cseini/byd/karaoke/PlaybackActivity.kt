@@ -228,6 +228,10 @@ class PlaybackActivity : AppCompatActivity() {
 
     private fun onSongPlaying() {
         if (recordStarted || scored) return
+        if (!settings.recordingEnabled) {
+            recStatus.text = "🎵 재생 중 (녹음 꺼짐)"
+            return
+        }
         if (!hasMic()) {
             recStatus.text = "마이크 권한이 없어 채점 없이 재생만 합니다."
             return
@@ -250,7 +254,17 @@ class PlaybackActivity : AppCompatActivity() {
     }
 
     private fun onSongEnded() {
-        if (scored || !recordStarted) return
+        if (scored) return
+        // 녹음 꺼짐(또는 녹음 미시작): 저장·채점 없이, 예약곡 있으면 자동 넘김만.
+        if (!recordStarted) {
+            if (!settings.recordingEnabled) {
+                scored = true
+                recStatus.text = "🎵 재생 완료"
+                queue.reload()
+                queue.peekFirst()?.let { startAutoAdvance(it, overlay = false) }
+            }
+            return
+        }
         scored = true
         val file = recorder.stop()
         if (file == null || !file.exists()) {

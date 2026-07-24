@@ -142,6 +142,73 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="마이크 입력 방식"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="2dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:paddingBottom="6dp"
+                android:text="소리가 안 들어가면 '일반(MIC)'으로 바꿔보세요(유닛에 따라 다름). 기본은 자동." />
+
+            <RadioGroup
+                android:id="@+id/mic_source_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/ms_auto"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="자동" />
+
+                <RadioButton
+                    android:id="@+id/ms_mic"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="일반\nMIC" />
+
+                <RadioButton
+                    android:id="@+id/ms_recognition"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="음성\n인식" />
+
+                <RadioButton
+                    android:id="@+id/ms_comm"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/tj_text_primary"
+                    android:textSize="13sp"
+                    android:text="통화\n마이크" />
+            </RadioGroup>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="녹음 품질"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -191,10 +258,18 @@
             </RadioGroup>
 
             <CheckBox
-                android:id="@+id/chk_scoring"
+                android:id="@+id/chk_recording"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:textColor="@color/tj_text_primary"
+                android:text="노래 녹음 사용 (끄면 녹음·채점 없이 재생만)" />
+
+            <CheckBox
+                android:id="@+id/chk_scoring"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:textColor="@color/tj_text_primary"
                 android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
 

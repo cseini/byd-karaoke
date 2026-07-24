@@ -26,6 +26,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var syncLabel: TextView
     private lateinit var rateGroup: RadioGroup
     private lateinit var scoringCheck: CheckBox
+    private lateinit var recordingCheck: CheckBox
+    private lateinit var micSourceGroup: RadioGroup
     private lateinit var updateStatus: TextView
     private lateinit var storageGroup: RadioGroup
     private lateinit var storageInfo: TextView
@@ -64,6 +66,18 @@ class SettingsActivity : AppCompatActivity() {
         )
         scoringCheck = findViewById(R.id.chk_scoring)
         scoringCheck.isChecked = settings.scoringEnabled
+        recordingCheck = findViewById(R.id.chk_recording)
+        recordingCheck.isChecked = settings.recordingEnabled
+
+        micSourceGroup = findViewById(R.id.mic_source_group)
+        micSourceGroup.check(
+            when (settings.micSourceName) {
+                "MIC" -> R.id.ms_mic
+                "VOICE_RECOGNITION" -> R.id.ms_recognition
+                "VOICE_COMMUNICATION" -> R.id.ms_comm
+                else -> R.id.ms_auto
+            }
+        )
 
         storageGroup = findViewById(R.id.storage_group)
         storageInfo = findViewById(R.id.storage_info)
@@ -94,6 +108,13 @@ class SettingsActivity : AppCompatActivity() {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
+        settings.recordingEnabled = recordingCheck.isChecked
+        settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
+            R.id.ms_mic -> "MIC"
+            R.id.ms_recognition -> "VOICE_RECOGNITION"
+            R.id.ms_comm -> "VOICE_COMMUNICATION"
+            else -> "AUTO"
+        }
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()

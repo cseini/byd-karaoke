@@ -46,10 +46,12 @@ class AudioRecorder(
         )
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
 
-        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백해서 연다.
+        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백. 사용자가 소스를 강제했으면 그걸 우선.
         val opened = MicRouting.open(
             context, sampleRate, minBuf * 2,
-            sourceOverride ?: settings.micSourceConst(), settings.preferUsbMic
+            settings.forcedMicSource(),
+            sourceOverride ?: android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            settings.preferUsbMic
         ) ?: return "마이크를 열 수 없습니다(장치·권한 확인)"
         val record = opened.record
 

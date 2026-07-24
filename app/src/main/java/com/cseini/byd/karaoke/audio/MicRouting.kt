@@ -29,24 +29,27 @@ object MicRouting {
     fun hasUsbMic(context: Context): Boolean = usbInput(context) != null
 
     /**
-     * AudioRecord 를 연다. USB 있으면 요청 소스(→MIC→DEFAULT) 순, 없으면
-     * VOICE_COMMUNICATION(→MIC→DEFAULT) 순으로 시도해 처음 초기화되는 것을 반환.
-     * 선호 입력장치도 USB/내장으로 지정. 실패 시 null.
+     * AudioRecord 를 연다.
+     * - forced != null: 그 소스를 강제(→MIC→DEFAULT 폴백). 유닛 호환용 사용자 지정.
+     * - forced == null(AUTO): USB 있으면 autoRequested, 없으면 VOICE_COMMUNICATION. (→MIC→DEFAULT)
+     * 항상 MIC/DEFAULT 로 폴백해 어떤 유닛에서도 소리가 들어오게 한다(씨라 등 VOICE_RECOGNITION 무음 대비).
+     * 실패 시 null.
      */
     @SuppressLint("MissingPermission")
-    fun open(context: Context, rate: Int, minBufBytes: Int, requestedSource: Int, preferUsb: Boolean): Opened? {
+    fun open(context: Context, rate: Int, minBufBytes: Int, forced: Int?, autoRequested: Int, preferUsb: Boolean): Opened? {
         val usb = if (preferUsb) usbInput(context) else null
-        val builtin = usb == null
-        val sources = if (builtin)
-            intArrayOf(MediaRecorder.AudioSource.VOICE_COMMUNICATION, MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.DEFAULT)
-        else
-            intArrayOf(requestedSource, MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.DEFAULT)
-        for (src in sources) {
+        val noUsb = usb == null
+        val primary = forced ?: if (noUsb) MediaRecorder.AudioSource.VOICE_COMMUNICATION else autoRequested
+        // 중복 제거한 시도 순서: primary → MIC → DEFAULT
+        val order = linkedSetOf(primary, MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.DEFAULT)
+        for (src in order) {
             val r = runCatching {
                 AudioRecord(src, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufBytes)
             }.getOrNull() ?: continue
             if (r.state == AudioRecord.STATE_INITIALIZED) {
                 (usb ?: builtinInput(context))?.let { runCatching { r.setPreferredDevice(it) } }
+                // 내장 마이크로 열렸고(=USB 없음), 통화 소스 계열이면 에코/잡음 제거가 유용.
+                val builtin = noUsb && src == MediaRecorder.AudioSource.VOICE_COMMUNICATION
                 return Opened(r, builtin)
             }
             runCatching { r.release() }

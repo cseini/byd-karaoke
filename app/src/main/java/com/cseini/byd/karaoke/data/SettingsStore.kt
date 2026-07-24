@@ -35,12 +35,26 @@ class SettingsStore(context: Context) {
     val keylessSearch: Boolean get() = searchMode != "api"
 
     /**
-     * 마이크 소스 이름. 다시듣기는 반주(유튜브)와 목소리를 따로 재생해 싱크를 맞추므로,
-     * 녹음은 깨끗한 목소리만 담는 VOICE_RECOGNITION 이 기본(채점 정확도에도 유리).
+     * 마이크 입력 방식. "AUTO"=USB 유무에 따라 자동, 나머지는 특정 소스 강제.
+     * 유닛마다 지원 소스가 달라(예: 씨라 유닛은 VOICE_RECOGNITION 이 무음, MIC 만 됨) 사용자가 고를 수 있게 한다.
      */
     var micSourceName: String
-        get() = prefs.getString("mic_source", "VOICE_RECOGNITION") ?: "VOICE_RECOGNITION"
+        get() = prefs.getString("mic_source", "AUTO") ?: "AUTO"
         set(v) = prefs.edit().putString("mic_source", v).apply()
+
+    /** 사용자가 특정 소스를 강제했으면 그 상수, "AUTO"면 null(라우팅이 자동 결정). */
+    fun forcedMicSource(): Int? = when (micSourceName) {
+        "MIC" -> MediaRecorder.AudioSource.MIC
+        "VOICE_RECOGNITION" -> MediaRecorder.AudioSource.VOICE_RECOGNITION
+        "VOICE_COMMUNICATION" -> MediaRecorder.AudioSource.VOICE_COMMUNICATION
+        "UNPROCESSED" -> MediaRecorder.AudioSource.UNPROCESSED
+        else -> null
+    }
+
+    /** 노래 녹음 사용. 끄면 부를 때 녹음·채점 없이 재생만 한다. */
+    var recordingEnabled: Boolean
+        get() = prefs.getBoolean("recording_enabled", true)
+        set(v) = prefs.edit().putBoolean("recording_enabled", v).apply()
 
     /** 녹음 싱크 보정(ms). 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. */
     var syncOffsetMs: Int
