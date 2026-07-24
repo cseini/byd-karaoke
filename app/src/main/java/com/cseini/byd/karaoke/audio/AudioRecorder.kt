@@ -2,9 +2,7 @@ package com.cseini.byd.karaoke.audio
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.AutomaticGainControl
@@ -48,26 +46,19 @@ class AudioRecorder(
         )
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
 
-        val record = try {
-            AudioRecord(
-                sourceOverride ?: settings.micSourceConst(), sampleRate,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf * 2
-            )
-        } catch (e: Exception) {
-            return "AudioRecord 생성 실패: ${e.message}"
-        }
-        if (record.state != AudioRecord.STATE_INITIALIZED) {
-            record.release()
-            return "AudioRecord 초기화 실패(소스 미지원 가능)"
-        }
+        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백해서 연다.
+        val opened = MicRouting.open(
+            context, sampleRate, minBuf * 2,
+            sourceOverride ?: settings.micSourceConst(), settings.preferUsbMic
+        ) ?: return "마이크를 열 수 없습니다(장치·권한 확인)"
+        val record = opened.record
 
-        if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
-        if (forceEffects || settings.aecEnabled) {
+        // 내장(통화) 마이크는 스피커 반주가 섞여 들어오므로 에코·잡음 제거를 켠다.
+        if (forceEffects || settings.aecEnabled || opened.builtin) {
             val sid = record.audioSessionId
             if (AcousticEchoCanceler.isAvailable())
                 aec = runCatching { AcousticEchoCanceler.create(sid)?.apply { enabled = true } }.getOrNull()
-            if (forceEffects) {
-                // 음성검색: 노이즈 억제 + 자동 게인까지 켜 에코·잡음을 최대한 제거.
+            if (forceEffects || opened.builtin) {
                 if (NoiseSuppressor.isAvailable()) runCatching { NoiseSuppressor.create(sid)?.enabled = true }
                 if (AutomaticGainControl.isAvailable()) runCatching { AutomaticGainControl.create(sid)?.enabled = true }
             }
@@ -111,11 +102,4 @@ class AudioRecorder(
         worker = null
         return outputFile
     }
-
-    private fun findUsbInput(): AudioDeviceInfo? =
-        (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
-            .getDevices(AudioManager.GET_DEVICES_INPUTS)
-            .firstOrNull {
-                it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
-            }
 }

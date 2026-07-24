@@ -2,10 +2,10 @@ package com.cseini.byd.karaoke.audio
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -42,6 +42,7 @@ class MixRecorder(
 
     @Volatile private var recording = false
     private var worker: Thread? = null
+    private var aec: AcousticEchoCanceler? = null
     var outputFile: File? = null
         private set
     val isRecording: Boolean get() = recording
@@ -111,19 +112,17 @@ class MixRecorder(
         if (recording) return "이미 녹음 중"
         val minBuf = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
-        val record = try {
-            AudioRecord(
-                settings.micSourceConst(), rate,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf * 2
-            )
-        } catch (e: Exception) {
-            return "AudioRecord 생성 실패: ${e.message}"
+        // USB 마이크 있으면 그걸, 없으면 차량 내장 통화 마이크로 폴백해서 연다.
+        val opened = MicRouting.open(context, rate, minBuf * 2, settings.micSourceConst(), settings.preferUsbMic)
+            ?: return "마이크를 열 수 없습니다(장치·권한 확인)"
+        val record = opened.record
+        // 내장(통화) 마이크는 스피커 반주가 섞여 들어오므로 에코·잡음 제거를 켠다(믹스 이중 반주 방지).
+        if (opened.builtin) {
+            val sid = record.audioSessionId
+            if (AcousticEchoCanceler.isAvailable())
+                aec = runCatching { AcousticEchoCanceler.create(sid)?.apply { enabled = true } }.getOrNull()
+            if (NoiseSuppressor.isAvailable()) runCatching { NoiseSuppressor.create(sid)?.enabled = true }
         }
-        if (record.state != AudioRecord.STATE_INITIALIZED) {
-            record.release()
-            return "AudioRecord 초기화 실패(소스 미지원 가능)"
-        }
-        if (settings.preferUsbMic) findUsbInput()?.let { record.setPreferredDevice(it) }
 
         // 채점용 목소리 버퍼 준비(rate 기준, 최대 MAX_SECONDS).
         if (voiceBuffer.size != rate * MAX_SECONDS) {
@@ -189,6 +188,7 @@ class MixRecorder(
             } finally {
                 runCatching { record.stop() }
                 record.release()
+                runCatching { aec?.release() }; aec = null
                 writer.close()
             }
         }
@@ -211,11 +211,4 @@ class MixRecorder(
     }
 
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
-
-    private fun findUsbInput(): AudioDeviceInfo? =
-        (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
-            .getDevices(AudioManager.GET_DEVICES_INPUTS)
-            .firstOrNull {
-                it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET
-            }
 }

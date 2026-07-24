@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 검색엔진 노출 차단(저프로필 배포) -->
+<meta name="robots" content="noindex, nofollow">
+<title>노래방 · 차량용 노래방 앱</title>
+<style>
+  :root{
+    --bg:#0a0a14; --bg2:#12122a; --panel:#16162e; --line:#26264a;
+    --pink:#ff3b8b; --cyan:#41e0ff; --gold:#ffcf3f; --purple:#a06bff;
+    --text:#eef0ff; --muted:#9aa0c0; --hint:#6b7099;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #1a1140 0%, var(--bg) 55%) no-repeat, var(--bg);
+    color:var(--text); line-height:1.6; overflow-x:hidden;
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:0 20px}
+  a{color:inherit}
+
+  /* ── Hero ── */
+  .hero{text-align:center; padding:72px 20px 40px}
+  .badge{
+    display:inline-block; font-size:13px; letter-spacing:.5px; color:var(--cyan);
+    border:1px solid var(--line); border-radius:999px; padding:6px 14px; margin-bottom:22px;
+    background:rgba(65,224,255,.06);
+  }
+  .hero h1{
+    font-size:clamp(38px,8vw,66px); margin:.1em 0; font-weight:900; letter-spacing:-1px;
+    background:linear-gradient(90deg,var(--pink),var(--gold),var(--cyan));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .hero .mic{font-size:clamp(46px,10vw,80px); filter:drop-shadow(0 0 24px rgba(255,59,139,.5))}
+  .hero p.sub{font-size:clamp(16px,2.6vw,21px); color:var(--muted); max-width:620px; margin:14px auto 0}
+  .cta{
+    display:inline-flex; align-items:center; gap:10px; margin-top:30px;
+    background:linear-gradient(90deg,var(--pink),var(--purple));
+    color:#fff; font-size:19px; font-weight:800; text-decoration:none;
+    padding:16px 34px; border-radius:14px; box-shadow:0 10px 30px rgba(255,59,139,.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .cta:hover{transform:translateY(-2px); box-shadow:0 14px 38px rgba(255,59,139,.5)}
+  .cta small{display:block; font-size:12px; font-weight:500; opacity:.85}
+  .platform{margin-top:14px; font-size:13px; color:var(--hint)}
+
+  /* ── Section ── */
+  section{padding:44px 0}
+  h2.title{font-size:clamp(24px,4vw,34px); text-align:center; margin:0 0 6px; font-weight:800}
+  .title .dot{color:var(--pink)}
+  p.lead{text-align:center; color:var(--muted); margin:0 auto 34px; max-width:600px}
+
+  /* ── Features ── */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--bg2)); border:1px solid var(--line);
+    border-radius:18px; padding:24px; transition:border-color .2s ease, transform .2s ease;
+  }
+  .card:hover{border-color:var(--purple); transform:translateY(-3px)}
+  .card .ico{font-size:34px; line-height:1}
+  .card h3{margin:14px 0 6px; font-size:19px}
+  .card p{margin:0; color:var(--muted); font-size:15px}
+
+  /* ── Screenshots (가로 화면) ── */
+  .shots{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px}
+  .shot{
+    border-radius:16px; border:1px solid var(--line); overflow:hidden;
+    background:var(--panel); box-shadow:0 8px 24px rgba(0,0,0,.35);
+    transition:transform .2s ease, border-color .2s ease;
+  }
+  .shot:hover{transform:translateY(-3px); border-color:var(--purple)}
+  .shot img{display:block; width:100%; aspect-ratio:16/9; object-fit:cover}
+  .shot .cap{padding:12px 16px; font-size:14px; color:var(--muted); border-top:1px solid var(--line)}
+  .shot .cap b{color:var(--cyan)}
+  .shot.feature{grid-column:1/-1}
+  .shot.feature img{aspect-ratio:auto; max-height:70vh; object-fit:contain; background:#05050c}
+
+  /* ── Steps ── */
+  .steps{counter-reset:s; max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:14px}
+  .step{display:flex; gap:16px; align-items:flex-start; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
+  .step::before{
+    counter-increment:s; content:counter(s);
+    flex:0 0 34px; height:34px; border-radius:50%; display:grid; place-items:center;
+    background:linear-gradient(135deg,var(--cyan),var(--purple)); color:#0a0a14; font-weight:900;
+  }
+  .step b{color:var(--text)}
+  .step span{color:var(--muted); font-size:15px}
+
+  /* ── Notice ── */
+  .notice{
+    max-width:760px; margin:0 auto; background:rgba(255,207,63,.06);
+    border:1px solid rgba(255,207,63,.28); border-radius:16px; padding:22px 24px;
+  }
+  .notice h3{margin:0 0 10px; color:var(--gold); font-size:17px}
+  .notice ul{margin:0; padding-left:18px; color:var(--muted); font-size:14px}
+  .notice li{margin:6px 0}
+
+  footer{text-align:center; color:var(--hint); font-size:13px; padding:40px 20px 60px; border-top:1px solid var(--line); margin-top:30px}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="badge">🚗 차량 헤드유닛 전용 · 개인 프로젝트</div>
+    <div class="mic">🎤</div>
+    <h1>노래방</h1>
+    <p class="sub">차 안에서 바로 즐기는 노래방. 검색해서 부르고, 마이크로 채점받고,
+      친구들은 각자 폰으로 다음 곡을 예약해요.</p>
+    <a class="cta" href="https://github.com/cseini/byd-karaoke/releases/latest/download/karaoke-latest.apk" download>
+      <span>⬇</span>
+      <span>최신 APK 바로 받기
+        <small>Android · 사이드로드 설치</small>
+      </span>
+    </a>
+    <div class="platform">Android 10+ · 차량 DiLink 등 헤드유닛에 최적화</div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- FEATURES -->
+    <section>
+      <h2 class="title">주요 기능<span class="dot">.</span></h2>
+      <p class="lead">노래방 한 대가 차 안에 들어왔습니다.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="ico">🔎</div>
+          <h3>바로 검색해서 부르기</h3>
+          <p>제목·가수로 검색하면 반주 영상이 바로 재생돼요. 타이핑하는 대로 실시간으로 결과가 뜹니다.</p>
+        </div>
+        <div class="card">
+          <div class="ico">🎙️</div>
+          <h3>음성으로 검색 <span style="font-size:12px;color:var(--gold);vertical-align:middle">무료 키 필요</span></h3>
+          <p>버튼을 누르고 곡·가수를 말하면 찾아줘요. Google의 무료 Gemini 키를 넣으면 켜지고, 조회 후 첫 곡을 자동 재생합니다.</p>
+        </div>
+        <div class="card">
+          <div class="ico">💯</div>
+          <h3>마이크 채점</h3>
+          <p>부른 목소리를 분석해 음정·안정성·박자·표현을 점수로. 노래방식 점수 연출까지.</p>
+        </div>
+        <div class="card">
+          <div class="ico">📱</div>
+          <h3>폰으로 예약 (리모컨)</h3>
+          <p>승객들이 각자 휴대폰으로 QR을 찍어 검색·예약. 부르는 중에도 대기열이 쌓이고 순서대로 이어집니다.</p>
+        </div>
+        <div class="card">
+          <div class="ico">🔁</div>
+          <h3>다시 듣기</h3>
+          <p>내가 부른 녹음을, 같은 타이밍의 영상(가사)과 함께 다시 감상해요.</p>
+        </div>
+        <div class="card">
+          <div class="ico">💾</div>
+          <h3>녹음 저장 · 공유</h3>
+          <p>SD카드·내부 저장을 선택하고 용량은 자동 관리. QR로 내 노래를 휴대폰으로 받아갈 수 있어요.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREENSHOTS -->
+    <section>
+      <h2 class="title">화면<span class="dot">.</span></h2>
+      <p class="lead">실제 차량 화면 모습입니다.</p>
+      <div class="shots">
+        <div class="shot feature">
+          <img src="img/player.png" alt="재생 화면 — 가사 영상과 예약 대기열">
+          <div class="cap"><b>부르는 중</b> · 가사 영상 옆에 예약된 곡이 순서대로. 노래 종료·다시 부르기</div>
+        </div>
+        <div class="shot">
+          <img src="img/search.png" alt="검색 홈 — 최근 부른 노래">
+          <div class="cap"><b>검색 홈</b> · 최근 부른 노래를 타일로</div>
+        </div>
+        <div class="shot">
+          <img src="img/voice.png" alt="음성 검색">
+          <div class="cap"><b>음성 검색</b> · 말하면 찾아줘요</div>
+        </div>
+        <div class="shot">
+          <img src="img/reserve.png" alt="폰으로 예약 QR">
+          <div class="cap"><b>폰 예약</b> · QR 찍고 각자 폰으로 예약</div>
+        </div>
+        <div class="shot">
+          <img src="img/recordings.png" alt="녹음함">
+          <div class="cap"><b>녹음함</b> · 다시 듣기·공유·정리</div>
+        </div>
+        <div class="shot">
+          <img src="img/settings.png" alt="설정 — 음성검색 키·싱크·품질">
+          <div class="cap"><b>설정</b> · Gemini 키·녹음 싱크·품질</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VOICE SEARCH SETUP -->
+    <section>
+      <h2 class="title">음성 검색 켜기<span class="dot">.</span></h2>
+      <p class="lead">타이핑 없이 말로 곡을 찾는 기능은 <b>선택</b>이에요. Google의 무료 Gemini 키만 넣으면 켜집니다.</p>
+      <div class="steps">
+        <div class="step"><span><b>aistudio.google.com</b> 접속 → 구글 로그인 → <b>「Get API key」</b>로 무료 키 발급.</span></div>
+        <div class="step"><span>앱 <b>설정 → 음성 검색</b> 칸에 그 키를 붙여넣고 <b>저장</b>.</span></div>
+        <div class="step"><span>검색창에 <b>🎙 음성</b> 버튼이 생겨요. 누르고 곡·가수를 말하면 검색됩니다.</span></div>
+        <div class="step"><span>무료 한도가 넉넉한 <b>flash-lite(1000회/일)</b> · 정확한 <b>flash(250회/일)</b> 중 선택 가능. 키는 <b>본인 것</b>을 쓰며 앱엔 저장만 됩니다.</span></div>
+      </div>
+    </section>
+
+    <!-- INSTALL -->
+    <section>
+      <h2 class="title">설치 방법<span class="dot">.</span></h2>
+      <p class="lead">스토어가 아닌 APK 직접 설치(사이드로드)입니다.</p>
+      <div class="steps">
+        <div class="step"><span><b>APK 내려받기</b> — 위 버튼으로 최신 APK를 받습니다.</span></div>
+        <div class="step"><span><b>"출처를 알 수 없는 앱" 허용</b> — 설정에서 설치 권한을 켜주세요.</span></div>
+        <div class="step"><span><b>설치 후 실행</b> — 마이크 권한을 허용하면 바로 부를 수 있어요.</span></div>
+        <div class="step"><span><b>업데이트</b> — 새 버전이 나오면 앱이 알아서 확인·설치합니다(OTA).</span></div>
+      </div>
+    </section>
+
+    <!-- NOTICE -->
+    <section>
+      <div class="notice">
+        <h3>⚠️ 안내 · 면책</h3>
+        <ul>
+          <li>개인이 취미로 만든 <b>비영리 학습용 프로젝트</b>입니다. 광고·수익이 없습니다.</li>
+          <li>재생·검색은 공개된 영상을 이용하며, 상업적 이용이나 재배포를 위한 도구가 아닙니다.</li>
+          <li>녹음은 개인 감상용입니다. 저작물이 포함된 녹음의 외부 공유·배포는 이용자 책임입니다.</li>
+          <li>권리자의 요청이 있으면 배포를 즉시 중단·삭제합니다.</li>
+          <li>사용에 따른 책임은 이용자 본인에게 있습니다.</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    개인 프로젝트 · 비영리 · 문의/문제 제기 환영<br>
+    <a href="https://github.com/cseini/byd-karaoke/releases/latest/download/karaoke-latest.apk" download>최신 APK 바로 받기</a>
+  </footer>
+
+</body>
+</html>
