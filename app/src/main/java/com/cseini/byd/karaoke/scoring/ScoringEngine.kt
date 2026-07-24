@@ -106,14 +106,18 @@ object ScoringEngine {
         return ((200.0 - jitter) / 180.0).coerceIn(0.0, 1.0)
     }
 
-    // ── 박자 규칙성: 발성 온셋 간격의 변동계수(CV)가 작을수록 ──
+    // ── 박자 규칙성: 발성 온셋(구절 시작) 간격의 변동계수(CV)가 작을수록 ──
+    // 목소리만 채점하면 유성/무성이 프레임 단위로 깜빡여 온셋이 잘게 쪼개진다.
+    // 250ms 이내 온셋은 같은 구절로 합쳐(디바운스), 구절 단위 리듬으로 평가한다.
     private fun beatConsistencyFraction(frames: List<SignalAnalysis.Frame>): Double {
-        val onsets = ArrayList<Double>()
+        val raw = ArrayList<Double>()
         var prev = false
         for (f in frames) {
-            if (f.voiced && !prev) onsets.add(f.timeSec)
+            if (f.voiced && !prev) raw.add(f.timeSec)
             prev = f.voiced
         }
+        val onsets = ArrayList<Double>()
+        for (t in raw) if (onsets.isEmpty() || t - onsets.last() >= 0.25) onsets.add(t)
         if (onsets.size < 4) return 0.5
         val intervals = ArrayList<Double>()
         for (i in 1 until onsets.size) intervals.add(onsets[i] - onsets[i - 1])
@@ -121,7 +125,8 @@ object ScoringEngine {
         if (mean <= 0) return 0.5
         val variance = intervals.sumOf { (it - mean) * (it - mean) } / intervals.size
         val cv = Math.sqrt(variance) / mean
-        return ((1.0 - cv) / 0.8).coerceIn(0.0, 1.0)
+        // 노래는 완전히 규칙적이지 않으므로 관대하게: cv 0→만점, cv 1.5→0.
+        return ((1.5 - cv) / 1.2).coerceIn(0.0, 1.0)
     }
 
     // ── 음량 다이나믹스: 적당한 변화 보상 + 클리핑 페널티 ──
