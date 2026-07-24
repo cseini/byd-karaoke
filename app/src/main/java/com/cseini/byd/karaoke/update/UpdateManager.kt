@@ -29,8 +29,10 @@ object UpdateManager {
 
     data class Asset(val name: String?, val browser_download_url: String?)
     data class Release(val tag_name: String?, val assets: List<Asset> = emptyList()) {
+        // 버전명이 붙은 APK(byd-karaoke-vX.YZ.apk)를 우선, 없으면 아무 .apk.
         val apkUrl: String?
-            get() = assets.firstOrNull { it.name?.endsWith(".apk") == true }?.browser_download_url
+            get() = (assets.firstOrNull { it.name?.matches(Regex("byd-karaoke-v.*\\.apk")) == true }
+                ?: assets.firstOrNull { it.name?.endsWith(".apk") == true })?.browser_download_url
         val version: String get() = tag_name.orEmpty().removePrefix("v")
     }
 
@@ -73,7 +75,8 @@ object UpdateManager {
                     connectTimeout = 10_000
                     readTimeout = 60_000
                 }
-                val total = conn.contentLength
+                val total = conn.contentLength.toLong()
+                if (out.exists()) out.delete()   // 이전에 남은(불완전) 파일 제거 후 새로 받기
                 conn.inputStream.use { input ->
                     out.outputStream().use { output ->
                         val buf = ByteArray(64 * 1024)
@@ -87,7 +90,14 @@ object UpdateManager {
                         }
                     }
                 }
-                out
+                // 무결성 검증: 다운로드가 끊겨 불완전하면 설치가 "앱이 설치되지 않았습니다"로 실패한다.
+                // 크기(알 수 있으면)와 APK(zip) 헤더(PK)를 확인해, 불완전하면 지우고 실패 처리.
+                val sizeOk = total <= 0 || out.length() == total
+                val head = runCatching {
+                    out.inputStream().use { val b = ByteArray(2); it.read(b); b }
+                }.getOrDefault(ByteArray(2))
+                val isApk = head.size == 2 && head[0] == 'P'.code.toByte() && head[1] == 'K'.code.toByte()
+                if (sizeOk && isApk) out else { out.delete(); null }
             }.getOrNull()
         }
 
