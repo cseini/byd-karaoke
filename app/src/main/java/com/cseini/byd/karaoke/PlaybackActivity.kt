@@ -106,6 +106,7 @@ class PlaybackActivity : AppCompatActivity() {
         onDelete = { queue.removeByVideoId(it.videoId); refreshQueueSide() },
     )
     private var scoreCountdownRunnable: Runnable? = null
+    private var fullscreen = false
 
     private var currentVideoId = ""
     private var candIds: List<String> = emptyList()
@@ -214,6 +215,8 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_stop).setOnClickListener { onStopPressed() }
         findViewById<Button>(R.id.btn_retry).setOnClickListener { retry() }
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
+        findViewById<Button>(R.id.btn_fullscreen).setOnClickListener { toggleFullscreen() }
+        findViewById<View>(R.id.fullscreen_tap).setOnClickListener { toggleFullscreen() }
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -505,13 +508,32 @@ class PlaybackActivity : AppCompatActivity() {
         }
     }
 
-    /** 플레이어 옆 상시 예약 목록 갱신(예약 있을 때만 노출). */
+    /** 플레이어 옆 상시 예약 목록 갱신(예약 있을 때만 노출, 전체화면 땐 숨김). */
     private fun refreshQueueSide() {
-        if (replayOnly) { queueSide.visibility = View.GONE; return }
+        if (replayOnly || fullscreen) { queueSide.visibility = View.GONE; return }
         queue.reload()
         val items = queue.all()
         queueAdapter.submit(items)
         queueSide.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    /** 영상 전체화면 토글: 하단 컨트롤·네비바·예약목록·버튼까지 다 숨겨 영상만 꽉 채운다.
+     *  전체화면 중엔 화면을 탭하면 종료(투명 탭 캐처). */
+    private fun toggleFullscreen() {
+        fullscreen = !fullscreen
+        val v = if (fullscreen) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.bottom_panel).visibility = v
+        findViewById<View>(R.id.navbar).visibility = v
+        // 전체화면이면 진입 버튼도 숨기고, 탭 캐처를 켠다.
+        findViewById<Button>(R.id.btn_fullscreen).visibility = if (fullscreen) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.fullscreen_tap).visibility = if (fullscreen) View.VISIBLE else View.GONE
+        refreshQueueSide()
+        window.decorView.systemUiVisibility = if (fullscreen)
+            (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+        else 0
+        if (fullscreen) toast("화면을 탭하면 전체화면 종료")
     }
 
     /** 예약 목록에서 특정 곡을 골라 바로 부른다. */

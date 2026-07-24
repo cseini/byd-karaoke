@@ -50,6 +50,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/bottom_panel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -152,8 +153,33 @@
             </LinearLayout>
         </LinearLayout>
 
-        <include layout="@layout/include_navbar" />
+        <include android:id="@+id/navbar" layout="@layout/include_navbar" />
     </LinearLayout>
+
+    <!-- 전체화면 토글(영상 위 좌상단 플로팅 — 우측 예약목록과 겹치지 않게) -->
+    <Button
+        android:id="@+id/btn_fullscreen"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="10dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:textSize="16sp"
+        android:background="#66000000"
+        android:textColor="#FFFFFF"
+        android:text="⛶" />
+
+    <!-- 전체화면 중 탭하면 종료(영상만 꽉 찬 상태에서 나가는 길) -->
+    <View
+        android:id="@+id/fullscreen_tap"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
 
     <!-- 노래방식 점수 연출: 탭하면 닫힘 -->
     <FrameLayout
