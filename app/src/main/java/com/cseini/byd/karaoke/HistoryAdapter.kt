@@ -7,15 +7,15 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
-import com.cseini.byd.karaoke.data.RecordingItem
+import com.cseini.byd.karaoke.data.PlayHistoryItem
 
-/** 최근 부른 노래 타일(썸네일). 누르면 바로 부르기. */
-class HistoryAdapter(val onPlay: (RecordingItem) -> Unit) :
+/** 최근 부른 노래 타일(썸네일). 재생 기록 기반(녹음과 분리). 누르면 바로 부르기. */
+class HistoryAdapter(val onPlay: (PlayHistoryItem) -> Unit) :
     RecyclerView.Adapter<HistoryAdapter.VH>() {
 
-    private val items = ArrayList<RecordingItem>()
+    private val items = ArrayList<PlayHistoryItem>()
 
-    fun submit(list: List<RecordingItem>) {
+    fun submit(list: List<PlayHistoryItem>) {
         items.clear()
         items.addAll(list)
         notifyDataSetChanged()

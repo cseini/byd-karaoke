@@ -42,12 +42,15 @@ object MicRouting {
         val primary = forced ?: if (noUsb) MediaRecorder.AudioSource.VOICE_COMMUNICATION else autoRequested
         // 중복 제거한 시도 순서: primary → MIC → DEFAULT
         val order = linkedSetOf(primary, MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.DEFAULT)
+        // 진단: 어떤 입력 장치가 잡히는지(내장 마이크가 앱에 안 열리는 유닛 파악용).
+        android.util.Log.d("KaraokeMic", "inputs=[${inputSummary(context)}] usb=${usb != null} try=${order.toList()}")
         for (src in order) {
             val r = runCatching {
                 AudioRecord(src, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufBytes)
             }.getOrNull() ?: continue
             if (r.state == AudioRecord.STATE_INITIALIZED) {
                 (usb ?: builtinInput(context))?.let { runCatching { r.setPreferredDevice(it) } }
+                android.util.Log.d("KaraokeMic", "opened src=$src builtinDev=${builtinInput(context) != null}")
                 // 내장 마이크로 열렸고(=USB 없음), 통화 소스 계열이면 에코/잡음 제거가 유용.
                 val builtin = noUsb && src == MediaRecorder.AudioSource.VOICE_COMMUNICATION
                 return Opened(r, builtin)
@@ -55,6 +58,20 @@ object MicRouting {
             runCatching { r.release() }
         }
         return null
+    }
+
+    /** 입력 장치 타입 목록 문자열(진단용). */
+    private fun inputSummary(context: Context): String =
+        inputs(context).joinToString(",") { deviceTypeName(it.type) }
+
+    private fun deviceTypeName(type: Int): String = when (type) {
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "BUILTIN_MIC"
+        AudioDeviceInfo.TYPE_USB_DEVICE -> "USB_DEVICE"
+        AudioDeviceInfo.TYPE_USB_HEADSET -> "USB_HEADSET"
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "BT_SCO"
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "WIRED_HEADSET"
+        AudioDeviceInfo.TYPE_TELEPHONY -> "TELEPHONY"
+        else -> "type$type"
     }
 
     private fun inputs(context: Context) =

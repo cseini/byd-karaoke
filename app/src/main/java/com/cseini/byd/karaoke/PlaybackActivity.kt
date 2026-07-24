@@ -81,6 +81,7 @@ class PlaybackActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
     private lateinit var recordings: RecordingStore
+    private lateinit var playHistory: com.cseini.byd.karaoke.data.PlayHistoryStore
     private lateinit var queue: QueueStore
     private lateinit var recorder: MixRecorder
     private lateinit var repo: YouTubeRepository
@@ -118,6 +119,7 @@ class PlaybackActivity : AppCompatActivity() {
     private var candIndex = 0
     private var recordStarted = false
     private var scored = false
+    private var playLogged = false   // 이 곡을 재생기록에 남겼는지(곡당 1회)
     private var replayOnly = false   // 녹음함에서 진입: 채점·녹음 없이 다시듣기만
     private var replaying = false     // 다시듣기 재생 중(반주+목소리 동시)
     private var replayVideo = false   // 다시듣기 때 유튜브 영상(음소거)을 함께 재생 중
@@ -135,6 +137,7 @@ class PlaybackActivity : AppCompatActivity() {
 
         settings = SettingsStore(this)
         recordings = RecordingStore(this)
+        playHistory = com.cseini.byd.karaoke.data.PlayHistoryStore(this)
         queue = QueueStore(this)
         recorder = MixRecorder(this, settings)
         repo = YouTubeRepository()
@@ -245,6 +248,11 @@ class PlaybackActivity : AppCompatActivity() {
 
     private fun onSongPlaying() {
         if (recordStarted || scored) return
+        // 재생 기록은 녹음 여부와 무관하게 곡당 1회 남긴다(녹음 꺼도·지워도 최근목록에 유지).
+        if (!playLogged) {
+            playLogged = true
+            playHistory.add(currentVideoId, songTitle.text.toString(), System.currentTimeMillis())
+        }
         if (!settings.recordingEnabled) {
             recStatus.text = "🎵 재생 중 (녹음 꺼짐)"
             return
@@ -328,6 +336,7 @@ class PlaybackActivity : AppCompatActivity() {
             // 용량 상한 초과 시 오래된 녹음부터 자동 삭제
             val pruned = Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes)
             if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
+            result?.let { playHistory.setScore(currentVideoId, it.total) }  // 재생 기록에도 점수 반영
             if (result == null) {
                 recStatus.text = "채점 실패(오디오를 읽지 못함). 녹음은 녹음함에 저장됨."
             } else {
@@ -685,6 +694,7 @@ class PlaybackActivity : AppCompatActivity() {
     private fun resetForNewSong() {
         recordStarted = false
         scored = false
+        playLogged = false
         replayOnly = false
         replaying = false
         lastRecording = null

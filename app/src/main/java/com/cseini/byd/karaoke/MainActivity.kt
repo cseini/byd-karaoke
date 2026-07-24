@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settings: SettingsStore
     private lateinit var queue: QueueStore
     private lateinit var recordings: RecordingStore
+    private lateinit var playHistory: com.cseini.byd.karaoke.data.PlayHistoryStore
     private lateinit var repo: YouTubeRepository
     private lateinit var voice: VoiceSearch
 
@@ -75,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
     )
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -82,6 +84,12 @@ class MainActivity : AppCompatActivity() {
         settings = SettingsStore(this)
         queue = QueueStore(this)
         recordings = RecordingStore(this)
+        playHistory = com.cseini.byd.karaoke.data.PlayHistoryStore(this)
+        // 기존 사용자: 재생 기록이 비어 있으면 기존 녹음 목록에서 최근 부른 노래를 1회 이관.
+        playHistory.seedIfEmpty(
+            recordings.all().distinctBy { it.videoId }
+                .map { com.cseini.byd.karaoke.data.PlayHistoryItem(it.videoId, it.title, it.at, it.score) }
+        )
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
 
@@ -180,10 +188,10 @@ class MainActivity : AppCompatActivity() {
         autoplayCheck.visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
 
-    /** 같은 곡은 가장 최근 것만, 최신순으로 히스토리 타일에 노출. */
+    /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
     private fun refreshHistory() {
-        recordings.reload()   // 재생 화면에서 방금 저장된 녹음까지 반영
-        val recent = recordings.all().distinctBy { it.videoId }
+        playHistory.reload()
+        val recent = playHistory.all()
         historyAdapter.submit(recent)
         historyEmpty.visibility = if (recent.isEmpty()) View.VISIBLE else View.GONE
     }
