@@ -11,6 +11,8 @@ interface KaraokePlayer {
     fun release()
     /** 현재 재생 위치(ms). 반주-목소리 정렬용. */
     fun currentPositionMs(): Long
+    /** 전체 길이(ms). 아직 모르면 0. 재생 화면 seek 바 범위용. */
+    fun durationMs(): Long
     /** 0f=음소거 ~ 1f. 다시듣기 때 영상은 음소거하고 녹음 소리만 들려주기 위해. */
     fun setVolume(v: Float)
     /** 지정 위치(ms)로 탐색. 다시듣기 시크바 드래그 시 영상을 녹음 위치에 맞춘다. */

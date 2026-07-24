@@ -78,6 +78,34 @@
                 android:paddingTop="4dp"
                 android:text="대기 중" />
 
+            <!-- 부르는 중 영상 위치 이동(seek). 녹음 중 이동 시 그 take 녹음은 종료됨. -->
+            <LinearLayout
+                android:id="@+id/song_seek_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="4dp"
+                android:visibility="gone">
+
+                <SeekBar
+                    android:id="@+id/song_seek"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/song_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minWidth="88dp"
+                    android:gravity="end"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_cyan"
+                    android:text="0:00 / 0:00" />
+            </LinearLayout>
+
             <!-- 다시듣기 컨트롤: 시크바(드래그로 영상·녹음 동시 이동) + 재생/정지 -->
             <LinearLayout
                 android:id="@+id/replay_controls"

@@ -107,6 +107,10 @@ class PlaybackActivity : AppCompatActivity() {
     )
     private var scoreCountdownRunnable: Runnable? = null
     private var fullscreen = false
+    private lateinit var songSeekRow: View
+    private lateinit var songSeek: SeekBar
+    private lateinit var songTime: TextView
+    private var songSeekDragging = false
 
     private var currentVideoId = ""
     private var candIds: List<String> = emptyList()
@@ -217,6 +221,19 @@ class PlaybackActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelSong() }
         findViewById<Button>(R.id.btn_fullscreen).setOnClickListener { toggleFullscreen() }
         findViewById<View>(R.id.fullscreen_tap).setOnClickListener { toggleFullscreen() }
+
+        songSeekRow = findViewById(R.id.song_seek_row)
+        songSeek = findViewById(R.id.song_seek)
+        songTime = findViewById(R.id.song_time)
+        if (!replayOnly) songSeekRow.visibility = View.VISIBLE
+        songSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(sb: SeekBar) { songSeekDragging = true }
+            override fun onStopTrackingTouch(sb: SeekBar) {
+                songSeekDragging = false
+                seekSong(sb.progress.toLong())
+            }
+        })
 
         NavBar.wire(this, PlaybackActivity::class.java)
     }
@@ -550,6 +567,34 @@ class PlaybackActivity : AppCompatActivity() {
         if (fullscreen) toast("화면을 탭하면 전체화면 종료")
     }
 
+    // 부르는 중 영상 위치를 seek 바에 갱신(0.4초).
+    private val songTicker = object : Runnable {
+        override fun run() {
+            if (!replayOnly && !fullscreen) {
+                val dur = player.durationMs()
+                if (dur > 0) {
+                    val pos = player.currentPositionMs().coerceIn(0, dur)
+                    songSeek.max = dur.toInt()
+                    if (!songSeekDragging) songSeek.progress = pos.toInt()
+                    songTime.text = "${fmtTime(pos.toInt())} / ${fmtTime(dur.toInt())}"
+                }
+            }
+            uiHandler.postDelayed(this, 400)
+        }
+    }
+
+    /** 영상 위치 이동. 녹음 중이면 반주 싱크가 깨지므로 이번 take 녹음은 종료(폐기)한다. */
+    private fun seekSong(pos: Long) {
+        player.seekTo(pos)
+        if (recorder.isRecording) {
+            recorder.stop()?.let { runCatching { it.delete() } }
+            recordStarted = false
+            scored = true          // 곡이 끝나도 저장·채점하지 않음
+            lastRecording = null
+            recStatus.text = "⏩ 위치 이동 — 이번 녹음은 취소됨 (다시 부르기로 재녹음)"
+        }
+    }
+
     /** 예약 목록에서 특정 곡을 골라 바로 부른다. */
     private fun playReserved(item: QueueItem) {
         queue.removeByVideoId(item.videoId)
@@ -659,11 +704,14 @@ class PlaybackActivity : AppCompatActivity() {
         super.onResume()
         uiHandler.removeCallbacks(queuePoll)
         uiHandler.post(queuePoll)
+        uiHandler.removeCallbacks(songTicker)
+        uiHandler.post(songTicker)
     }
 
     override fun onStop() {
         super.onStop()
         uiHandler.removeCallbacks(queuePoll)
+        uiHandler.removeCallbacks(songTicker)
         cancelScoreCountdown()   // 백그라운드로 가면 자동 넘김 중단
         // 정지·완곡을 안 누르고 화면을 벗어나도, 부르던 녹음은 최근 목록에 남긴다(채점 없이 저장).
         if (recorder.isRecording && recordStarted && !scored) {
@@ -694,6 +742,7 @@ class PlaybackActivity : AppCompatActivity() {
         stopMediaPlayer()
         uiHandler.removeCallbacks(replayTicker)
         uiHandler.removeCallbacks(queuePoll)
+        uiHandler.removeCallbacks(songTicker)
         cancelScoreCountdown()
         player.release()
         super.onDestroy()
