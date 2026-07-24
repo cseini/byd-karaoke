@@ -314,6 +314,28 @@
                 android:text="노래 제목이나 가수를 말하면 검색해요"
                 android:textSize="15sp"
                 android:textColor="@color/tj_text_secondary" />
+
+            <!-- 마이크 입력 레벨 미터: 소리가 들어오면 채워진다 -->
+            <ProgressBar
+                android:id="@+id/voice_level"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="260dp"
+                android:layout_height="14dp"
+                android:layout_marginTop="20dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="@color/tj_cyan"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/voice_level_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="🎤 마이크 입력 대기…"
+                android:textSize="13sp"
+                android:textColor="@color/tj_text_hint"
+                android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

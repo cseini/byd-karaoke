@@ -55,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceIcon: TextView
     private lateinit var voiceText: TextView
     private lateinit var voiceSub: TextView
+    private lateinit var voiceLevel: android.widget.ProgressBar
+    private lateinit var voiceLevelHint: TextView
     private lateinit var autoplayCheck: CheckBox
     private lateinit var autoplayOverlay: View
     private lateinit var autoplayTitle: TextView
@@ -91,6 +93,8 @@ class MainActivity : AppCompatActivity() {
         voiceIcon = findViewById(R.id.voice_icon)
         voiceText = findViewById(R.id.voice_text)
         voiceSub = findViewById(R.id.voice_sub)
+        voiceLevel = findViewById(R.id.voice_level)
+        voiceLevelHint = findViewById(R.id.voice_level_hint)
         autoplayCheck = findViewById(R.id.chk_autoplay)
         autoplayCheck.isChecked = settings.autoPlayVoiceFirst
         autoplayCheck.setOnCheckedChangeListener { _, checked -> settings.autoPlayVoiceFirst = checked }
@@ -295,10 +299,14 @@ class MainActivity : AppCompatActivity() {
             onReady = {
                 beepStart()
                 showVoiceOverlay("🎙", "말씀하세요", "노래 제목이나 가수를 말하면 검색해요")
+                voiceLevel.visibility = View.VISIBLE
+                voiceLevelHint.visibility = View.VISIBLE
                 pulseVoiceIcon()
             },
             onProcessing = {
                 beepEnd()
+                voiceLevel.visibility = View.GONE
+                voiceLevelHint.visibility = View.GONE
                 showVoiceOverlay("🌀", "인식 중…", "잠시만 기다려주세요")
             },
             onResult = { text ->
@@ -313,6 +321,7 @@ class MainActivity : AppCompatActivity() {
                 voiceOverlay.postDelayed({ hideVoiceOverlay() }, 1800)
                 status.text = it
             },
+            onLevel = { db -> updateVoiceLevel(db) },
         )
     }
 
@@ -327,7 +336,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideVoiceOverlay() {
         voiceIcon.clearAnimation()
+        voiceLevel.visibility = View.GONE
+        voiceLevelHint.visibility = View.GONE
         voiceOverlay.visibility = View.GONE
+    }
+
+    /** 마이크 입력 레벨(dBFS)을 미터에 반영 — 소리가 들어오는지 눈으로 확인. */
+    private fun updateVoiceLevel(db: Float) {
+        if (voiceOverlay.visibility != View.VISIBLE) return
+        val level = (((db + 45f) / 45f) * 100f).toInt().coerceIn(0, 100)
+        voiceLevel.progress = level
+        voiceLevelHint.text = if (level > 25) "🔊 잘 들려요" else "🎤 마이크에 대고 말해보세요"
     }
 
     private fun pulseVoiceIcon() {

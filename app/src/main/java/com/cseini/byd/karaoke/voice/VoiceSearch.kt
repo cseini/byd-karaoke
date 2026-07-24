@@ -41,18 +41,19 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
 
     fun isAvailable(): Boolean = true
 
-    /** onReady=듣기 시작, onProcessing=전사 중, onResult/onError=결과. */
+    /** onReady=듣기 시작, onProcessing=전사 중, onResult/onError=결과, onLevel=마이크 입력 레벨(dBFS). */
     fun start(
         onReady: () -> Unit,
         onProcessing: () -> Unit,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
+        onLevel: (Float) -> Unit = {},
     ) {
         when {
             SpeechRecognizer.isRecognitionAvailable(context) ->
-                startSystem(onReady, onProcessing, onResult, onError)
+                startSystem(onReady, onProcessing, onResult, onError, onLevel)
             settings.openaiApiKey.isNotBlank() ->
-                startGemini(onReady, onProcessing, onResult, onError)
+                startGemini(onReady, onProcessing, onResult, onError, onLevel)
             else ->
                 onError("음성검색을 쓰려면 설정에서 Gemini API 키(무료)를 넣으세요.")
         }
@@ -72,6 +73,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onProcessing: () -> Unit,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
+        onLevel: (Float) -> Unit,
     ) {
         stop()
         val r = SpeechRecognizer.createSpeechRecognizer(context)
@@ -86,7 +88,8 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             override fun onError(error: Int) = onError(errorText(error))
             override fun onBeginningOfSpeech() {}
             override fun onEndOfSpeech() = onProcessing()
-            override fun onRmsChanged(rmsdB: Float) {}
+            // 시스템 STT 의 RMS(대략 0~10)를 dBFS 근사로 변환해 레벨 표시에 넘긴다.
+            override fun onRmsChanged(rmsdB: Float) { onLevel(rmsdB * 5f - 50f) }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -106,6 +109,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onProcessing: () -> Unit,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
+        onLevel: (Float) -> Unit,
     ) {
         stop()
         val file = File(context.cacheDir, "voice_query.wav")
@@ -117,7 +121,8 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             forceEffects = false,
         )
         recorder = rec
-        val err = rec.start(file, null)
+        // 마이크 입력 레벨을 실시간으로 UI 에 넘겨 소리가 들어오는지 보이게 한다.
+        val err = rec.start(file) { db -> main.post { onLevel(db) } }
         if (err != null) { onError("마이크 오류: $err"); return }
         onReady()
         main.postDelayed({
