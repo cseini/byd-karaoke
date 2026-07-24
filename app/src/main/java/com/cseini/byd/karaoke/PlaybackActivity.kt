@@ -519,7 +519,12 @@ class PlaybackActivity : AppCompatActivity() {
             return
         }
         player.pause()
-        onSongEnded()   // PAUSED 콜백을 기다리지 않고 바로 채점
+        if (recordStarted && !scored) {
+            onSongEnded()   // 정상 녹음 중 → 바로 채점/저장
+        } else {
+            // 채점·저장할 게 없음(seek로 녹음 취소됐거나 녹음 꺼짐/이미 처리됨) → 검색 홈으로.
+            goToSearch()
+        }
     }
 
     private fun retry() {
@@ -583,16 +588,13 @@ class PlaybackActivity : AppCompatActivity() {
         }
     }
 
-    /** 영상 위치 이동. 녹음 중이면 반주 싱크가 깨지므로 이번 take 녹음은 종료(폐기)한다. */
+    /**
+     * 영상 위치 이동. 채점은 목소리(마이크)만 분석하므로 seek 와 무관하게 그대로 유효하다.
+     * 다만 다시듣기용 믹스는 반주를 곡 시작부터 순차로 섞어서, 이동 지점 이후 반주 싱크가 어긋날 수 있다.
+     */
     private fun seekSong(pos: Long) {
         player.seekTo(pos)
-        if (recorder.isRecording) {
-            recorder.stop()?.let { runCatching { it.delete() } }
-            recordStarted = false
-            scored = true          // 곡이 끝나도 저장·채점하지 않음
-            lastRecording = null
-            recStatus.text = "⏩ 위치 이동 — 이번 녹음은 취소됨 (다시 부르기로 재녹음)"
-        }
+        if (recorder.isRecording) recStatus.text = "⏩ 위치 이동됨 (녹음·채점은 계속돼요)"
     }
 
     /** 예약 목록에서 특정 곡을 골라 바로 부른다. */
