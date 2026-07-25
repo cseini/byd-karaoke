@@ -554,5 +554,52 @@
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone" />
+
+        <!-- 점수 화면(채점 후) — 탭하면 닫힘 -->
+        <LinearLayout
+            android:id="@+id/embed_score"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="#F2050510"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✨ 오늘의 점수 ✨"
+                android:textSize="20sp"
+                android:textColor="@color/tj_cyan" />
+
+            <TextView
+                android:id="@+id/embed_score_num"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="110sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_gold"
+                android:shadowColor="@color/tj_gold_deep"
+                android:shadowRadius="22" />
+
+            <TextView
+                android:id="@+id/embed_score_grade"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_pink" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:text="(화면을 누르면 닫힙니다)"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_hint" />
+        </LinearLayout>
     </FrameLayout>
 </FrameLayout>

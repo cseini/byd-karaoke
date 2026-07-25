@@ -67,6 +67,9 @@ class EmbeddedPlayer(
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val queueSide: View = activity.findViewById(R.id.embed_queue_side)
+    private val scoreOverlay: View = activity.findViewById(R.id.embed_score)
+    private val scoreNum: TextView = activity.findViewById(R.id.embed_score_num)
+    private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
@@ -98,6 +101,7 @@ class EmbeddedPlayer(
         replayBtn.setOnClickListener { startReplay() }
         nextBtn.setOnClickListener { playNext() }
         activity.findViewById<Button>(R.id.embed_close).setOnClickListener { close() }
+        scoreOverlay.setOnClickListener { scoreOverlay.visibility = View.GONE }
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
         fullscreenTap.setOnClickListener { toggleFullscreen() }
         replayPlay.setOnClickListener { toggleReplay() }
@@ -129,6 +133,7 @@ class EmbeddedPlayer(
         lastRecording = null
         titleView.text = title
         statusView.text = "불러오는 중…"
+        scoreOverlay.visibility = View.GONE
         replayRow.visibility = View.GONE
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
@@ -193,9 +198,25 @@ class EmbeddedPlayer(
             }
             saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
-            statusView.text = if (result == null) "채점 실패 — 녹음은 저장됨" else "🎯 ${result.total}점"
+            if (result == null) {
+                statusView.text = "채점 실패 — 녹음은 저장됨"
+            } else {
+                statusView.text = "🎯 ${result.total}점 — 다시듣기로 들어보세요"
+                showScore(result.total)
+            }
             queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
         }
+    }
+
+    private fun showScore(total: Int) {
+        scoreNum.text = "$total"
+        scoreGrade.text = when {
+            total >= 95 -> "🏆 완벽한 무대!"
+            total >= 88 -> "✨ 명 가수!"
+            total >= 80 -> "🔥 열창!"
+            else -> "👏 잘했어요!"
+        }
+        scoreOverlay.visibility = View.VISIBLE
     }
 
     private fun saveRecording(file: File, score: Int) {
@@ -334,6 +355,7 @@ class EmbeddedPlayer(
         recorder = null
         player?.release(); player = null
         container.removeAllViews()
+        scoreOverlay.visibility = View.GONE
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
     }
