@@ -555,51 +555,99 @@
             android:focusable="true"
             android:visibility="gone" />
 
-        <!-- 점수 화면(채점 후) — 탭하면 닫힘 -->
-        <LinearLayout
+        <!-- 점수 화면(채점 후) — 빈 곳 탭하면 검색으로 -->
+        <FrameLayout
             android:id="@+id/embed_score"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center"
             android:background="#F2050510"
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="✨ 오늘의 점수 ✨"
-                android:textSize="20sp"
-                android:textColor="@color/tj_cyan" />
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp">
 
-            <TextView
-                android:id="@+id/embed_score_num"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textSize="110sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_gold"
-                android:shadowColor="@color/tj_gold_deep"
-                android:shadowRadius="22" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✨ 오늘의 점수 ✨"
+                    android:textSize="20sp"
+                    android:textColor="@color/tj_cyan" />
 
-            <TextView
-                android:id="@+id/embed_score_grade"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_pink" />
+                <TextView
+                    android:id="@+id/embed_score_num"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="110sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_gold"
+                    android:shadowColor="@color/tj_gold_deep"
+                    android:shadowRadius="22" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingTop="16dp"
-                android:text="(화면을 누르면 닫힙니다)"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_hint" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/embed_score_grade"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_pink" />
+
+                <TextView
+                    android:id="@+id/embed_score_detail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="10dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:fontFamily="monospace" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="18dp">
+
+                    <Button
+                        android:id="@+id/embed_score_retry"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:backgroundTint="@color/tj_orange"
+                        android:text="다시 부르기" />
+
+                    <Button
+                        android:id="@+id/embed_score_replay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        app:backgroundTint="@color/tj_cyan"
+                        android:textColor="@color/tj_bg_deep"
+                        android:text="다시듣기" />
+
+                    <Button
+                        android:id="@+id/embed_score_next"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/tj_pink"
+                        android:text="다음곡 ▶" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="16dp"
+                    android:text="(빈 곳을 누르면 검색으로 돌아갑니다)"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_text_hint" />
+            </LinearLayout>
+        </FrameLayout>
     </FrameLayout>
 </FrameLayout>

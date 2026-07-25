@@ -70,6 +70,7 @@ class EmbeddedPlayer(
     private val scoreOverlay: View = activity.findViewById(R.id.embed_score)
     private val scoreNum: TextView = activity.findViewById(R.id.embed_score_num)
     private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
+    private val scoreDetail: TextView = activity.findViewById(R.id.embed_score_detail)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
@@ -101,7 +102,17 @@ class EmbeddedPlayer(
         replayBtn.setOnClickListener { startReplay() }
         nextBtn.setOnClickListener { playNext() }
         activity.findViewById<Button>(R.id.embed_close).setOnClickListener { close() }
-        scoreOverlay.setOnClickListener { scoreOverlay.visibility = View.GONE }
+        // 점수 화면 빈 곳 탭 → 검색으로(임베드 닫기). 버튼은 각자 소비.
+        scoreOverlay.setOnClickListener { close() }
+        activity.findViewById<Button>(R.id.embed_score_retry).setOnClickListener {
+            scoreOverlay.visibility = View.GONE; load(currentVideoId, titleView.text.toString())
+        }
+        activity.findViewById<Button>(R.id.embed_score_replay).setOnClickListener {
+            scoreOverlay.visibility = View.GONE; startReplay()
+        }
+        activity.findViewById<Button>(R.id.embed_score_next).setOnClickListener {
+            scoreOverlay.visibility = View.GONE; playNext()
+        }
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
         fullscreenTap.setOnClickListener { toggleFullscreen() }
         replayPlay.setOnClickListener { toggleReplay() }
@@ -204,20 +215,24 @@ class EmbeddedPlayer(
                 statusView.text = "채점 실패 — 녹음은 저장됨"
             } else {
                 statusView.text = "🎯 ${result.total}점 — 다시듣기로 들어보세요"
-                showScore(result.total)
+                showScore(result)
             }
             queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
         }
     }
 
-    private fun showScore(total: Int) {
-        scoreNum.text = "$total"
+    private fun showScore(result: ScoringEngine.Score) {
+        scoreNum.text = "${result.total}"
         scoreGrade.text = when {
-            total >= 95 -> "🏆 완벽한 무대!"
-            total >= 88 -> "✨ 명 가수!"
-            total >= 80 -> "🔥 열창!"
+            result.total >= 95 -> "🏆 완벽한 무대!"
+            result.total >= 88 -> "✨ 명 가수!"
+            result.total >= 80 -> "🔥 열창!"
             else -> "👏 잘했어요!"
         }
+        scoreDetail.text = result.breakdown.lines().drop(1).filterNot { it.startsWith("(") }.joinToString("\n")
+        queue.reload()
+        activity.findViewById<Button>(R.id.embed_score_next).visibility =
+            if (queue.size() > 0) View.VISIBLE else View.GONE
         scoreOverlay.visibility = View.VISIBLE
     }
 
