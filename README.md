@@ -84,3 +84,7 @@ adb logcat | grep karaoke-spike  # 환경/입력장치 로그 확인
 - 피치: `be.tarsos.dsp:core:2.5` (repo `https://mvn.0110.be/releases`) + YIN
 - 검색: YouTube Data API v3 (사용자 API 키 필요)
 - 예약: Room / 재생: android-youtube-player `onStateChange(ENDED)` → `loadVideoById`
+
+## 참고 문서
+
+- [BYD 헤드유닛 서드파티 앱 분석](docs/headunit-reference-apps-analysis.md) — Electro/diplus/kinex 디컴파일 분석으로 뽑은 노래방 적용 기법(스티어링휠 버튼 조작, 오버레이, BYD 제어, 상시생존 등)
