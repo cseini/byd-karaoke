@@ -18,6 +18,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.util.UnstableApi
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -31,11 +32,16 @@ import com.cseini.byd.karaoke.voice.VoiceSearch
 import kotlinx.coroutines.launch
 
 /** 검색 홈. 타이핑/음성 검색 → 바로 부르기. */
+@UnstableApi
 class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val DEFAULT_HINT = "검색어를 입력하거나 음성 버튼을 누르세요."
     }
+
+    // 테스트(lab) 앱에서만: 재생을 이 화면 안에서(임베드) 처리해 분할화면을 유지.
+    private var embeddedPlayer: EmbeddedPlayer? = null
+    private val useEmbedded: Boolean get() = BuildConfig.FLAVOR == "lab"
 
     private lateinit var settings: SettingsStore
     private lateinit var queue: QueueStore
@@ -92,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         )
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
+        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(this, settings, recordings, playHistory)
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
@@ -148,7 +155,20 @@ class MainActivity : AppCompatActivity() {
         if (!settings.keylessSearch && !settings.hasApiKey()) {
             status.text = "먼저 [설정]에서 API 키를 입력하거나 '키 없이 검색'을 켜세요."
         }
-        // 앱 실행 시 자동 업데이트는 끔(설치 실패 대응). 업데이트는 설정 → 앱 업데이트에서 수동으로.
+        // prod(라이브)는 앱 실행 시 자동 업데이트 끔(수동만). 테스트(lab) 앱만 자동 업데이트.
+        if (useEmbedded) checkOtaUpdate()
+    }
+
+    /** (테스트 앱) 별도 저장소에서 새 버전 확인·설치. */
+    private fun checkOtaUpdate() {
+        lifecycleScope.launch {
+            val release = UpdateManager.checkForUpdate() ?: return@launch
+            toast("테스트 새 버전 v${release.version} 받는 중…")
+            val apk = UpdateManager.download(this@MainActivity, release) { p ->
+                runOnUiThread { status.text = "업데이트 다운로드 중… $p%" }
+            } ?: run { status.text = "업데이트 다운로드 실패 — 다시 시도하세요"; return@launch }
+            UpdateManager.install(this@MainActivity, apk)
+        }
     }
 
     // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.
@@ -367,14 +387,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun playNow(item: QueueItem) {
         cancelAutoPlay()
+        embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
         startActivity(PlaybackActivity.intent(this, item.videoId, item.title, fromQueue = false))
     }
 
     /** 검색 결과에서 부르기: 재생 불가 영상이면 뒤 후보로 자동으로 넘어가도록 목록을 함께 넘긴다. */
     private fun playFromResults(item: QueueItem) {
         cancelAutoPlay()
+        embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
         val idx = lastResults.indexOfFirst { it.videoId == item.videoId }.coerceAtLeast(0)
         startActivity(PlaybackActivity.intentWithCandidates(this, lastResults, idx))
+    }
+
+    override fun onBackPressed() {
+        if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close() else super.onBackPressed()
     }
 
     private fun ensureMicPermission() {

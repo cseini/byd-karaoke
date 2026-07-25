@@ -338,4 +338,75 @@
                 android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
+
+    <!-- (테스트 앱 전용) 메인 화면 안에서 재생 — 분할화면 유지용 임베드 플레이어 -->
+    <LinearLayout
+        android:id="@+id/embed_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/tj_bg_deep"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:id="@+id/embed_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/tj_bg"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/embed_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_text_primary"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="재생 중" />
+
+            <TextView
+                android:id="@+id/embed_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_red"
+                android:paddingTop="4dp"
+                android:text="대기 중" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="10dp">
+
+                <Button
+                    android:id="@+id/embed_stop"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    app:backgroundTint="@color/tj_red"
+                    android:text="⏹ 노래 종료" />
+
+                <Button
+                    android:id="@+id/embed_close"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:text="닫기" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
 </FrameLayout>

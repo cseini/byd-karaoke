@@ -24,8 +24,9 @@ import java.net.URL
  */
 object UpdateManager {
 
-    private const val LATEST_URL =
-        "https://api.github.com/repos/cseini/byd-karaoke/releases/latest"
+    // 플래버별 OTA 저장소(prod=본앱, lab=테스트앱). 서로 섞이지 않는다.
+    private val LATEST_URL: String
+        get() = "https://api.github.com/repos/${BuildConfig.OTA_REPO}/releases/latest"
 
     data class Asset(val name: String?, val browser_download_url: String?)
     data class Release(val tag_name: String?, val assets: List<Asset> = emptyList()) {
