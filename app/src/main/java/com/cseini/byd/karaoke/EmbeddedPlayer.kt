@@ -2,16 +2,26 @@ package com.cseini.byd.karaoke
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.audio.MixRecorder
 import com.cseini.byd.karaoke.data.PlayHistoryStore
+import com.cseini.byd.karaoke.data.QueueItem
+import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
@@ -26,9 +36,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * (테스트 앱 전용) 재생을 MainActivity 창 '안'에서 처리하는 임베드 플레이어.
- * 새 액티비티를 띄우지 않으므로 차량 런처가 분할화면을 풀스크린으로 밀어내지 못한다.
- * 재생 + 마이크 믹스 녹음 + 채점(목소리)까지 PlaybackActivity 의 핵심 루프를 담는다.
+ * (테스트 앱 전용) 재생을 MainActivity 창 '안'에서 처리 → 차량 런처가 분할화면을 유지.
+ * PlaybackActivity 의 핵심(재생·녹음·채점·재생기록·예약·seek·전체화면·다시듣기)을 임베드로 담는다.
  */
 @UnstableApi
 class EmbeddedPlayer(
@@ -37,39 +46,97 @@ class EmbeddedPlayer(
     private val recordings: RecordingStore,
     private val playHistory: PlayHistoryStore,
 ) {
+    private val queue = QueueStore(activity)
+    private val ui = Handler(Looper.getMainLooper())
+
     private val overlay: View = activity.findViewById(R.id.embed_overlay)
     private val container: FrameLayout = activity.findViewById(R.id.embed_container)
     private val titleView: TextView = activity.findViewById(R.id.embed_title)
     private val statusView: TextView = activity.findViewById(R.id.embed_status)
+    private val bottom: View = activity.findViewById(R.id.embed_bottom)
+    private val seekRow: View = activity.findViewById(R.id.embed_seek_row)
+    private val seek: SeekBar = activity.findViewById(R.id.embed_seek)
+    private val timeView: TextView = activity.findViewById(R.id.embed_time)
+    private val replayRow: View = activity.findViewById(R.id.embed_replay_row)
+    private val replaySeek: SeekBar = activity.findViewById(R.id.embed_replay_seek)
+    private val replayPlay: Button = activity.findViewById(R.id.embed_replay_play)
+    private val stopBtn: Button = activity.findViewById(R.id.embed_stop)
+    private val retryBtn: Button = activity.findViewById(R.id.embed_retry)
+    private val replayBtn: Button = activity.findViewById(R.id.embed_replay)
+    private val nextBtn: Button = activity.findViewById(R.id.embed_next)
+    private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
+    private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
+    private val queueSide: View = activity.findViewById(R.id.embed_queue_side)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
+    private var mediaPlayer: MediaPlayer? = null
     private var currentVideoId = ""
     private var recordStarted = false
     private var scored = false
     private var playLogged = false
+    private var replaying = false
+    private var fullscreen = false
+    private var seekDragging = false
+    private var lastRecording: File? = null
+    private var countdown: Runnable? = null
+
+    private val queueAdapter = EmbedQueueAdapter(
+        onPlay = { playReserved(it) },
+        onDelete = { queue.removeByVideoId(it.videoId); refreshQueueSide() },
+    )
 
     val isShowing: Boolean get() = overlay.visibility == View.VISIBLE
 
     init {
-        activity.findViewById<Button>(R.id.embed_stop).setOnClickListener { stopSong() }
+        activity.findViewById<RecyclerView>(R.id.embed_queue_list).apply {
+            layoutManager = LinearLayoutManager(activity)
+            adapter = queueAdapter
+        }
+        stopBtn.setOnClickListener { stopSong() }
+        retryBtn.setOnClickListener { currentVideoId.takeIf { it.isNotBlank() }?.let { load(it, titleView.text.toString()) } }
+        replayBtn.setOnClickListener { startReplay() }
+        nextBtn.setOnClickListener { playNext() }
         activity.findViewById<Button>(R.id.embed_close).setOnClickListener { close() }
+        fullscreenBtn.setOnClickListener { toggleFullscreen() }
+        fullscreenTap.setOnClickListener { toggleFullscreen() }
+        replayPlay.setOnClickListener { toggleReplay() }
+        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, u: Boolean) {}
+            override fun onStartTrackingTouch(sb: SeekBar) { seekDragging = true }
+            override fun onStopTrackingTouch(sb: SeekBar) { seekDragging = false; player?.seekTo(sb.progress.toLong()) }
+        })
+        replaySeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, u: Boolean) { if (u) mediaPlayer?.let { runCatching { it.seekTo(p) } } }
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        })
     }
 
     fun play(videoId: String, title: String) {
-        close()   // 이전 재생 정리
+        overlay.visibility = View.VISIBLE
+        load(videoId, title)
+        ui.post(songTicker)
+        ui.post(queuePoll)
+    }
+
+    private fun load(videoId: String, title: String) {
+        cancelCountdown()
+        stopMediaPlayer()
+        player?.release()
         currentVideoId = videoId
-        recordStarted = false; scored = false; playLogged = false
+        recordStarted = false; scored = false; playLogged = false; replaying = false
+        lastRecording = null
         titleView.text = title
         statusView.text = "불러오는 중…"
-        overlay.visibility = View.VISIBLE
-
+        replayRow.visibility = View.GONE
+        replayBtn.visibility = View.GONE
+        nextBtn.visibility = View.GONE
+        seekRow.visibility = View.VISIBLE
         val rec = MixRecorder(activity, settings)
         recorder = rec
         val cb = PlayerCallbacks(
-            onPlaying = { onPlaying() },
-            onEnded = { onEnded() },
-            onTime = { },
+            onPlaying = { onPlaying() }, onEnded = { onEnded() }, onTime = { },
             onEmbedBlocked = { statusView.text = "재생 불가 영상입니다. 다른 곡으로 시도하세요." },
             onError = { msg -> if (rec.isRecording) rec.stop(); statusView.text = msg },
         )
@@ -92,27 +159,31 @@ class EmbeddedPlayer(
         val safe = titleView.text.toString().replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
         val file = File(dir, "${safe}_${currentVideoId}_${ts}.wav")
-        val startPos = player?.currentPositionMs() ?: 0L
-        val err = recorder?.start(file, startPos) { db ->
+        val err = recorder?.start(file, player?.currentPositionMs() ?: 0L) { db ->
             activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
-        if (err != null) statusView.text = "녹음 시작 실패: $err" else recordStarted = true
+        if (err != null) statusView.text = "녹음 시작 실패: $err" else { recordStarted = true; lastRecording = file }
     }
 
     private fun onEnded() {
         if (scored) return
         if (!recordStarted) {
-            if (!settings.recordingEnabled) { scored = true; statusView.text = "🎵 재생 완료" }
+            if (!settings.recordingEnabled) {
+                scored = true; statusView.text = "🎵 재생 완료"
+                queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
+            }
             return
         }
         scored = true
         val file = recorder?.stop()
+        lastRecording = file
         if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
+        showPostSong()
         val rec = recorder
         if (!settings.scoringEnabled) {
-            recordings.add(RecordingItem(file.absolutePath, currentVideoId, titleView.text.toString(), -1, System.currentTimeMillis()))
-            Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes).let { if (it.isNotEmpty()) recordings.removeByPaths(it) }
-            statusView.text = "🎵 녹음 저장됨 — 녹음함에서 들을 수 있어요"
+            saveRecording(file, -1)
+            statusView.text = "🎵 녹음 저장됨 — 다시듣기로 들어보세요"
+            queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
             return
         }
         statusView.text = "채점 중…"
@@ -120,25 +191,173 @@ class EmbeddedPlayer(
             val result = withContext(Dispatchers.Default) {
                 runCatching { val (s, sr) = rec!!.voiceForScoring(); ScoringEngine.score(s, sr) }.getOrNull()
             }
-            recordings.add(RecordingItem(file.absolutePath, currentVideoId, titleView.text.toString(), result?.total ?: -1, System.currentTimeMillis()))
-            Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes).let { if (it.isNotEmpty()) recordings.removeByPaths(it) }
+            saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
-            statusView.text = if (result == null) "채점 실패 — 녹음은 저장됨"
-                else "🎯 ${result.total}점 — 녹음함에서 다시 들을 수 있어요"
+            statusView.text = if (result == null) "채점 실패 — 녹음은 저장됨" else "🎯 ${result.total}점"
+            queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
         }
     }
 
-    private fun stopSong() {
-        player?.pause()
-        if (recordStarted && !scored) onEnded() else close()
+    private fun saveRecording(file: File, score: Int) {
+        recordings.add(RecordingItem(file.absolutePath, currentVideoId, titleView.text.toString(), score, System.currentTimeMillis()))
+        Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes).let { if (it.isNotEmpty()) recordings.removeByPaths(it) }
     }
 
+    /** 곡이 끝난 뒤: 다시듣기 버튼 노출, 예약 있으면 다음곡 버튼. */
+    private fun showPostSong() {
+        replayBtn.visibility = if (lastRecording != null) View.VISIBLE else View.GONE
+        queue.reload()
+        nextBtn.visibility = if (queue.size() > 0) View.VISIBLE else View.GONE
+    }
+
+    private fun stopSong() {
+        cancelCountdown()
+        if (replaying) { stopMediaPlayer(); replaying = false; replayRow.visibility = View.GONE; player?.play(); return }
+        player?.pause()
+        if (recordStarted && !scored) onEnded() else showPostSong()
+    }
+
+    private fun playNext() {
+        val next = queue.pollFirst() ?: run { statusView.text = "예약된 곡이 없습니다"; return }
+        load(next.videoId, next.title)
+    }
+
+    private fun playReserved(item: QueueItem) {
+        queue.removeByVideoId(item.videoId)
+        load(item.videoId, item.title)
+    }
+
+    // ── 곡 끝나고 아무것도 안 누르면 10초 뒤 다음 예약곡 ──
+    private fun startAutoAdvance(next: QueueItem) {
+        cancelCountdown()
+        val r = object : Runnable {
+            var n = 10
+            override fun run() {
+                if (n <= 0) { countdown = null; playNext(); return }
+                statusView.text = "${n}초 후 다음 예약곡 ▶ '${next.title}'"
+                n--; ui.postDelayed(this, 1000)
+            }
+        }
+        countdown = r; ui.post(r)
+    }
+
+    private fun cancelCountdown() { countdown?.let { ui.removeCallbacks(it) }; countdown = null }
+
+    // ── 재생 위치 seek 바 갱신 ──
+    private val songTicker = object : Runnable {
+        override fun run() {
+            if (!fullscreen && !replaying) {
+                val dur = player?.durationMs() ?: 0L
+                if (dur > 0) {
+                    val pos = (player?.currentPositionMs() ?: 0L).coerceIn(0, dur)
+                    seek.max = dur.toInt()
+                    if (!seekDragging) seek.progress = pos.toInt()
+                    timeView.text = "${fmt(pos.toInt())} / ${fmt(dur.toInt())}"
+                }
+            }
+            ui.postDelayed(this, 400)
+        }
+    }
+
+    // ── 예약 목록(옆) 갱신 ──
+    private val queuePoll = object : Runnable {
+        override fun run() { refreshQueueSide(); ui.postDelayed(this, 2500) }
+    }
+
+    private fun refreshQueueSide() {
+        if (fullscreen) { queueSide.visibility = View.GONE; return }
+        queue.reload()
+        val items = queue.all()
+        queueAdapter.submit(items)
+        queueSide.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    // ── 전체화면(패널·예약목록 숨겨 영상만) ──
+    private fun toggleFullscreen() {
+        fullscreen = !fullscreen
+        bottom.visibility = if (fullscreen) View.GONE else View.VISIBLE
+        fullscreenBtn.visibility = if (fullscreen) View.GONE else View.VISIBLE
+        fullscreenTap.visibility = if (fullscreen) View.VISIBLE else View.GONE
+        refreshQueueSide()
+    }
+
+    // ── 다시듣기(마지막 녹음 믹스 재생) ──
+    private fun startReplay() {
+        val file = lastRecording ?: run { statusView.text = "들려줄 녹음이 없습니다"; return }
+        if (!file.exists()) { statusView.text = "녹음 파일이 없습니다"; return }
+        player?.pause()
+        stopMediaPlayer()
+        replaying = true
+        mediaPlayer = MediaPlayer().apply {
+            runCatching {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener { replaying = false; replayPlay.text = "▶ 재생"; ui.removeCallbacks(replayTicker) }
+                prepare(); start()
+                replaySeek.max = duration; replaySeek.progress = 0
+                replayRow.visibility = View.VISIBLE
+                replayPlay.text = "⏸ 정지"
+                statusView.text = "▶ 내 노래 다시 듣는 중"
+                ui.post(replayTicker)
+            }.onFailure { statusView.text = "재생 실패: ${it.message}" }
+        }
+    }
+
+    private val replayTicker = object : Runnable {
+        override fun run() {
+            val mp = mediaPlayer ?: return
+            runCatching { replaySeek.progress = mp.currentPosition; replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생" }
+            ui.postDelayed(this, 300)
+        }
+    }
+
+    private fun toggleReplay() {
+        val mp = mediaPlayer ?: return
+        runCatching {
+            if (mp.isPlaying) { mp.pause(); replayPlay.text = "▶ 재생" }
+            else { mp.start(); replayPlay.text = "⏸ 정지"; ui.post(replayTicker) }
+        }
+    }
+
+    private fun stopMediaPlayer() {
+        ui.removeCallbacks(replayTicker)
+        mediaPlayer?.run { runCatching { if (isPlaying) stop() }; release() }
+        mediaPlayer = null
+    }
+
+    private fun fmt(ms: Int): String { val s = ms / 1000; return "%d:%02d".format(s / 60, s % 60) }
+
     fun close() {
+        cancelCountdown()
+        ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
+        stopMediaPlayer()
         recorder?.let { if (it.isRecording) it.stop() }
         recorder = null
-        player?.release()
-        player = null
+        player?.release(); player = null
         container.removeAllViews()
+        if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
+    }
+}
+
+/** 임베드 예약 목록 어댑터(item_queue_side 재사용). */
+private class EmbedQueueAdapter(
+    val onPlay: (QueueItem) -> Unit,
+    val onDelete: (QueueItem) -> Unit,
+) : RecyclerView.Adapter<EmbedQueueAdapter.VH>() {
+    private val items = ArrayList<QueueItem>()
+    fun submit(list: List<QueueItem>) { items.clear(); items.addAll(list); notifyDataSetChanged() }
+    class VH(v: View) : RecyclerView.ViewHolder(v) {
+        val title: TextView = v.findViewById(R.id.q_title)
+        val play: Button = v.findViewById(R.id.q_play)
+        val delete: Button = v.findViewById(R.id.q_delete)
+    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
+        VH(LayoutInflater.from(parent.context).inflate(R.layout.item_queue_side, parent, false))
+    override fun getItemCount() = items.size
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val item = items[position]
+        holder.title.text = "${position + 1}. ${item.title}"
+        holder.play.setOnClickListener { onPlay(item) }
+        holder.delete.setOnClickListener { onDelete(item) }
     }
 }

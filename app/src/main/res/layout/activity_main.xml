@@ -340,73 +340,219 @@
     </FrameLayout>
 
     <!-- (테스트 앱 전용) 메인 화면 안에서 재생 — 분할화면 유지용 임베드 플레이어 -->
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/embed_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         android:background="@color/tj_bg_deep"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
 
-        <FrameLayout
-            android:id="@+id/embed_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/tj_bg"
-            android:padding="12dp">
-
-            <TextView
-                android:id="@+id/embed_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_text_primary"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:text="재생 중" />
-
-            <TextView
-                android:id="@+id/embed_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_red"
-                android:paddingTop="4dp"
-                android:text="대기 중" />
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
             <LinearLayout
                 android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/embed_container"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1" />
+
+                <!-- 예약된 곡(옆 상시 노출) -->
+                <LinearLayout
+                    android:id="@+id/embed_queue_side"
+                    android:layout_width="220dp"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:background="@color/tj_panel"
+                    android:padding="8dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingBottom="4dp"
+                        android:text="🎫 예약된 곡"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/tj_cyan" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/embed_queue_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/embed_bottom"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingTop="10dp">
+                android:orientation="vertical"
+                android:background="@color/tj_bg"
+                android:padding="12dp">
 
-                <Button
-                    android:id="@+id/embed_stop"
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/embed_title"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    app:backgroundTint="@color/tj_red"
-                    android:text="⏹ 노래 종료" />
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_text_primary"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="재생 중" />
 
-                <Button
-                    android:id="@+id/embed_close"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/embed_status"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:text="닫기" />
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_red"
+                    android:paddingTop="4dp"
+                    android:text="대기 중" />
+
+                <!-- 재생 위치 seek 바 -->
+                <LinearLayout
+                    android:id="@+id/embed_seek_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="4dp">
+
+                    <SeekBar
+                        android:id="@+id/embed_seek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/embed_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="82dp"
+                        android:gravity="end"
+                        android:textSize="12sp"
+                        android:textColor="@color/tj_cyan"
+                        android:text="0:00 / 0:00" />
+                </LinearLayout>
+
+                <!-- 다시듣기 컨트롤(채점 후 등장) -->
+                <LinearLayout
+                    android:id="@+id/embed_replay_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="4dp"
+                    android:visibility="gone">
+
+                    <SeekBar
+                        android:id="@+id/embed_replay_seek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <Button
+                        android:id="@+id/embed_replay_play"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:layout_marginStart="8dp"
+                        app:backgroundTint="@color/tj_blue"
+                        android:text="⏸ 정지" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="10dp">
+
+                    <Button
+                        android:id="@+id/embed_stop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        app:backgroundTint="@color/tj_red"
+                        android:text="⏹ 종료" />
+
+                    <Button
+                        android:id="@+id/embed_retry"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        app:backgroundTint="@color/tj_orange"
+                        android:text="다시" />
+
+                    <Button
+                        android:id="@+id/embed_replay"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/tj_cyan"
+                        android:textColor="@color/tj_bg_deep"
+                        android:text="다시듣기" />
+
+                    <Button
+                        android:id="@+id/embed_next"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/tj_pink"
+                        android:text="다음곡" />
+
+                    <Button
+                        android:id="@+id/embed_close"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="닫기" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+
+        <!-- 전체화면 토글(영상 좌상단) -->
+        <Button
+            android:id="@+id/embed_fullscreen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="10dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:textSize="16sp"
+            android:background="#66000000"
+            android:textColor="#FFFFFF"
+            android:text="⛶" />
+
+        <View
+            android:id="@+id/embed_fullscreen_tap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone" />
+    </FrameLayout>
 </FrameLayout>
