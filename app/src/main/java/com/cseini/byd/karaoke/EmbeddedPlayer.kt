@@ -111,7 +111,9 @@ class EmbeddedPlayer(
             override fun onStopTrackingTouch(sb: SeekBar) { seekDragging = false; player?.seekTo(sb.progress.toLong()) }
         })
         replaySeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar, p: Int, u: Boolean) { if (u) mediaPlayer?.let { runCatching { it.seekTo(p) } } }
+            override fun onProgressChanged(sb: SeekBar, p: Int, u: Boolean) {
+                if (u) { mediaPlayer?.let { runCatching { it.seekTo(p) } }; player?.seekTo(p.toLong()) }
+            }
             override fun onStartTrackingTouch(sb: SeekBar) {}
             override fun onStopTrackingTouch(sb: SeekBar) {}
         })
@@ -233,7 +235,7 @@ class EmbeddedPlayer(
 
     private fun stopSong() {
         cancelCountdown()
-        if (replaying) { stopMediaPlayer(); replaying = false; replayRow.visibility = View.GONE; player?.play(); return }
+        if (replaying) { endReplay(); return }
         player?.pause()
         if (recordStarted && !scored) onEnded() else showPostSong()
     }
@@ -264,10 +266,10 @@ class EmbeddedPlayer(
 
     private fun cancelCountdown() { countdown?.let { ui.removeCallbacks(it) }; countdown = null }
 
-    // ── 재생 위치 seek 바 갱신 ──
+    // ── 재생 위치 seek 바 갱신(실제 재생 중일 때만 — 정지 후 보간으로 계속 흐르는 것 방지) ──
     private val songTicker = object : Runnable {
         override fun run() {
-            if (!fullscreen && !replaying) {
+            if (!fullscreen && !replaying && player?.isPlaying() == true) {
                 val dur = player?.durationMs() ?: 0L
                 if (dur > 0) {
                     val pos = (player?.currentPositionMs() ?: 0L).coerceIn(0, dur)
@@ -302,31 +304,47 @@ class EmbeddedPlayer(
         refreshQueueSide()
     }
 
-    // ── 다시듣기(마지막 녹음 믹스 재생) ──
+    // ── 다시듣기: 영상은 음소거로 처음부터(화면), 소리는 녹음 믹스(MediaPlayer) ──
     private fun startReplay() {
         val file = lastRecording ?: run { statusView.text = "들려줄 녹음이 없습니다"; return }
         if (!file.exists()) { statusView.text = "녹음 파일이 없습니다"; return }
-        player?.pause()
         stopMediaPlayer()
         replaying = true
+        seekRow.visibility = View.GONE          // 노래 seek 바 숨김(진행바 2개 방지)
+        player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
+        player?.seekTo(0)
+        player?.play()
         mediaPlayer = MediaPlayer().apply {
             runCatching {
                 setDataSource(file.absolutePath)
-                setOnCompletionListener { replaying = false; replayPlay.text = "▶ 재생"; ui.removeCallbacks(replayTicker) }
+                setOnCompletionListener { endReplay() }
                 prepare(); start()
                 replaySeek.max = duration; replaySeek.progress = 0
                 replayRow.visibility = View.VISIBLE
                 replayPlay.text = "⏸ 정지"
                 statusView.text = "▶ 내 노래 다시 듣는 중"
                 ui.post(replayTicker)
-            }.onFailure { statusView.text = "재생 실패: ${it.message}" }
+            }.onFailure { statusView.text = "재생 실패: ${it.message}"; endReplay() }
         }
+    }
+
+    private fun endReplay() {
+        ui.removeCallbacks(replayTicker)
+        stopMediaPlayer()
+        player?.pause()
+        replaying = false
+        replayRow.visibility = View.GONE
+        replayPlay.text = "▶ 재생"
+        seekRow.visibility = View.VISIBLE
     }
 
     private val replayTicker = object : Runnable {
         override fun run() {
             val mp = mediaPlayer ?: return
-            runCatching { replaySeek.progress = mp.currentPosition; replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생" }
+            runCatching {
+                replaySeek.progress = mp.currentPosition
+                replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생"
+            }
             ui.postDelayed(this, 300)
         }
     }
@@ -334,8 +352,8 @@ class EmbeddedPlayer(
     private fun toggleReplay() {
         val mp = mediaPlayer ?: return
         runCatching {
-            if (mp.isPlaying) { mp.pause(); replayPlay.text = "▶ 재생" }
-            else { mp.start(); replayPlay.text = "⏸ 정지"; ui.post(replayTicker) }
+            if (mp.isPlaying) { mp.pause(); player?.pause(); replayPlay.text = "▶ 재생" }
+            else { mp.start(); player?.play(); replayPlay.text = "⏸ 정지"; ui.post(replayTicker) }
         }
     }
 
