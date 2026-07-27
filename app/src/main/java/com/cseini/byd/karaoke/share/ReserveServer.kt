@@ -29,7 +29,9 @@ object ReserveServer {
         val app = context.applicationContext
         for (port in intArrayOf(8080, 8081, 8090)) {
             val s = Http(app, port)
-            if (runCatching { s.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
+            // 검색은 차가 대신 수행하므로 기본 5초(SOCKET_READ_TIMEOUT)로는 부족하다.
+            // 차 네트워크가 느리면 연결이 끊겨 폰에 "검색 실패"만 뜨므로 넉넉히 잡는다.
+            if (runCatching { s.start(60_000, false) }.isSuccess) {
                 server = s
                 url = "http://$ip:$port/"
                 return url
@@ -64,16 +66,26 @@ object ReserveServer {
 
         private fun handleSearch(query: String): Response {
             if (query.isBlank()) return jsonBody("{\"items\":[]}")
-            val result = runBlocking {
-                repo.search(query, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
+            // 실패해도 반드시 JSON 으로 이유를 돌려준다(폰에 "검색 실패"만 뜨지 않도록).
+            val result = runCatching {
+                runBlocking {
+                    repo.search(query, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
+                }
+            }.getOrElse { e ->
+                return jsonBody(
+                    JSONObject().put("items", JSONArray())
+                        .put("error", "차에서 검색 실패: ${e.message ?: e::class.java.simpleName}").toString()
+                )
             }
             val arr = JSONArray()
-            if (result is YouTubeRepository.Result.Ok) {
-                result.items.take(20).forEach {
+            val obj = JSONObject()
+            when (result) {
+                is YouTubeRepository.Result.Ok -> result.items.take(20).forEach {
                     arr.put(JSONObject().put("videoId", it.videoId).put("title", it.title).put("channel", it.channel))
                 }
+                is YouTubeRepository.Result.Error -> obj.put("error", "차에서 검색 실패: ${result.message}")
             }
-            return jsonBody(JSONObject().put("items", arr).toString())
+            return jsonBody(obj.put("items", arr).toString())
         }
 
         private fun handleReserve(videoId: String, title: String, channel: String): Response {
@@ -141,13 +153,15 @@ object ReserveServer {
    var r=document.getElementById('results'); r.innerHTML='<div class="empty">검색 중…</div>';
    try{
      var res=await fetch('/search?q='+encodeURIComponent(q));
+     if(!res.ok){r.innerHTML='<div class="empty">차와 통신 실패 (HTTP '+res.status+')</div>';return}
      var d=await res.json();
+     if(d.error){r.innerHTML='<div class="empty">'+esc(d.error)+'<br><small>차의 인터넷 연결을 확인하세요.</small></div>';return}
      if(!d.items.length){r.innerHTML='<div class="empty">결과가 없어요.</div>';return}
      r.innerHTML=d.items.map(function(it){
        return '<div class="item"><div class="t">'+esc(it.title)+'<div class="c">'+esc(it.channel)+'</div></div>'+
          '<button class="res" onclick="reserve(this,\''+it.videoId+'\',\''+esc(it.title).replace(/\'/g,"&#39;")+'\')">예약</button></div>';
      }).join('');
-   }catch(e){r.innerHTML='<div class="empty">검색 실패</div>'}
+   }catch(e){r.innerHTML='<div class="empty">차에 연결하지 못했습니다 ('+e+')<br><small>차 화면에서 예약 서버가 켜져 있는지, 같은 WiFi인지 확인하세요.</small></div>'}
  }
  async function reserve(btn,vid,title){
    btn.disabled=true; btn.textContent='예약됨';
