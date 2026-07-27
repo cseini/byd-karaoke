@@ -148,10 +148,14 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             return
         }
         val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_key, null)
-        view.findViewById<android.widget.ImageView>(R.id.key_qr)
-            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
-        view.findViewById<TextView>(R.id.key_url).text = url
         val status = view.findViewById<TextView>(R.id.key_status)
+        // 주소를 눌러 다른 후보 IP로 전환 가능(유닛마다 인터페이스가 달라 자동 선택이 틀릴 수 있음).
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.key_qr),
+            view.findViewById(R.id.key_url),
+            status,
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8095),
+        )
         com.cseini.byd.karaoke.share.KeyEntryServer.onSaved = {
             // 폰이 키를 전송 → 차 화면 입력칸 갱신 + 상태 표시(서버가 이미 설정에 저장함).
             openaiKey.setText(settings.openaiApiKey)

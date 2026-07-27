@@ -57,31 +57,45 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
  * 먼저 고르면 폰이 닿지 못하는 셀룰러 IP(예: 10.229.x)가 잡힌다. 그래서 인터페이스
  * 이름으로 WiFi(wlan/ap)를 우선하고 셀룰러(rmnet 등)는 배제한다.
  */
-fun localIpAddress(): String? {
-    var best: String? = null
-    var bestScore = -1
+fun localIpAddress(): String? = localIpCandidates().firstOrNull()?.ip
+
+/** 접속 후보 주소 하나(인터페이스명 포함 — 유닛마다 이름이 달라 진단·수동 선택에 쓴다). */
+data class LocalIp(val ip: String, val iface: String)
+
+/**
+ * 폰에서 접속 가능한 IPv4 후보를 가능성 높은 순으로. 서버는 모든 인터페이스에 바인딩되므로
+ * 어느 주소로든 접속되며, 유닛(DiLink 3/5 등)마다 인터페이스 이름이 달라 자동 선택이 틀릴 수 있어
+ * 사용자가 다른 후보로 바꿔볼 수 있게 목록으로 돌려준다.
+ */
+fun localIpCandidates(): List<LocalIp> {
+    val out = ArrayList<Pair<Int, LocalIp>>()
     runCatching {
         for (ni in NetworkInterface.getNetworkInterfaces()) {
             if (!ni.isUp || ni.isLoopback) continue
             val name = ni.name.lowercase()
             val isWifi = name.startsWith("wlan") || name.startsWith("ap") ||
                 name.startsWith("swlan") || name.contains("wifi") || name.startsWith("p2p")
+            // 유선/테더링(일부 유닛은 eth0·usb0 로 핫스팟에 붙는다)
+            val isWired = name.startsWith("eth") || name.startsWith("usb") || name.startsWith("rndis")
             val isCellular = name.startsWith("rmnet") || name.startsWith("rev_rmnet") ||
                 name.startsWith("ccmni") || name.startsWith("pdp") || name.startsWith("clat")
             for (addr in ni.inetAddresses) {
                 if (addr.isLoopbackAddress || addr !is Inet4Address) continue
                 val ip = addr.hostAddress ?: continue
+                val siteLocal = addr.isSiteLocalAddress   // 192.168.x / 10.x / 172.16~31.x
                 val score = when {
-                    isWifi -> 4
-                    isCellular -> 0
-                    addr.isSiteLocalAddress -> 2
+                    isWifi && siteLocal -> 6      // 폰 핫스팟/차 AP — 가장 유력
+                    isWifi -> 5
+                    isWired && siteLocal -> 4
+                    isCellular -> 0               // 셀룰러는 폰에서 접근 불가
+                    siteLocal -> 3
                     else -> 1
                 }
-                if (score > bestScore) { bestScore = score; best = ip }
+                out.add(score to LocalIp(ip, ni.name))
             }
         }
     }
-    return best
+    return out.sortedByDescending { it.first }.map { it.second }
 }
 
 /** 문자열을 QR 비트맵으로. */

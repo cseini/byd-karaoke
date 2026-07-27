@@ -395,9 +395,13 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             return
         }
         val view = layoutInflater.inflate(R.layout.dialog_reserve, null)
-        view.findViewById<android.widget.ImageView>(R.id.reserve_qr)
-            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
-        view.findViewById<TextView>(R.id.reserve_url).text = url
+        // 유닛마다 인터페이스가 달라 자동 선택이 틀릴 수 있어, 주소를 눌러 다른 후보로 바꿀 수 있게 한다.
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.reserve_qr),
+            view.findViewById(R.id.reserve_url),
+            view.findViewById(R.id.reserve_hint),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+        )
         AlertDialog.Builder(this)
             .setView(view)
             .setPositiveButton("닫기", null)

@@ -106,9 +106,13 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
 
     private fun showShareDialog(url: String) {
         val view = LayoutInflater.from(ctx).inflate(R.layout.dialog_share, null)
-        view.findViewById<android.widget.ImageView>(R.id.share_qr)
-            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
-        view.findViewById<TextView>(R.id.share_url).text = url
+        // 주소를 눌러 다른 후보 IP로 전환 가능(유닛마다 인터페이스가 달라 자동 선택이 틀릴 수 있음).
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.share_qr),
+            view.findViewById(R.id.share_url),
+            view.findViewById(R.id.share_hint),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8088),
+        )
         AlertDialog.Builder(ctx)
             .setView(view)
             .setPositiveButton("닫기", null)
