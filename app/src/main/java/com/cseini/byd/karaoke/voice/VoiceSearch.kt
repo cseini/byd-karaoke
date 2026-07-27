@@ -29,14 +29,24 @@ import kotlin.concurrent.thread
 class VoiceSearch(private val context: Context, private val settings: SettingsStore) {
 
     companion object {
-        private const val RECORD_MS = 5000L
+        // VAD(무음 감지) 자동 종료 — 어절이 끝나고 잠깐 조용하면 자동으로 끊는다.
+        private const val SPEECH_DB = -36f       // 이 이상이면 '말소리'로 간주
+        private const val SILENCE_MS = 900L      // 말소리 뒤 이만큼 조용하면 종료
+        private const val MIN_MS = 700L          // 최소 녹음 시간(너무 이른 종료 방지)
+        private const val NO_SPEECH_MS = 4000L   // 이때까지 말이 없으면 포기
+        private const val MAX_MS = 8000L         // 하드 상한(계속 말해도 여기서 끊음)
     }
 
     private val main = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var recorder: AudioRecorder? = null
+    private var pendingStop: Runnable? = null       // 5초 뒤 전사 시작 예약(취소 시 제거)
+    @Volatile private var cancelled = false          // 취소되면 결과 콜백을 무시
     private val http by lazy {
-        OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).build()
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)   // 짧게 끊고 아래에서 1회 재시도(차 네트워크 지터 대응)
+            .build()
     }
 
     fun isAvailable(): Boolean = true
@@ -49,17 +59,26 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onError: (String) -> Unit,
         onLevel: (Float) -> Unit = {},
     ) {
+        cancelled = false
         when {
             SpeechRecognizer.isRecognitionAvailable(context) ->
                 startSystem(onReady, onProcessing, onResult, onError, onLevel)
-            settings.openaiApiKey.isNotBlank() ->
+            settings.geminiApiKeys().isNotEmpty() ->
                 startGemini(onReady, onProcessing, onResult, onError, onLevel)
             else ->
                 onError("음성검색을 쓰려면 설정에서 Gemini API 키(무료)를 넣으세요.")
         }
     }
 
+    /** 사용자가 취소(오버레이 탭) — 예약된 전사·결과 콜백까지 전부 중단. */
     fun stop() {
+        cancelled = true
+        teardown()
+    }
+
+    private fun teardown() {
+        pendingStop?.let { main.removeCallbacks(it) }
+        pendingStop = null
         recognizer?.run { runCatching { stopListening() }; runCatching { destroy() } }
         recognizer = null
         recorder?.let { runCatching { it.stop() } }
@@ -75,7 +94,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onError: (String) -> Unit,
         onLevel: (Float) -> Unit,
     ) {
-        stop()
+        teardown()
         val r = SpeechRecognizer.createSpeechRecognizer(context)
         recognizer = r
         r.setRecognitionListener(object : RecognitionListener {
@@ -111,37 +130,100 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         onError: (String) -> Unit,
         onLevel: (Float) -> Unit,
     ) {
-        stop()
+        teardown()
         val file = File(context.cacheDir, "voice_query.wav")
-        // 음성검색: USB 마이크는 입 가까이라 깨끗하므로 원음(UNPROCESSED)으로 받는다.
-        // (VOICE_COMMUNICATION 의 에코제거/AGC 는 내장마이크용이라 USB 원음을 왜곡해 인식이 나빴다.)
+        // 음성검색 마이크 소스: 설정에서 특정 소스를 골랐으면 그걸 쓰고(유닛마다 잘 되는 소스가 다름),
+        // '자동'이면 USB 원음(UNPROCESSED) 기본. 녹음 음량은 아래 normalizeWav 로 보정.
         val rec = AudioRecorder(
             context, settings, 16000,
-            sourceOverride = android.media.MediaRecorder.AudioSource.UNPROCESSED,
+            sourceOverride = settings.forcedMicSource()
+                ?: android.media.MediaRecorder.AudioSource.UNPROCESSED,
             forceEffects = false,
         )
         recorder = rec
-        // 마이크 입력 레벨을 실시간으로 UI 에 넘겨 소리가 들어오는지 보이게 한다.
-        val err = rec.start(file) { db -> main.post { onLevel(db) } }
+        val startAt = android.os.SystemClock.elapsedRealtime()
+        val speechAt = java.util.concurrent.atomic.AtomicLong(0L)      // 마지막 말소리 시각(0=아직 없음)
+        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        // 녹음 종료 → 전사(말소리 없으면 오류). 어느 스레드에서 불려도 한 번만 실행.
+        fun finish(hadSpeech: Boolean) {
+            if (!finished.compareAndSet(false, true)) return
+            main.post {
+                pendingStop?.let { main.removeCallbacks(it) }; pendingStop = null
+                runCatching { rec.stop() }; recorder = null
+                if (cancelled) return@post
+                if (!hadSpeech) { deliver { onError("말소리가 없습니다. 다시 시도하세요.") }; return@post }
+                onProcessing()
+                thread(name = "gemini") { transcribeGemini(file, onResult, onError) }
+            }
+        }
+
+        // 마이크 입력 레벨을 UI 에 넘기고(소리 표시), 동시에 무음 감지로 자동 종료를 판단한다.
+        val err = rec.start(file) { db ->
+            main.post { onLevel(db) }
+            val now = android.os.SystemClock.elapsedRealtime()
+            val elapsed = now - startAt
+            if (db > SPEECH_DB) speechAt.set(now)
+            val last = speechAt.get()
+            when {
+                last != 0L && elapsed > MIN_MS && now - last > SILENCE_MS -> finish(true)
+                last == 0L && elapsed > NO_SPEECH_MS -> finish(false)
+                elapsed > MAX_MS -> finish(last != 0L)
+            }
+        }
         if (err != null) { onError("마이크 오류: $err"); return }
         onReady()
-        main.postDelayed({
-            rec.stop()
-            recorder = null
-            onProcessing()
-            thread(name = "gemini") { transcribeGemini(file, onResult, onError) }
-        }, RECORD_MS)
+        // 안전망: 레벨 콜백이 안 오는 기기 대비 하드 타임아웃.
+        val guard = Runnable { finish(speechAt.get() != 0L) }
+        pendingStop = guard
+        main.postDelayed(guard, MAX_MS + 1500)
+    }
+
+    /** 취소된 뒤에는 결과·오류 콜백을 전달하지 않는다(백그라운드 자동재생 방지). */
+    private fun deliver(block: () -> Unit) = main.post { if (!cancelled) block() }
+
+    /** 녹음이 작으면 Gemini 가 잘 못 알아들으므로 피크 기준으로 음량을 키운다(사실상 무음이면 스킵). */
+    private fun normalizeWav(file: File) {
+        runCatching {
+            val b = file.readBytes()
+            if (b.size <= 44) return
+            var peak = 0
+            var i = 44
+            while (i + 1 < b.size) {
+                val v = ((b[i].toInt() and 0xFF) or (b[i + 1].toInt() shl 8)).toShort().toInt()
+                val a = if (v < 0) -v else v
+                if (a > peak) peak = a
+                i += 2
+            }
+            if (peak < 80) return          // 사실상 무음/잡음 → 증폭하면 오히려 악화
+            val target = 29000             // 약 0.9 풀스케일
+            if (peak >= target) return     // 이미 충분히 큼
+            val gain = (target.toDouble() / peak).coerceAtMost(12.0)
+            i = 44
+            while (i + 1 < b.size) {
+                val v = ((b[i].toInt() and 0xFF) or (b[i + 1].toInt() shl 8)).toShort().toInt()
+                val ng = (v * gain).toInt().coerceIn(-32768, 32767)
+                b[i] = (ng and 0xFF).toByte()
+                b[i + 1] = ((ng shr 8) and 0xFF).toByte()
+                i += 2
+            }
+            file.writeBytes(b)
+        }
     }
 
     private fun transcribeGemini(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
         try {
             if (!file.exists() || file.length() < 2000) {
-                main.post { onError("녹음이 감지되지 않았습니다") }; return
+                deliver { onError("녹음이 감지되지 않았습니다") }; return
             }
+            normalizeWav(file)   // 음량이 작으면 키워서 인식률을 높인다
             val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
-            val prompt = "이 오디오에는 한 사람이 대한민국 가요의 노래 제목이나 가수 이름을 한국어로 말합니다. " +
-                "오디오를 잘 듣고, 실제로 들린 노래 제목 또는 가수 이름만 유튜브 검색어로 그대로 한 줄로 출력하세요. " +
-                "들리는 내용만 쓰고 추측하지 마세요. 설명·따옴표·부연 없이 검색어만."
+            val prompt = "이 오디오에서 한 사람이 노래 제목이나 가수 이름을 말합니다. " +
+                "한국어일 수도, 영어일 수도, 'I O I'·'BTS'처럼 알파벳을 하나씩 부르는 약자일 수도 있습니다. " +
+                "들린 그대로 유튜브 검색어 한 줄로 출력하세요. " +
+                "영어 이름·제목이나 알파벳을 부르는 경우는 억지로 한글로 바꾸지 말고 영어 철자 그대로 쓰세요(예: I.O.I, IVE, aespa, NewJeans). " +
+                "한국어로 들리면 한국어로. 띄어쓰기와 명백한 오타만 다듬고, 들리지 않은 다른 곡을 지어내지 마세요. " +
+                "설명·따옴표·부연 없이 검색어만."
             val payload = JSONObject().put(
                 "contents",
                 JSONArray().put(
@@ -159,28 +241,63 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 ),
             )
             val model = if (settings.geminiModel == "flash-lite") "gemini-2.5-flash-lite" else "gemini-2.5-flash"
+            val keys = settings.geminiApiKeys()
+            if (keys.isEmpty()) { deliver { onError("설정에서 Gemini API 키(무료)를 넣으세요.") }; return }
+            // 키를 순서대로 시도 — 한도 초과(429)면 다음 키로 자동 전환.
+            var lastErr = ""
+            val payloadStr = payload.toString()
+            for (key in keys) {
+                var r = requestGemini(key, payloadStr, model)
+                if (r is KeyResult.Fail && r.retryable) r = requestGemini(key, payloadStr, model)   // 타임아웃 1회 재시도
+                when (r) {
+                    is KeyResult.Ok -> {
+                        deliver { if (r.text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(r.text) }
+                        return
+                    }
+                    is KeyResult.Quota -> { lastErr = r.msg }   // 다음 키로
+                    is KeyResult.Fail -> { deliver { onError(if (r.retryable) "네트워크가 느려요 — 다시 시도하세요" else r.msg) }; return }
+                }
+            }
+            deliver { onError("모든 Gemini 키의 한도를 초과했어요. 잠시 후 다시 시도하세요.${if (lastErr.isNotBlank()) "\n($lastErr)" else ""}") }
+        } catch (e: Exception) {
+            deliver { onError("음성 인식 오류: ${e.message}") }
+        }
+    }
+
+    private sealed class KeyResult {
+        data class Ok(val text: String) : KeyResult()
+        data class Quota(val msg: String) : KeyResult()
+        data class Fail(val msg: String, val retryable: Boolean = false) : KeyResult()
+    }
+
+    /** 키 1개로 Gemini 호출. 한도 초과(429/RESOURCE_EXHAUSTED)면 Quota 로 반환해 다음 키를 쓰게 한다. */
+    private fun requestGemini(key: String, payload: String, model: String): KeyResult {
+        return try {
             val req = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${settings.openaiApiKey}")
-                .post(payload.toString().toRequestBody("application/json".toMediaTypeOrNull()))
+                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$key")
+                .post(payload.toRequestBody("application/json".toMediaTypeOrNull()))
                 .build()
             http.newCall(req).execute().use { resp ->
                 val json = resp.body?.string().orEmpty()
                 if (!resp.isSuccessful) {
-                    // 실제 원인(모델/키/권한)을 그대로 보여준다.
                     val emsg = runCatching { JSONObject(json).getJSONObject("error").getString("message") }
                         .getOrDefault(json.take(150))
-                    main.post { onError("Gemini 오류 ${resp.code}: $emsg") }
-                    return
+                    val quota = resp.code == 429 ||
+                        emsg.contains("RESOURCE_EXHAUSTED", true) || emsg.contains("quota", true)
+                    if (quota) KeyResult.Quota("Gemini 오류 ${resp.code}: $emsg")
+                    else KeyResult.Fail("Gemini 오류 ${resp.code}: $emsg")
+                } else {
+                    val text = runCatching {
+                        JSONObject(json).getJSONArray("candidates").getJSONObject(0)
+                            .getJSONObject("content").getJSONArray("parts").getJSONObject(0)
+                            .getString("text").trim()
+                    }.getOrDefault("")
+                    KeyResult.Ok(text)
                 }
-                val text = runCatching {
-                    JSONObject(json).getJSONArray("candidates").getJSONObject(0)
-                        .getJSONObject("content").getJSONArray("parts").getJSONObject(0)
-                        .getString("text").trim()
-                }.getOrDefault("")
-                main.post { if (text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(text) }
             }
         } catch (e: Exception) {
-            main.post { onError("음성 인식 오류: ${e.message}") }
+            // 타임아웃/네트워크 예외는 재시도 가능으로 표시.
+            KeyResult.Fail("음성 인식 오류: ${e.message}", retryable = e is java.io.IOException)
         }
     }
 

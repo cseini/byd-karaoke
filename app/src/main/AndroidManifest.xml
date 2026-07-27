@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -11,6 +12,11 @@
     <!-- SD카드(블랙박스 독점 볼륨) 직접 접근 — Legacy Storage 로 /storage 경로에 쓴다 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- BYD ROM 은 설치만으로 부여됨(레퍼런스 앱 분석 문서) — 접근성(키 감지) 자동 켜기에 사용.
+         일반 안드로이드에선 부여되지 않으며, 그 경우 설정>접근성에서 수동으로 켠다. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
@@ -62,6 +68,20 @@
             android:name=".LoginActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
+
+        <!-- 물리 키(USB 마이크 버튼) 전역 가로채기 → 음성검색. 설정>접근성에서 켜야 활성. -->
+        <service
+            android:name=".KeyCatcherService"
+            android:exported="false"
+            android:label="노래방 마이크 버튼"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/key_catcher_config" />
+        </service>
 
         <!-- 차량 런처(Kinex 등) 미디어 위젯 노출용 미디어 브라우저/세션 서비스 -->
         <service

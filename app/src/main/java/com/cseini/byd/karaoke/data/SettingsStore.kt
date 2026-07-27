@@ -17,6 +17,19 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("openai_key", "") ?: ""
         set(v) = prefs.edit().putString("openai_key", v.trim()).apply()
 
+    /** 보조 Gemini 키 — 1번 키가 한도 초과(429)면 자동으로 다음 키로 넘어간다. */
+    var openaiApiKey2: String
+        get() = prefs.getString("openai_key2", "") ?: ""
+        set(v) = prefs.edit().putString("openai_key2", v.trim()).apply()
+
+    var openaiApiKey3: String
+        get() = prefs.getString("openai_key3", "") ?: ""
+        set(v) = prefs.edit().putString("openai_key3", v.trim()).apply()
+
+    /** 입력된 Gemini 키 목록(빈 칸 제외, 1→2→3 순). 한도 초과 시 순서대로 재시도. */
+    fun geminiApiKeys(): List<String> =
+        listOf(openaiApiKey, openaiApiKey2, openaiApiKey3).map { it.trim() }.filter { it.isNotBlank() }
+
     /** Gemini 음성검색 모델: "flash"(정확, 250회/일) | "flash-lite"(빠름, 1000회/일). */
     var geminiModel: String
         get() = prefs.getString("gemini_model", "flash") ?: "flash"
@@ -56,10 +69,21 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("recording_enabled", true)
         set(v) = prefs.edit().putBoolean("recording_enabled", v).apply()
 
-    /** 녹음 싱크 보정(ms). 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. */
+    /** 녹음 싱크 보정(ms). 반주 대비 내 목소리를 앞/뒤로 밀어 맞춘다. 기본 -140(경험값). */
     var syncOffsetMs: Int
-        get() = prefs.getInt("sync_offset_ms", 0)
+        get() = prefs.getInt("sync_offset_ms", -140)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
+
+    /** USB 마이크 물리버튼으로 앱 제어(길게=음성검색, 볼륨/짧게=노래방 패널). 기본 꺼짐 —
+     *  마이크 기종마다 HID 코드가 달라 켜면 그 기기 기본 버튼이 안 먹을 수 있어 옵트인. */
+    var micButtonControl: Boolean
+        get() = prefs.getBoolean("mic_button_control", false)
+        set(v) = prefs.edit().putBoolean("mic_button_control", v).apply()
+
+    /** 휠 무음 버튼 더블클릭으로 음성검색(접근성 기반). 기본 꺼짐. USB 점유 안 해 안전. */
+    var wheelButtonControl: Boolean
+        get() = prefs.getBoolean("wheel_button_control", false)
+        set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
 
     /** 음성 검색 후 첫 곡을 3초 뒤 자동 재생. */
     var autoPlayVoiceFirst: Boolean

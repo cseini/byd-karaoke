@@ -319,9 +319,10 @@ class PlaybackActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.Default) {
                 runCatching {
-                    // 믹스가 아니라 목소리(마이크 원음)만 채점 — 반주로 인한 고득점 방지.
+                    // 채점은 목소리(마이크 원음)만, 박자는 반주 비트 기준으로 평가.
                     val (samples, sr) = recorder.voiceForScoring()
-                    ScoringEngine.score(samples, sr)
+                    val accomp = recorder.accompForScoring()
+                    ScoringEngine.score(samples, sr, accomp?.first, accomp?.second ?: 0)
                 }.getOrNull()
             }
             recordings.add(

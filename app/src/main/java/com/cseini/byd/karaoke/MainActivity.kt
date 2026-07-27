@@ -33,15 +33,60 @@ import kotlinx.coroutines.launch
 
 /** 검색 홈. 타이핑/음성 검색 → 바로 부르기. */
 @UnstableApi
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ScreenHost {
 
     companion object {
         private const val DEFAULT_HINT = "검색어를 입력하거나 음성 버튼을 누르세요."
     }
 
-    // 테스트(lab) 앱에서만: 재생을 이 화면 안에서(임베드) 처리해 분할화면을 유지.
+    // 테스트(lab) 앱에서만: 재생·녹음함/랭킹/설정을 이 화면 안에서(임베드) 처리해 분할화면을 유지.
     private var embeddedPlayer: EmbeddedPlayer? = null
-    private val useEmbedded: Boolean get() = BuildConfig.FLAVOR == "lab"
+    // 분할화면 유지용 임베드 재생·화면은 이제 전 플래버 공통(라이브 승격).
+    private val useEmbedded: Boolean get() = true
+    private lateinit var embedScreen: android.widget.FrameLayout
+    private var screenCleanup: (() -> Unit)? = null
+
+    // (테스트) USB 마이크 버튼 HID 직접 읽기 — 대상 버튼 길게 누르면 음성검색.
+    private var usbMic: UsbMicButtons? = null
+
+    // ── ScreenHost: 임베드 화면(녹음함/랭킹/설정)이 콜백하는 호스트 ──
+    override val embedded: Boolean get() = useEmbedded
+    override fun onScreenBack() = closeScreen()
+    override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
+        embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
+            ?: startActivity(PlaybackActivity.replayIntent(this, item))
+    }
+
+    private val isScreenShowing: Boolean
+        get() = ::embedScreen.isInitialized && embedScreen.visibility == View.VISIBLE
+
+    /** 임베드 화면 띄우기(재생 중이면 먼저 닫는다). */
+    private fun showScreen(which: String) {
+        cancelAutoPlay()
+        if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close()
+        closeScreen()
+        val layout = when (which) {
+            "recordings" -> R.layout.activity_recordings
+            "ranking" -> R.layout.activity_ranking
+            else -> R.layout.activity_settings
+        }
+        val v = layoutInflater.inflate(layout, embedScreen, false)
+        embedScreen.addView(v)
+        when (which) {
+            "recordings" -> RecordingsScreen(v, this).also { it.refresh(); screenCleanup = { it.destroy() } }
+            "ranking" -> RankingScreen(v, this).refresh()
+            "settings" -> SettingsScreen(v, this)
+        }
+        embedScreen.visibility = View.VISIBLE
+    }
+
+    private fun closeScreen() {
+        screenCleanup?.invoke(); screenCleanup = null
+        if (::embedScreen.isInitialized) {
+            embedScreen.removeAllViews()
+            embedScreen.visibility = View.GONE
+        }
+    }
 
     private lateinit var settings: SettingsStore
     private lateinit var queue: QueueStore
@@ -98,7 +143,7 @@ class MainActivity : AppCompatActivity() {
         )
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
-        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(this, settings, recordings, playHistory)
+        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(this, settings, recordings, playHistory) { resetToSearchHome() }
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
@@ -121,7 +166,7 @@ class MainActivity : AppCompatActivity() {
         // 좌측 = 취소하고 다시 음성검색 / 우측 = 취소만
         autoplayLeft.setOnClickListener { cancelAutoPlay(); startVoice() }
         autoplayRight.setOnClickListener { cancelAutoPlay(); status.text = "자동 재생을 취소했습니다." }
-        voiceOverlay.setOnClickListener { hideVoiceOverlay() }
+        voiceOverlay.setOnClickListener { cancelVoice() }
 
         results = findViewById(R.id.results)
         results.apply {
@@ -133,19 +178,34 @@ class MainActivity : AppCompatActivity() {
             adapter = this@MainActivity.historyAdapter
         }
 
-        findViewById<Button>(R.id.btn_search).setOnClickListener { doSearch() }
+        findViewById<Button>(R.id.btn_search).setOnClickListener { hideKeyboard(); doSearch() }
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
         findViewById<Button>(R.id.btn_reserve_server).setOnClickListener { showReserveServer() }
         NavBar.wire(this, MainActivity::class.java)
+        // 테스트 앱: 네비바(녹음함/랭킹/설정)를 Activity 대신 화면 안 오버레이로 → 분할화면 유지.
+        embedScreen = findViewById(R.id.embed_screen)
+        if (useEmbedded) {
+            findViewById<Button>(R.id.nav_recordings).setOnClickListener { showScreen("recordings") }
+            findViewById<Button>(R.id.nav_ranking).setOnClickListener { showScreen("ranking") }
+            findViewById<Button>(R.id.nav_settings).setOnClickListener { showScreen("settings") }
+        }
+
+        val btnClear = findViewById<Button>(R.id.btn_clear)
+        btnClear.setOnClickListener {
+            searchInput.setText("")
+            status.text = DEFAULT_HINT
+            showHistory()
+        }
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) { doSearch(); true } else false
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); doSearch(); true } else false
         }
         // 타이핑마다 자동 검색(디바운스) — 비슷한 곡이 바로 위에 뜨도록.
         searchInput.doAfterTextChanged { text ->
             cancelAutoPlay()   // 사용자가 직접 타이핑하면 자동재생 취소
-            pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             val q = text?.toString()?.trim().orEmpty()
+            btnClear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
+            pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             if (q.length >= 2) {
                 pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 450) }
             }
@@ -155,29 +215,62 @@ class MainActivity : AppCompatActivity() {
         if (!settings.keylessSearch && !settings.hasApiKey()) {
             status.text = "먼저 [설정]에서 API 키를 입력하거나 '키 없이 검색'을 켜세요."
         }
-        // prod(라이브)는 앱 실행 시 자동 업데이트 끔(수동만). 테스트(lab) 앱만 자동 업데이트.
-        if (useEmbedded) checkOtaUpdate()
+        // 앱 시작 시 새 버전이 있으면 토스트로 알림만(자동 설치 안 함 — 설정에서 수동 설치).
+        checkOtaUpdate()
+
+        // USB 마이크·휠 버튼 제어는 설정 옵션(기본 꺼짐). 실제 시작/중지는 onWindowFocusChanged 에서
+        // 설정값에 따라 처리(권한 다이얼로그가 포커스 전이로 닫히는 문제 + 옵트인 즉시 반영).
+
+        // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
+        if (intent?.action == KeyCatcherService.ACTION_VOICE) {
+            searchInput.post { startVoice() }
+        }
     }
 
-    /** (테스트 앱) 별도 저장소에서 새 버전 확인·설치. */
+    /** 키 감지 접근성 서비스를 자동 활성화 시도. 권한·결과를 토스트로 눈에 보이게 알린다. */
+    private fun enableKeyCatcher() {
+        val comp = android.content.ComponentName(this, KeyCatcherService::class.java).flattenToString()
+        val hasPerm = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.WRITE_SECURE_SETTINGS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPerm) {
+            // 이 유닛엔 권한이 없어 자동설정 불가 — 접근성은 수동(adb settings)으로 켠다. 조용히 넘어감.
+            android.util.Log.i("karaoke-keys", "WRITE_SECURE_SETTINGS 없음 — 접근성 자동설정 스킵")
+            return
+        }
+        val cur = android.provider.Settings.Secure.getString(
+            contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        if (comp in cur.split(':')) return   // 이미 켜짐
+        runCatching {
+            android.provider.Settings.Secure.putString(
+                contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                if (cur.isBlank()) comp else "$cur:$comp"
+            )
+            android.provider.Settings.Secure.putInt(
+                contentResolver, android.provider.Settings.Secure.ACCESSIBILITY_ENABLED, 1
+            )
+        }.onFailure { android.util.Log.i("karaoke-keys", "접근성 켜기 실패: ${it.message}") }
+    }
+
+    /** 앱 시작 시 새 버전이 있으면 토스트로 알려준다(다운로드·설치는 설정에서 수동). */
     private fun checkOtaUpdate() {
         lifecycleScope.launch {
             val release = UpdateManager.checkForUpdate() ?: return@launch
-            toast("테스트 새 버전 v${release.version} 받는 중…")
-            val apk = UpdateManager.download(this@MainActivity, release) { p ->
-                runOnUiThread { status.text = "업데이트 다운로드 중… $p%" }
-            } ?: run { status.text = "업데이트 다운로드 실패 — 다시 시도하세요"; return@launch }
-            UpdateManager.install(this@MainActivity, apk)
+            toast("🔔 새 버전 v${release.version} 있음 — 설정 › 업데이트 확인에서 받으세요")
         }
     }
 
     // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        cancelAutoPlay()
-        searchInput.setText("")
-        status.text = DEFAULT_HINT
-        showHistory()
+        // 마이크 버튼(접근성)이 부른 음성검색 — 이미 실행 중일 때.
+        if (intent.action == KeyCatcherService.ACTION_VOICE) {
+            cancelAutoPlay()
+            searchInput.post { startVoice() }
+            return
+        }
+        resetToSearchHome()
     }
 
     override fun onResume() {
@@ -186,7 +279,7 @@ class MainActivity : AppCompatActivity() {
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         // 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출
-        val voiceOn = settings.openaiApiKey.isNotBlank()
+        val voiceOn = settings.geminiApiKeys().isNotEmpty()
         findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
         autoplayCheck.visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
@@ -202,6 +295,22 @@ class MainActivity : AppCompatActivity() {
     private fun showHistory() {
         results.visibility = View.GONE
         historySection.visibility = View.VISIBLE
+    }
+
+    /** 재생/채점 후 검색 홈으로 복귀: 검색어 초기화 + 최근 부른 노래 + 키보드 내림. */
+    private fun resetToSearchHome() {
+        cancelAutoPlay()
+        searchInput.setText("")
+        status.text = DEFAULT_HINT
+        refreshHistory()
+        showHistory()
+        hideKeyboard()
+    }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
+        searchInput.clearFocus()
     }
 
     private fun showResults() {
@@ -345,6 +454,14 @@ class MainActivity : AppCompatActivity() {
         voiceOverlay.visibility = View.VISIBLE
     }
 
+    /** 음성 오버레이 탭 = 취소: UI뿐 아니라 녹음·전사·자동재생 파이프라인까지 전부 중단. */
+    private fun cancelVoice() {
+        voice.stop()
+        hideVoiceOverlay()
+        cancelAutoPlay()
+        status.text = DEFAULT_HINT
+    }
+
     private fun hideVoiceOverlay() {
         voiceIcon.clearAnimation()
         voiceLevel.visibility = View.GONE
@@ -381,11 +498,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reserve(item: QueueItem) {
+        hideKeyboard()
         queue.add(item)
         toast("🎫 예약: ${item.title}")
     }
 
     private fun playNow(item: QueueItem) {
+        hideKeyboard()
         cancelAutoPlay()
         embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
         startActivity(PlaybackActivity.intent(this, item.videoId, item.title, fromQueue = false))
@@ -393,6 +512,7 @@ class MainActivity : AppCompatActivity() {
 
     /** 검색 결과에서 부르기: 재생 불가 영상이면 뒤 후보로 자동으로 넘어가도록 목록을 함께 넘긴다. */
     private fun playFromResults(item: QueueItem) {
+        hideKeyboard()
         cancelAutoPlay()
         embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
         val idx = lastResults.indexOfFirst { it.videoId == item.videoId }.coerceAtLeast(0)
@@ -400,7 +520,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close() else super.onBackPressed()
+        when {
+            isScreenShowing -> closeScreen()
+            embeddedPlayer?.isShowing == true -> embeddedPlayer?.close()
+            else -> super.onBackPressed()
+        }
     }
 
     private fun ensureMicPermission() {
@@ -425,7 +549,7 @@ class MainActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
                 KeyEvent.KEYCODE_MEDIA_PLAY,
                 KeyEvent.KEYCODE_VOICE_ASSIST -> {
-                    if (settings.openaiApiKey.isNotBlank()) {
+                    if (settings.geminiApiKeys().isNotEmpty()) {
                         cancelAutoPlay(); startVoice(); return true
                     }
                 }
@@ -439,9 +563,26 @@ class MainActivity : AppCompatActivity() {
         cancelAutoPlay()   // 화면을 떠나면(네비바 등) 자동재생 취소
     }
 
+    // 창이 포커스 받을 때 설정에 따라 USB 마이크·휠 버튼 제어를 켜거나 끈다(옵트인, 즉시 반영).
+    // 켜짐: 권한 없으면 재시도(멱등, 8초 쿨다운) — 설치 직후 권한 못 잡아도 강제종료 불필요.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) return
+        // USB 마이크 버튼(옵트인): 켜면 HID 읽기 시작(권한 재시도 멱등), 끄면 중지.
+        if (settings.micButtonControl) {
+            if (usbMic == null) usbMic = UsbMicButtons(this) { cancelAutoPlay(); startVoice() }
+            usbMic?.start()
+        } else {
+            usbMic?.stop(); usbMic = null
+        }
+        // 휠 버튼(옵트인, 접근성): 켜면 접근성 서비스 활성 시도. 실제 동작은 서비스가 설정값을 보고 판단.
+        if (settings.wheelButtonControl) enableKeyCatcher()
+    }
+
     override fun onDestroy() {
         cancelAutoPlay()
         voice.stop()
+        usbMic?.stop()
         super.onDestroy()
     }
 

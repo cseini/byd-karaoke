@@ -84,5 +84,5 @@
         android:layout_weight="1"
         android:paddingTop="12dp" />
 
-    <include layout="@layout/include_navbar" />
+    <include android:id="@+id/navbar" layout="@layout/include_navbar" />
 </LinearLayout>

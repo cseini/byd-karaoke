@@ -218,5 +218,13 @@ class MixRecorder(
         return out to rate
     }
 
+    /** 반주(모노, accompRate) 를 곡 시작부터. 4초 미만이면 비트 추정 불가 → null. */
+    fun accompForScoring(): Pair<FloatArray, Int>? {
+        val n = accompWrite.get().coerceAtMost(accompBuffer.size)
+        if (n < accompRate * 4) return null
+        val out = FloatArray(n) { accompBuffer[it] / 32768f }
+        return out to accompRate
+    }
+
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
 }

@@ -62,6 +62,18 @@
             android:importantForAutofill="no" />
 
         <Button
+            android:id="@+id/btn_clear"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            android:textSize="18sp"
+            android:textColor="@color/tj_text_secondary"
+            android:visibility="gone"
+            android:text="✕" />
+
+        <Button
             android:id="@+id/btn_voice"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -650,4 +662,14 @@
             </LinearLayout>
         </FrameLayout>
     </FrameLayout>
+
+    <!-- (테스트 앱 전용) 녹음함/랭킹/설정을 메인 화면 안에 띄우는 오버레이 — 분할화면 유지용 -->
+    <FrameLayout
+        android:id="@+id/embed_screen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/tj_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
 </FrameLayout>

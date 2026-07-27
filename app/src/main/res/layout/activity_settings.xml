@@ -7,15 +7,30 @@
     android:background="@color/tj_bg"
     android:padding="14dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚙️ 설정"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/tj_pink"
-        android:shadowColor="@color/tj_pink_dark"
-        android:shadowRadius="12" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="⚙️ 설정"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/tj_pink"
+            android:shadowColor="@color/tj_pink_dark"
+            android:shadowRadius="12" />
+
+        <Button
+            android:id="@+id/btn_back"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="닫기" />
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
@@ -49,13 +64,31 @@
                 android:textSize="12sp"
                 android:textColor="@color/tj_text_secondary"
                 android:paddingBottom="4dp"
-                android:text="키를 넣으면 🎤 음성 검색이 켜집니다. aistudio.google.com 무료 발급." />
+                android:text="키를 넣으면 🎤 음성 검색이 켜집니다. aistudio.google.com 무료 발급.\n키를 여러 개 넣으면 한도 초과 시 자동으로 다음 키를 씁니다." />
 
             <EditText
                 android:id="@+id/openai_key_input"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:hint="Gemini API 키 (무료)"
+                android:hint="Gemini API 키 1 (무료)"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
+            <EditText
+                android:id="@+id/openai_key_input2"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:hint="Gemini API 키 2 (선택 · 예비)"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
+            <EditText
+                android:id="@+id/openai_key_input3"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:hint="Gemini API 키 3 (선택 · 예비)"
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
@@ -198,6 +231,38 @@
                     android:textSize="13sp"
                     android:text="통화\n마이크" />
             </RadioGroup>
+
+            <CheckBox
+                android:id="@+id/chk_mic_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/tj_text_primary"
+                android:text="🎙 USB 마이크 버튼으로 제어" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/tj_text_hint"
+                android:paddingStart="8dp"
+                android:text="마이크 버튼: 길게=음성검색, 짧게=노래방 패널, 볼륨=마이크 볼륨. 켜면 USB 권한 허용창이 뜹니다.\n⚠️ 마이크 기종마다 버튼 신호가 달라서, 켰는데 버튼이 안 되거나 오히려 기본 버튼(볼륨·에코)이 안 먹으면 이 옵션을 끄세요." />
+
+            <CheckBox
+                android:id="@+id/chk_wheel_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="@color/tj_text_primary"
+                android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/tj_text_hint"
+                android:paddingStart="8dp"
+                android:text="운전대 무음(음소거) 버튼을 빠르게 두 번 누르면 음성검색. 기본 음소거 기능은 그대로 유지됩니다. (접근성 권한이 필요해 일부 기기에선 동작하지 않을 수 있어요 — 안 되면 끄세요.)" />
 
             <View
                 android:layout_width="match_parent"
@@ -392,5 +457,5 @@
         android:layout_marginTop="10dp"
         android:text="저장" />
 
-    <include layout="@layout/include_navbar" />
+    <include android:id="@+id/navbar" layout="@layout/include_navbar" />
 </LinearLayout>

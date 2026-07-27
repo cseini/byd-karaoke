@@ -45,6 +45,7 @@ class EmbeddedPlayer(
     private val settings: SettingsStore,
     private val recordings: RecordingStore,
     private val playHistory: PlayHistoryStore,
+    private val onClose: () -> Unit = {},
 ) {
     private val queue = QueueStore(activity)
     private val ui = Handler(Looper.getMainLooper())
@@ -80,6 +81,8 @@ class EmbeddedPlayer(
     private var scored = false
     private var playLogged = false
     private var replaying = false
+    private var replayVideoAligned = false   // 다시듣기: 영상을 녹음 위치로 최초 1회 맞췄는지
+    private var replaySeekCooldown = 0        // 재정렬 후 쿨다운(틱) — 잦은 seek 재버퍼링 방지
     private var fullscreen = false
     private var seekDragging = false
     private var lastRecording: File? = null
@@ -91,6 +94,15 @@ class EmbeddedPlayer(
     )
 
     val isShowing: Boolean get() = overlay.visibility == View.VISIBLE
+
+    // 영상 더블탭 → 전체화면 토글(진입/해제).
+    private val fsGesture = android.view.GestureDetector(
+        activity,
+        object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: android.view.MotionEvent) = true
+            override fun onDoubleTap(e: android.view.MotionEvent): Boolean { toggleFullscreen(); return true }
+        },
+    )
 
     init {
         activity.findViewById<RecyclerView>(R.id.embed_queue_list).apply {
@@ -114,7 +126,10 @@ class EmbeddedPlayer(
             scoreOverlay.visibility = View.GONE; playNext()
         }
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
-        fullscreenTap.setOnClickListener { toggleFullscreen() }
+        // 영상 영역 더블탭으로 전체화면 진입, 전체화면 중엔 더블탭으로 해제.
+        val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
+        container.setOnTouchListener(fsTouch)
+        fullscreenTap.setOnTouchListener(fsTouch)
         replayPlay.setOnClickListener { toggleReplay() }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, p: Int, u: Boolean) {}
@@ -188,7 +203,7 @@ class EmbeddedPlayer(
         if (!recordStarted) {
             if (!settings.recordingEnabled) {
                 scored = true; statusView.text = "🎵 재생 완료"
-                queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
+                scheduleAfterSong()
             }
             return
         }
@@ -201,13 +216,17 @@ class EmbeddedPlayer(
         if (!settings.scoringEnabled) {
             saveRecording(file, -1)
             statusView.text = "🎵 녹음 저장됨 — 다시듣기로 들어보세요"
-            queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
+            scheduleAfterSong()
             return
         }
         statusView.text = "채점 중…"
         activity.lifecycleScope.launch {
             val result = withContext(Dispatchers.Default) {
-                runCatching { val (s, sr) = rec!!.voiceForScoring(); ScoringEngine.score(s, sr) }.getOrNull()
+                runCatching {
+                    val (s, sr) = rec!!.voiceForScoring()
+                    val accomp = rec.accompForScoring()
+                    ScoringEngine.score(s, sr, accomp?.first, accomp?.second ?: 0)
+                }.getOrNull()
             }
             saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
@@ -217,7 +236,7 @@ class EmbeddedPlayer(
                 statusView.text = "🎯 ${result.total}점 — 다시듣기로 들어보세요"
                 showScore(result)
             }
-            queue.reload(); queue.peekFirst()?.let { startAutoAdvance(it) }
+            scheduleAfterSong()
         }
     }
 
@@ -265,6 +284,13 @@ class EmbeddedPlayer(
         load(item.videoId, item.title)
     }
 
+    // 곡 끝난 뒤: 예약 있으면 10초 뒤 다음곡, 없으면 10초 뒤 검색으로.
+    private fun scheduleAfterSong() {
+        queue.reload()
+        val next = queue.peekFirst()
+        if (next != null) startAutoAdvance(next) else startAutoAdvanceToSearch()
+    }
+
     // ── 곡 끝나고 아무것도 안 누르면 10초 뒤 다음 예약곡 ──
     private fun startAutoAdvance(next: QueueItem) {
         cancelCountdown()
@@ -273,6 +299,20 @@ class EmbeddedPlayer(
             override fun run() {
                 if (n <= 0) { countdown = null; playNext(); return }
                 statusView.text = "${n}초 후 다음 예약곡 ▶ '${next.title}'"
+                n--; ui.postDelayed(this, 1000)
+            }
+        }
+        countdown = r; ui.post(r)
+    }
+
+    // ── 예약이 없으면 10초 뒤 검색 화면으로 ──
+    private fun startAutoAdvanceToSearch() {
+        cancelCountdown()
+        val r = object : Runnable {
+            var n = 10
+            override fun run() {
+                if (n <= 0) { countdown = null; close(); return }
+                statusView.text = "${n}초 후 검색으로 돌아갑니다"
                 n--; ui.postDelayed(this, 1000)
             }
         }
@@ -323,8 +363,10 @@ class EmbeddedPlayer(
     private fun startReplay() {
         val file = lastRecording ?: run { statusView.text = "들려줄 녹음이 없습니다"; return }
         if (!file.exists()) { statusView.text = "녹음 파일이 없습니다"; return }
+        cancelCountdown()   // 다시듣기 시작하면 자동 넘김/검색복귀 취소
         stopMediaPlayer()
         replaying = true
+        replayVideoAligned = false; replaySeekCooldown = 0
         seekRow.visibility = View.GONE          // 노래 seek 바 숨김(진행바 2개 방지)
         player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
         player?.seekTo(0)
@@ -357,8 +399,20 @@ class EmbeddedPlayer(
         override fun run() {
             val mp = mediaPlayer ?: return
             runCatching {
-                replaySeek.progress = mp.currentPosition
+                val pos = mp.currentPosition
+                replaySeek.progress = pos
                 replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생"
+                // 영상(음소거)을 녹음 소리 위치에 맞춤: 매 틱 seek 하면 재버퍼링으로 끊기므로
+                // 실제 재생이 시작되면 '한 번'만 정렬하고, 이후엔 크게 어긋날 때만(1.5초↑) 드물게 재정렬.
+                if (mp.isPlaying && player?.isPlaying() == true) {
+                    if (replaySeekCooldown > 0) replaySeekCooldown--
+                    val drift = kotlin.math.abs((player?.currentPositionMs() ?: 0L) - pos)
+                    if (!replayVideoAligned) {
+                        player?.seekTo(pos.toLong()); replayVideoAligned = true; replaySeekCooldown = 20
+                    } else if (drift > 1500 && replaySeekCooldown == 0) {
+                        player?.seekTo(pos.toLong()); replaySeekCooldown = 20
+                    }
+                }
             }
             ui.postDelayed(this, 300)
         }
@@ -380,6 +434,53 @@ class EmbeddedPlayer(
 
     private fun fmt(ms: Int): String { val s = ms / 1000; return "%d:%02d".format(s / 60, s % 60) }
 
+    /** 녹음함/랭킹에서 저장된 녹음을 임베드로 다시 듣기(채점·녹음 없이, 영상은 음소거). */
+    fun replayRecording(item: RecordingItem) {
+        overlay.visibility = View.VISIBLE
+        cancelCountdown()
+        stopMediaPlayer()
+        player?.release()
+        currentVideoId = item.videoId
+        titleView.text = item.title
+        recordStarted = false; scored = true; playLogged = true; replaying = false; fullscreen = false
+        lastRecording = File(item.path)
+        scoreOverlay.visibility = View.GONE
+        replayBtn.visibility = View.GONE
+        nextBtn.visibility = View.GONE
+        retryBtn.visibility = View.GONE
+        seekRow.visibility = View.GONE
+        bottom.visibility = View.VISIBLE
+        fullscreenBtn.visibility = View.VISIBLE
+        fullscreenTap.visibility = View.GONE
+        queueSide.visibility = View.GONE
+        val file = lastRecording
+        if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다"; return }
+        // 영상(음소거·가사)만 화면용으로, 소리는 저장된 믹스(MediaPlayer)로 재생.
+        val cb = PlayerCallbacks(
+            onPlaying = {}, onEnded = {}, onTime = {},
+            onEmbedBlocked = { statusView.text = "▶ 저장된 노래 재생 (영상 없이)" },
+            onError = { statusView.text = "▶ 저장된 노래 재생 (영상 없이)" },
+        )
+        player = StreamPlayer(activity, container, activity.lifecycleScope, cb, null, lowRes = true)
+        player?.setVolume(0f)
+        if (currentVideoId.isNotBlank()) player?.load(currentVideoId)
+        replaying = true
+        replayVideoAligned = false; replaySeekCooldown = 0
+        mediaPlayer = MediaPlayer().apply {
+            runCatching {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener { endReplay() }
+                prepare(); start()
+                replaySeek.max = duration; replaySeek.progress = 0
+                replayRow.visibility = View.VISIBLE
+                replayPlay.text = "⏸ 정지"
+                statusView.text = "▶ 저장된 노래 재생 중"
+                ui.post(replayTicker)
+            }.onFailure { statusView.text = "재생 실패: ${it.message}"; endReplay() }
+        }
+        ui.post(queuePoll)
+    }
+
     fun close() {
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
@@ -391,6 +492,7 @@ class EmbeddedPlayer(
         scoreOverlay.visibility = View.GONE
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
+        onClose()
     }
 }
 

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">노래방</string>
+    <string name="key_catcher_desc">마이크·리모컨의 물리 버튼을 감지해 음성 검색을 바로 실행합니다. 키 입력 내용을 저장하거나 외부로 보내지 않습니다.</string>
 </resources>

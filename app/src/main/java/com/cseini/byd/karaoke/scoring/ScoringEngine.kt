@@ -37,9 +37,15 @@ object ScoringEngine {
     )
 
     fun score(samples: FloatArray, sampleRate: Int): Score =
-        score(SignalAnalysis.analyze(samples, sampleRate))
+        score(SignalAnalysis.analyze(samples, sampleRate), null)
 
-    fun score(frames: List<SignalAnalysis.Frame>): Score {
+    /** 목소리 + 반주로 채점. 반주에서 비트를 잡으면 박자를 그 비트 기준으로 평가. */
+    fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray?, accompRate: Int): Score {
+        val period = accomp?.let { BeatTracker.detectBeatPeriod(it, accompRate) }
+        return score(SignalAnalysis.analyze(voice, voiceRate), period)
+    }
+
+    fun score(frames: List<SignalAnalysis.Frame>, beatPeriod: Double? = null): Score {
         val voiced = frames.filter { it.voiced && it.f0 > 0f }
         val voicedPct = if (frames.isEmpty()) 0 else (100 * voiced.size / frames.size)
 
@@ -53,7 +59,7 @@ object ScoringEngine {
 
         val accuracy = (pitchAccuracyFraction(f0s) * MAX_ACCURACY).roundToInt().coerceIn(0, MAX_ACCURACY)
         val stability = (pitchStabilityFraction(f0s) * MAX_STABILITY).roundToInt().coerceIn(0, MAX_STABILITY)
-        val beat = (beatConsistencyFraction(frames) * MAX_BEAT).roundToInt().coerceIn(0, MAX_BEAT)
+        val beat = (beatConsistencyFraction(frames, beatPeriod) * MAX_BEAT).roundToInt().coerceIn(0, MAX_BEAT)
         val volume = (volumeDynamicsFraction(frames) * MAX_VOLUME).roundToInt().coerceIn(0, MAX_VOLUME)
         val vibrato = (vibratoReachFraction(voiced) * MAX_VIBRATO).roundToInt().coerceIn(0, MAX_VIBRATO)
         val rawBase = (accuracy + stability + beat + volume + vibrato).coerceIn(0, 100)
@@ -109,7 +115,8 @@ object ScoringEngine {
     // ── 박자 규칙성: 발성 온셋(구절 시작) 간격의 변동계수(CV)가 작을수록 ──
     // 목소리만 채점하면 유성/무성이 프레임 단위로 깜빡여 온셋이 잘게 쪼개진다.
     // 250ms 이내 온셋은 같은 구절로 합쳐(디바운스), 구절 단위 리듬으로 평가한다.
-    private fun beatConsistencyFraction(frames: List<SignalAnalysis.Frame>): Double {
+    // 발성 온셋(구절 시작): 유성 시작 시각들을 250ms 디바운스로 구절 단위로 합침.
+    private fun extractOnsets(frames: List<SignalAnalysis.Frame>): List<Double> {
         val raw = ArrayList<Double>()
         var prev = false
         for (f in frames) {
@@ -118,15 +125,27 @@ object ScoringEngine {
         }
         val onsets = ArrayList<Double>()
         for (t in raw) if (onsets.isEmpty() || t - onsets.last() >= 0.25) onsets.add(t)
+        return onsets
+    }
+
+    private fun beatConsistencyFraction(frames: List<SignalAnalysis.Frame>, beatPeriod: Double?): Double {
+        val onsets = extractOnsets(frames)
+        // 반주 비트를 잡았으면 그 비트 격자에 맞춰 채점(진짜 박자).
+        if (beatPeriod != null) return BeatTracker.alignmentFraction(onsets, beatPeriod)
+        // 폴백: 반주 비트를 못 잡으면 발성 자체의 규칙성(자기일관성)으로.
         if (onsets.size < 4) return 0.5
         val intervals = ArrayList<Double>()
         for (i in 1 until onsets.size) intervals.add(onsets[i] - onsets[i - 1])
-        val mean = intervals.average()
+        // 구절 사이 긴 쉼(간주·숨쉬기)은 리듬이 아니므로 제외 — 중앙값의 2.5배 초과 간격 버림.
+        val median = intervals.sorted()[intervals.size / 2]
+        val kept = intervals.filter { it <= median * 2.5 }
+        if (kept.size < 3) return 0.5
+        val mean = kept.average()
         if (mean <= 0) return 0.5
-        val variance = intervals.sumOf { (it - mean) * (it - mean) } / intervals.size
+        val variance = kept.sumOf { (it - mean) * (it - mean) } / kept.size
         val cv = Math.sqrt(variance) / mean
-        // 노래는 완전히 규칙적이지 않으므로 관대하게: cv 0→만점, cv 1.5→0.
-        return ((1.5 - cv) / 1.2).coerceIn(0.0, 1.0)
+        // 노래는 완전히 규칙적이지 않으므로 관대하게 + 확실히 부른 경우 0점 방지(바닥 0.25).
+        return ((1.6 - cv) / 1.3).coerceIn(0.25, 1.0)
     }
 
     // ── 음량 다이나믹스: 적당한 변화 보상 + 클리핑 페널티 ──
