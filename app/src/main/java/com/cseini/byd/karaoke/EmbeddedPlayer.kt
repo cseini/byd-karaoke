@@ -186,7 +186,10 @@ class EmbeddedPlayer(
             onError = { msg -> if (rec.isRecording) rec.stop(); statusView.text = msg },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec.accompProcessor)
-        applyTune()          // 새 플레이어에도 현재 키·속도 유지
+        // 키·속도는 '지금 부르는 곡'에만 적용 — 곡이 바뀌면 원래대로 초기화한다.
+        keySemitones = 0
+        speedRate = 1.0f
+        applyTune()
         player?.load(videoId)
     }
 
@@ -488,6 +491,7 @@ class EmbeddedPlayer(
             onError = { statusView.text = "▶ 저장된 노래 재생 (영상 없이)" },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, null, lowRes = true)
+        keySemitones = 0; speedRate = 1.0f; applyTune()   // 저장된 녹음 재생은 원본 속도·키로
         player?.setVolume(0f)
         if (currentVideoId.isNotBlank()) player?.load(currentVideoId)
         replaying = true
