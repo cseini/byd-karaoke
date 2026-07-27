@@ -236,14 +236,15 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 상단 중앙: 곡 제목 + 카운트 (탭은 아래 영역으로 통과) -->
+        <!-- 곡 제목 + 카운트 (탭은 아래 영역으로 통과)
+             Kinex 미디어 위젯의 상단 중앙 '…' 오버레이 버튼에 가리지 않도록 아래로 내림 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top|center_horizontal"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingTop="24dp"
+            android:paddingTop="76dp"
             android:paddingHorizontal="24dp"
             android:duplicateParentState="false"
             android:clickable="false"
@@ -254,10 +255,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
+                android:background="#CC12122A"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp"
                 android:text="곡 제목"
-                android:textSize="20sp"
+                android:textSize="30sp"
                 android:textStyle="bold"
-                android:textColor="@color/tj_text_primary"
+                android:textColor="@color/tj_gold"
+                android:shadowColor="@color/tj_gold_deep"
+                android:shadowRadius="20"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -267,7 +273,7 @@
                 android:layout_height="wrap_content"
                 android:paddingTop="4dp"
                 android:text="5"
-                android:textSize="120sp"
+                android:textSize="96sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_gold"
                 android:shadowColor="@color/tj_gold_deep"

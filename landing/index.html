@@ -111,6 +111,8 @@
   .wn-item{display:flex; flex-direction:column; gap:5px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
   .wn-item b{font-size:16px; color:var(--text)}
   .wn-item span{color:var(--muted); font-size:14px}
+  .tag-new{font-size:11px; font-weight:700; color:#0a0a14; background:var(--gold); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px}
+  .tag-ver{font-size:11px; font-weight:600; color:var(--hint); border:1px solid var(--line); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px}
 </style>
 </head>
 <body>
@@ -122,7 +124,7 @@
     <h1>노래방</h1>
     <p class="sub">차 안에서 바로 즐기는 노래방. 검색해서 부르고, 마이크로 채점받고,
       친구들은 각자 폰으로 다음 곡을 예약해요.</p>
-    <a class="cta" href="https://github.com/cseini/byd-karaoke/releases/latest/download/karaoke-latest.apk" download>
+    <a class="cta" href="https://github.com/cseini/byd-karaoke/releases/download/v3.93/byd-karaoke-v3.93.apk" download>
       <span>⬇</span>
       <span>최신 APK 바로 받기
         <small>Android · 사이드로드 설치</small>
@@ -137,24 +139,32 @@
     <section class="wn-sec">
       <div class="wn">
         <div class="wn-head">
-          <span class="wn-ver">v3.91 업데이트</span>
-          <h2 class="wn-title">✨ 새로워진 점</h2>
+          <span class="wn-ver">v3.93 최신</span>
+          <h2 class="wn-title">📋 패치노트</h2>
         </div>
         <div class="wn-grid">
           <div class="wn-item">
-            <b>🪟 분할화면 완벽 지원</b>
+            <b>🔎 자동재생 곡 제목 잘 보이게 <span class="tag-new">v3.93</span></b>
+            <span>음성검색 후 자동재생 카운트다운에서 곡 제목을 크게 강조하고, 분할화면 상단 버튼에 가리지 않도록 위치를 조정했어요.</span>
+          </div>
+          <div class="wn-item">
+            <b>📱 폰으로 키 입력 (QR) <span class="tag-ver">v3.92</span></b>
+            <span>Gemini 음성검색 키를 헤드유닛에서 손으로 칠 필요 없이, 폰으로 QR을 찍어 최대 3개까지 붙여넣어 전송해요.</span>
+          </div>
+          <div class="wn-item">
+            <b>🪟 분할화면 완벽 지원 <span class="tag-ver">v3.91</span></b>
             <span>Kinex 미디어 분할화면에서도 모든 기능이 정상 동작합니다. 내비게이션과 동시에 노래방을 쓸 수 있어요.</span>
           </div>
           <div class="wn-item">
-            <b>💯 더 정확해진 채점</b>
+            <b>💯 더 정확해진 채점 <span class="tag-ver">v3.91</span></b>
             <span>박자 점수를 반주의 실제 비트에 맞춰 매기도록 개선했습니다. 잘 불렀는데 0점 나오던 문제도 해결.</span>
           </div>
           <div class="wn-item">
-            <b>🎙️ 더 똑똑한 음성 검색</b>
+            <b>🎙️ 더 똑똑한 음성 검색 <span class="tag-ver">v3.91</span></b>
             <span>음성을 더 잘 알아듣도록 개선했습니다. API 키를 여러 개 넣으면 한도 초과 시 자동으로 다음 키로 전환돼요.</span>
           </div>
           <div class="wn-item">
-            <b>🎛️ (선택) 물리 버튼으로 조작</b>
+            <b>🎛️ (선택) 물리 버튼으로 조작 <span class="tag-ver">v3.91</span></b>
             <span>USB 마이크 버튼은 길게 눌러 음성검색·짧게 눌러 노래방 패널, 운전대 무음 버튼 더블클릭으로 음성검색. 설정에서 켤 수 있어요(기본 꺼짐).</span>
           </div>
         </div>
@@ -273,7 +283,7 @@
 
   <footer>
     개인 프로젝트 · 비영리 · 문의/문제 제기 환영<br>
-    <a href="https://github.com/cseini/byd-karaoke/releases/latest/download/karaoke-latest.apk" download>최신 APK 바로 받기</a>
+    <a href="https://github.com/cseini/byd-karaoke/releases/download/v3.93/byd-karaoke-v3.93.apk" download>최신 APK 바로 받기</a>
   </footer>
 
 </body>
