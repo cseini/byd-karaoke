@@ -92,6 +92,14 @@
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
+            <Button
+                android:id="@+id/btn_key_qr"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="📱 폰으로 키 입력 (QR)" />
+
             <RadioGroup
                 android:id="@+id/gemini_model_group"
                 android:layout_width="match_parent"

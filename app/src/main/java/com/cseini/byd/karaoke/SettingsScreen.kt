@@ -83,6 +83,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
+        root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         root.findViewById<View>(R.id.navbar)?.visibility = if (host.embedded) View.GONE else View.VISIBLE
         if (!host.embedded) (activity as? Activity)?.let { NavBar.wire(it, SettingsActivity::class.java) }
@@ -136,6 +137,33 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         }
         sb.append("저장 경로: ${Storage.recordingsDir(activity, mode).absolutePath}")
         storageInfo.text = sb.toString()
+    }
+
+    /** 폰으로 키 입력: 로컬 서버+QR을 띄워 폰에서 키(최대 3개)를 붙여넣어 전송받는다. */
+    private fun showKeyQr() {
+        val url = com.cseini.byd.karaoke.share.KeyEntryServer.start(activity)
+        if (url == null) {
+            Toast.makeText(activity, "네트워크에 연결돼 있지 않습니다. 차 핫스팟/WiFi를 확인하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_key, null)
+        view.findViewById<android.widget.ImageView>(R.id.key_qr)
+            .setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, 480))
+        view.findViewById<TextView>(R.id.key_url).text = url
+        val status = view.findViewById<TextView>(R.id.key_status)
+        com.cseini.byd.karaoke.share.KeyEntryServer.onSaved = {
+            // 폰이 키를 전송 → 차 화면 입력칸 갱신 + 상태 표시(서버가 이미 설정에 저장함).
+            openaiKey.setText(settings.openaiApiKey)
+            openaiKey2.setText(settings.openaiApiKey2)
+            openaiKey3.setText(settings.openaiApiKey3)
+            status.text = "✅ 폰에서 키를 받았어요. 저장 완료."
+            status.setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.tj_green))
+        }
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setView(view)
+            .setPositiveButton("닫기", null)
+            .setOnDismissListener { com.cseini.byd.karaoke.share.KeyEntryServer.stop() }
+            .show()
     }
 
     private fun checkUpdate() {

@@ -100,6 +100,17 @@
 
   footer{text-align:center; color:var(--hint); font-size:13px; padding:40px 20px 60px; border-top:1px solid var(--line); margin-top:30px}
   footer a{color:var(--muted)}
+
+  /* ── What's new (상단 업데이트) ── */
+  .wn-sec{padding:14px 0 30px}
+  .wn{background:linear-gradient(180deg,rgba(160,107,255,.14),rgba(65,224,255,.05)); border:1px solid var(--line); border-radius:18px; padding:22px 24px}
+  .wn-head{display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap}
+  .wn-ver{background:linear-gradient(90deg,var(--pink),var(--purple)); color:#fff; font-weight:800; font-size:13px; padding:5px 13px; border-radius:999px; box-shadow:0 6px 18px rgba(160,107,255,.35)}
+  .wn-title{font-size:clamp(19px,3.4vw,25px); margin:0; font-weight:800}
+  .wn-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+  .wn-item{display:flex; flex-direction:column; gap:5px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .wn-item b{font-size:16px; color:var(--text)}
+  .wn-item span{color:var(--muted); font-size:14px}
 </style>
 </head>
 <body>
@@ -121,6 +132,34 @@
   </header>
 
   <div class="wrap">
+
+    <!-- WHAT'S NEW -->
+    <section class="wn-sec">
+      <div class="wn">
+        <div class="wn-head">
+          <span class="wn-ver">v3.91 업데이트</span>
+          <h2 class="wn-title">✨ 새로워진 점</h2>
+        </div>
+        <div class="wn-grid">
+          <div class="wn-item">
+            <b>🪟 분할화면 완벽 지원</b>
+            <span>Kinex 미디어 분할화면에서도 모든 기능이 정상 동작합니다. 내비게이션과 동시에 노래방을 쓸 수 있어요.</span>
+          </div>
+          <div class="wn-item">
+            <b>💯 더 정확해진 채점</b>
+            <span>박자 점수를 반주의 실제 비트에 맞춰 매기도록 개선했습니다. 잘 불렀는데 0점 나오던 문제도 해결.</span>
+          </div>
+          <div class="wn-item">
+            <b>🎙️ 더 똑똑한 음성 검색</b>
+            <span>음성을 더 잘 알아듣도록 개선했습니다. API 키를 여러 개 넣으면 한도 초과 시 자동으로 다음 키로 전환돼요.</span>
+          </div>
+          <div class="wn-item">
+            <b>🎛️ (선택) 물리 버튼으로 조작</b>
+            <span>USB 마이크 버튼은 길게 눌러 음성검색·짧게 눌러 노래방 패널, 운전대 무음 버튼 더블클릭으로 음성검색. 설정에서 켤 수 있어요(기본 꺼짐).</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- FEATURES -->
     <section>

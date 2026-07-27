@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@color/tj_bg"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📱 폰으로 키 입력"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/tj_cyan" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp"
+        android:gravity="center"
+        android:textSize="13sp"
+        android:textColor="@color/tj_text_secondary"
+        android:text="차와 폰을 같은 네트워크(핫스팟/WiFi)에 두고\n아래 QR을 폰 카메라로 찍으면\n폰에서 Gemini 키(최대 3개)를 붙여넣어 보낼 수 있어요." />
+
+    <ImageView
+        android:id="@+id/key_qr"
+        android:layout_width="240dp"
+        android:layout_height="240dp"
+        android:background="#FFFFFF"
+        android:padding="8dp"
+        android:contentDescription="QR" />
+
+    <TextView
+        android:id="@+id/key_url"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="10dp"
+        android:textSize="14sp"
+        android:textColor="@color/tj_gold"
+        android:fontFamily="monospace"
+        android:textIsSelectable="true" />
+
+    <TextView
+        android:id="@+id/key_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:gravity="center"
+        android:textSize="13sp"
+        android:textColor="@color/tj_text_hint"
+        android:text="폰에서 전송하면 여기 자동으로 반영됩니다." />
+</LinearLayout>
