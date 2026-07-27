@@ -50,7 +50,8 @@ object KeyEntryServer {
             if (session.method == Method.POST) runCatching { session.parseBody(HashMap()) }
             val p = session.parameters
             fun q(k: String): String = p[k]?.firstOrNull()?.trim().orEmpty()
-            return if (session.uri.startsWith("/save")) {
+            // 프록시 사용 시 절대 URL 로 오므로 경로만 남긴다(ReserveServer 와 동일 이유).
+            return if (ReserveServer.normalizePath(session.uri).startsWith("/save")) {
                 settings.openaiApiKey = q("k1")
                 settings.openaiApiKey2 = q("k2")
                 settings.openaiApiKey3 = q("k3")

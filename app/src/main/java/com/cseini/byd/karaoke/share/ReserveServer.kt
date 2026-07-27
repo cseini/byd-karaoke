@@ -16,6 +16,19 @@ import org.json.JSONObject
  */
 object ReserveServer {
 
+    /**
+     * 폰/태블릿이 프록시를 쓰면 브라우저가 절대 URL("http://ip:port/search")로 요청 줄을 보낸다.
+     * 그대로 두면 "/search" 매칭이 실패해 HTML 페이지가 반환되고, 폰에서 JSON 파싱 오류
+     * (Unexpected token '<')가 난다. 경로만 남기도록 정규화한다.
+     */
+    internal fun normalizePath(uri: String): String {
+        val u = uri.trim()
+        if (!u.startsWith("http://", true) && !u.startsWith("https://", true)) return u
+        val afterScheme = u.indexOf("//").let { if (it >= 0) it + 2 else 0 }
+        val slash = u.indexOf('/', afterScheme)
+        return if (slash >= 0) u.substring(slash) else "/"
+    }
+
     private var server: Http? = null
     var url: String? = null
         private set
@@ -52,7 +65,7 @@ object ReserveServer {
         private val settings = SettingsStore(ctx)
 
         override fun serve(session: IHTTPSession): Response {
-            val uri = session.uri
+            val uri = normalizePath(session.uri)
             val p = session.parameters
             fun q(k: String): String = p[k]?.firstOrNull()?.trim().orEmpty()
             return when {
