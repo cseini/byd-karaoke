@@ -7,8 +7,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -26,6 +28,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.StreamExtractor
+
+/**
+ * 오디오 체인: [Sonic(키·속도)] → [반주 탭]. 기본 체인과 달리 탭을 Sonic 뒤에 두어
+ * 녹음/채점이 실제 들린 소리와 일치한다(키·속도 0/1.0 이면 Sonic 은 비활성 = 기존과 동일).
+ */
+@UnstableApi
+private class ShiftThenTapChain(tap: AudioProcessor) : DefaultAudioSink.AudioProcessorChain {
+    private val sonic = SonicAudioProcessor()
+    private val processors = arrayOf(sonic, tap)
+    override fun getAudioProcessors(): Array<AudioProcessor> = processors
+    override fun applyPlaybackParameters(p: PlaybackParameters): PlaybackParameters {
+        sonic.setSpeed(p.speed)
+        sonic.setPitch(p.pitch)
+        return p
+    }
+    override fun applySkipSilenceEnabled(skipSilenceEnabled: Boolean): Boolean = false
+    override fun getMediaDuration(playoutDuration: Long): Long = sonic.getMediaDuration(playoutDuration)
+    override fun getSkippedOutputFrameCount(): Long = 0L
+}
 
 /**
  * 재생 방식 B — NewPipe 로 유튜브 스트림을 추출해 네이티브 ExoPlayer 로 직접 재생.
@@ -49,13 +70,15 @@ class StreamPlayer(
     private fun buildExo(context: Context, proc: AudioProcessor?): ExoPlayer {
         if (proc == null) return ExoPlayer.Builder(context).build()
         // 반주 오디오를 합성 녹음(MixRecorder)에 넘기기 위해 오디오 처리 체인에 프로세서를 끼운다.
+        // 키(피치)·속도 변경은 Sonic 이 처리하며, 우리 탭을 Sonic '뒤'에 두어
+        // 녹음·채점이 실제로 들린 소리(키·속도 반영)와 같아지게 한다.
         val renderers = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
             ): AudioSink = DefaultAudioSink.Builder(context)
-                .setAudioProcessors(arrayOf(proc))
+                .setAudioProcessorChain(ShiftThenTapChain(proc))
                 .build()
         }
         // 재생 시작 전 버퍼를 고정(2.5초)해 디코딩 앞섬(반주 지터)을 매번 일정하게 한다.
@@ -197,6 +220,12 @@ class StreamPlayer(
     override fun setVolume(v: Float) { exo.volume = v }
     override fun seekTo(ms: Long) { runCatching { exo.seekTo(ms.coerceAtLeast(0)) } }
     override fun isPlaying(): Boolean = exo.isPlaying
+
+    /** 키(반음)·속도 적용. 반음 n → 주파수비 2^(n/12). 속도는 음정에 영향 없음(Sonic 타임스트레치). */
+    override fun setKeySpeed(semitones: Int, speed: Float) {
+        val pitch = Math.pow(2.0, semitones / 12.0).toFloat()
+        exo.playbackParameters = PlaybackParameters(speed.coerceIn(0.5f, 1.5f), pitch)
+    }
     override fun durationMs(): Long = exo.duration.let { if (it > 0) it else 0L }
     override fun currentPositionMs(): Long {
         if (cachedAtNanos == 0L) return cachedPositionMs

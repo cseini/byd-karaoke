@@ -10,4 +10,6 @@ interface ScreenHost {
     val embedded: Boolean
     fun onScreenBack()
     fun onReplayRecording(item: RecordingItem)
+    /** 임베드 상태에서 하단바로 화면 전환: "search" | "recordings" | "ranking" | "settings". */
+    fun onNavigate(target: String) {}
 }

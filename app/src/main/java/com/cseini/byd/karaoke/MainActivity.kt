@@ -52,6 +52,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     // ── ScreenHost: 임베드 화면(녹음함/랭킹/설정)이 콜백하는 호스트 ──
     override val embedded: Boolean get() = useEmbedded
     override fun onScreenBack() = closeScreen()
+    /** 임베드 화면의 하단바 → 다른 임베드 화면으로 전환(분할화면 유지). */
+    override fun onNavigate(target: String) {
+        if (target == "search") closeScreen() else showScreen(target)
+    }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
         embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
             ?: startActivity(PlaybackActivity.replayIntent(this, item))

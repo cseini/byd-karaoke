@@ -106,9 +106,13 @@ class MixRecorder(
         accompWrite.set(w)
     }
 
-    /** startPosMs = 녹음 시작 시점의 재생 위치(ms). 여기서부터 반주를 읽는다. */
+    /**
+     * startPosMs = 녹음 시작 시점의 재생 위치(ms). 여기서부터 반주를 읽는다.
+     * speed = 재생 속도(1.0 기본). 반주 버퍼는 Sonic 뒤에서 따오므로 '들린 시간' 기준이라,
+     * 재생위치(곡 시간)를 속도로 나눠 버퍼 위치로 환산한다(속도 1.0 이면 기존과 동일).
+     */
     @SuppressLint("MissingPermission")
-    fun start(outFile: File, startPosMs: Long, onLevel: ((Float) -> Unit)? = null): String? {
+    fun start(outFile: File, startPosMs: Long, speed: Float = 1f, onLevel: ((Float) -> Unit)? = null): String? {
         if (recording) return "이미 녹음 중"
         val minBuf = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return "AudioRecord 버퍼 계산 실패($minBuf)"
@@ -147,7 +151,8 @@ class MixRecorder(
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
-            var readPos = (startPosMs + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
+            val s = if (speed > 0.05f) speed.toDouble() else 1.0
+            var readPos = (startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
             val step = accompRate.toDouble() / rate
             // 목소리 처리: 명료도(고음 강조 pre-emphasis) + 에코(리버브)
             val clarity = settings.voiceClarity / 100.0 * 0.9

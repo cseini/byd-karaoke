@@ -85,8 +85,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
-        root.findViewById<View>(R.id.navbar)?.visibility = if (host.embedded) View.GONE else View.VISIBLE
-        if (!host.embedded) (activity as? Activity)?.let { NavBar.wire(it, SettingsActivity::class.java) }
+        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
+        if (host.embedded) NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
+        else (activity as? Activity)?.let { NavBar.wire(it, SettingsActivity::class.java) }
     }
 
     private fun updateSyncLabel() {

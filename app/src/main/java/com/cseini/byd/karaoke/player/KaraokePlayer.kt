@@ -19,6 +19,8 @@ interface KaraokePlayer {
     fun seekTo(ms: Long)
     /** 실제 재생 중인지. 다시듣기 영상 정렬 시점 판단용. */
     fun isPlaying(): Boolean
+    /** 키(반음, -6~+6)와 속도(0.5~1.5) 조절. 템포·음정이 서로 영향 없이 각각 바뀐다. */
+    fun setKeySpeed(semitones: Int, speed: Float) {}
 }
 
 /**

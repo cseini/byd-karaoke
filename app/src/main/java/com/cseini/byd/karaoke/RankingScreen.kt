@@ -29,8 +29,9 @@ class RankingScreen(private val root: View, private val host: ScreenHost) {
             layoutManager = LinearLayoutManager(root.context)
             adapter = this@RankingScreen.adapter
         }
-        root.findViewById<View>(R.id.navbar)?.visibility = if (host.embedded) View.GONE else View.VISIBLE
-        if (!host.embedded) (root.context as? Activity)?.let { NavBar.wire(it, RankingActivity::class.java) }
+        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
+        if (host.embedded) NavBar.wireEmbedded(root, "ranking") { host.onNavigate(it) }
+        else (root.context as? Activity)?.let { NavBar.wire(it, RankingActivity::class.java) }
     }
 
     fun refresh() {

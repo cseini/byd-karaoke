@@ -267,7 +267,7 @@ class PlaybackActivity : AppCompatActivity() {
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
         val file = File(dir, "${safeTitle}_${currentVideoId}_${ts}.wav")
         val startPos = player.currentPositionMs()   // 녹음 시작 시점의 재생 위치
-        val err = recorder.start(file, startPos) { db ->
+        val err = recorder.start(file, startPos, 1f) { db ->
             runOnUiThread { if (recorder.isRecording) recStatus.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
         if (err != null) {

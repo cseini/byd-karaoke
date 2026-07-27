@@ -68,6 +68,8 @@ class EmbeddedPlayer(
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val queueSide: View = activity.findViewById(R.id.embed_queue_side)
+    private val keyVal: TextView = activity.findViewById(R.id.embed_key_val)
+    private val speedVal: TextView = activity.findViewById(R.id.embed_speed_val)
     private val scoreOverlay: View = activity.findViewById(R.id.embed_score)
     private val scoreNum: TextView = activity.findViewById(R.id.embed_score_num)
     private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
@@ -85,6 +87,8 @@ class EmbeddedPlayer(
     private var replaySeekCooldown = 0        // 재정렬 후 쿨다운(틱) — 잦은 seek 재버퍼링 방지
     private var fullscreen = false
     private var seekDragging = false
+    private var keySemitones = 0        // 키(반음) -6~+6
+    private var speedRate = 1.0f        // 속도 0.7~1.3
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
 
@@ -124,6 +128,14 @@ class EmbeddedPlayer(
         }
         activity.findViewById<Button>(R.id.embed_score_next).setOnClickListener {
             scoreOverlay.visibility = View.GONE; playNext()
+        }
+        // 키·속도 조절(재생 중 즉시 반영, 곡을 바꿔도 유지)
+        activity.findViewById<Button>(R.id.embed_key_down).setOnClickListener { changeKey(-1) }
+        activity.findViewById<Button>(R.id.embed_key_up).setOnClickListener { changeKey(+1) }
+        activity.findViewById<Button>(R.id.embed_speed_down).setOnClickListener { changeSpeed(-0.05f) }
+        activity.findViewById<Button>(R.id.embed_speed_up).setOnClickListener { changeSpeed(+0.05f) }
+        activity.findViewById<Button>(R.id.embed_tune_reset).setOnClickListener {
+            keySemitones = 0; speedRate = 1.0f; applyTune()
         }
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
         // 영상 영역 더블탭으로 전체화면 진입, 전체화면 중엔 더블탭으로 해제.
@@ -174,7 +186,21 @@ class EmbeddedPlayer(
             onError = { msg -> if (rec.isRecording) rec.stop(); statusView.text = msg },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec.accompProcessor)
+        applyTune()          // 새 플레이어에도 현재 키·속도 유지
         player?.load(videoId)
+    }
+
+    // ── 키(반음)·속도 ──
+    private fun changeKey(d: Int) { keySemitones = (keySemitones + d).coerceIn(-6, 6); applyTune() }
+    private fun changeSpeed(d: Float) {
+        speedRate = ((Math.round((speedRate + d) * 100) / 100f)).coerceIn(0.7f, 1.3f); applyTune()
+    }
+
+    /** 플레이어에 키·속도 반영 + 표시 갱신. 곡을 새로 불러올 때도 다시 적용한다. */
+    private fun applyTune() {
+        player?.setKeySpeed(keySemitones, speedRate)
+        keyVal.text = if (keySemitones > 0) "+$keySemitones" else "$keySemitones"
+        speedVal.text = "%.2f".format(speedRate).trimEnd('0').trimEnd('.') + "x"
     }
 
     private fun hasMic() = ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) ==
@@ -192,7 +218,7 @@ class EmbeddedPlayer(
         val safe = titleView.text.toString().replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
         val file = File(dir, "${safe}_${currentVideoId}_${ts}.wav")
-        val err = recorder?.start(file, player?.currentPositionMs() ?: 0L) { db ->
+        val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
             activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
         if (err != null) statusView.text = "녹음 시작 실패: $err" else { recordStarted = true; lastRecording = file }

@@ -39,8 +39,9 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
             layoutManager = LinearLayoutManager(ctx)
             adapter = this@RecordingsScreen.adapter
         }
-        root.findViewById<View>(R.id.navbar)?.visibility = if (host.embedded) View.GONE else View.VISIBLE
-        if (!host.embedded) (ctx as? Activity)?.let { NavBar.wire(it, RecordingsActivity::class.java) }
+        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
+        if (host.embedded) NavBar.wireEmbedded(root, "recordings") { host.onNavigate(it) }
+        else (ctx as? Activity)?.let { NavBar.wire(it, RecordingsActivity::class.java) }
     }
 
     fun refresh() {
