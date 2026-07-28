@@ -91,8 +91,9 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             embedScreen.removeAllViews()
             embedScreen.visibility = View.GONE
         }
-        // 설정에서 물리버튼 옵션을 바꿨을 수 있으므로 닫을 때 즉시 반영한다.
+        // 설정에서 바꾼 값(물리버튼·API 키 등)을 닫는 즉시 화면에 반영한다.
         syncPhysicalButtons()
+        if (::autoplayCheck.isInitialized) refreshVoiceUi()
     }
 
     private lateinit var settings: SettingsStore
@@ -333,7 +334,15 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         searchDebounce.post(queuePoll)   // 폰 예약이 바로 보이도록 주기 갱신
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
-        // 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출
+        refreshVoiceUi()
+    }
+
+    /**
+     * 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출.
+     * 설정 화면이 같은 창의 오버레이라 닫아도 onResume 이 안 불리므로,
+     * 설정을 닫을 때도 호출해야 '키를 넣고 저장했는데 버튼이 안 나오는' 문제가 없다.
+     */
+    private fun refreshVoiceUi() {
         val voiceOn = settings.geminiApiKeys().isNotEmpty()
         findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
         autoplayCheck.visibility = if (voiceOn) View.VISIBLE else View.GONE
