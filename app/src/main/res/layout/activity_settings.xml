@@ -262,15 +262,12 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:textColor="@color/tj_text_primary"
+                android:visibility="gone"
                 android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="11sp"
-                android:textColor="@color/tj_text_hint"
-                android:paddingStart="8dp"
-                android:text="운전대 무음(음소거) 버튼을 빠르게 두 번 누르면 음성검색. 기본 음소거 기능은 그대로 유지됩니다. (접근성 권한이 필요해 일부 기기에선 동작하지 않을 수 있어요 — 안 되면 끄세요.)" />
+            <!-- 휠 버튼: 접근성 서비스를 켜야 하는데 앱이 자동으로 못 켜고(WRITE_SECURE_SETTINGS 는
+                 시스템 앱 전용) 일반 사용자는 adb 를 써야 해서 UI 에서 숨김.
+                 기능·코드는 유지 — 이미 접근성을 켠 기기에서는 설정값이 켜져 있으면 그대로 동작한다. -->
 
             <View
                 android:layout_width="match_parent"
