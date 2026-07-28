@@ -91,6 +91,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             embedScreen.removeAllViews()
             embedScreen.visibility = View.GONE
         }
+        // 설정에서 물리버튼 옵션을 바꿨을 수 있으므로 닫을 때 즉시 반영한다.
+        syncPhysicalButtons()
     }
 
     private lateinit var settings: SettingsStore
@@ -622,19 +624,24 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         searchDebounce.removeCallbacks(queuePoll)
     }
 
-    // 창이 포커스 받을 때 설정에 따라 USB 마이크·휠 버튼 제어를 켜거나 끈다(옵트인, 즉시 반영).
-    // 켜짐: 권한 없으면 재시도(멱등, 8초 쿨다운) — 설치 직후 권한 못 잡아도 강제종료 불필요.
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus) return
-        // USB 마이크 버튼(옵트인): 켜면 HID 읽기 시작(권한 재시도 멱등), 끄면 중지.
+        if (hasFocus) syncPhysicalButtons()
+    }
+
+    /**
+     * 설정(옵트인)에 맞춰 USB 마이크·휠 버튼 제어를 켜거나 끈다. 여러 번 불러도 안전(멱등).
+     * 설정 화면이 같은 창의 오버레이라 닫아도 포커스 변화가 없으므로, 설정을 닫을 때도 호출해야
+     * '저장했는데 아무 일도 안 일어나는' 문제가 생기지 않는다.
+     */
+    private fun syncPhysicalButtons() {
         if (settings.micButtonControl) {
             if (usbMic == null) usbMic = UsbMicButtons(this) { cancelAutoPlay(); startVoice() }
             usbMic?.start()
         } else {
             usbMic?.stop(); usbMic = null
         }
-        // 휠 버튼(옵트인, 접근성): 켜면 접근성 서비스 활성 시도. 실제 동작은 서비스가 설정값을 보고 판단.
+        // 휠 버튼(접근성): 켜져 있으면 활성 시도 — 못 켜면 enableKeyCatcher 가 안내한다.
         if (settings.wheelButtonControl) enableKeyCatcher()
     }
 

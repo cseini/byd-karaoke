@@ -53,7 +53,15 @@ class UsbMicButtons(
     private var lastTrigger = 0L
     private var lastPermReq = 0L
     private var registered = false
+    private var notified = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** 같은 안내가 반복되지 않도록 1회만 표시(멱등 start 가 자주 불리므로). */
+    private fun notifyOnce(msg: String) {
+        if (notified) return
+        notified = true
+        activity.runOnUiThread { android.widget.Toast.makeText(activity, msg, android.widget.Toast.LENGTH_LONG).show() }
+    }
     private var pendingLong: Runnable? = null
 
     private val permReceiver = object : BroadcastReceiver() {
@@ -72,9 +80,16 @@ class UsbMicButtons(
             activity.registerReceiver(permReceiver, IntentFilter(ACTION_PERM)); registered = true
         }
         val devices = usb.deviceList.values.toList()
-        if (devices.isEmpty()) { Log.i(TAG, "USB 장치 없음"); return }
+        if (devices.isEmpty()) {
+            Log.i(TAG, "USB 장치 없음")
+            notifyOnce("USB 마이크가 연결돼 있지 않습니다")
+            return
+        }
+        devices.forEach { logDevice(it) }
         val cand = devices.firstOrNull { findHidInterrupt(it) != null } ?: run {
-            Log.i(TAG, "HID 버튼 인터페이스 없음"); return
+            Log.i(TAG, "HID 버튼 인터페이스 없음")
+            notifyOnce("이 마이크는 버튼 제어를 지원하지 않습니다 (설정에서 꺼주세요)")
+            return
         }
         if (usb.hasPermission(cand)) { openAndRead(cand); return }
         // 권한 없음 → 요청. 단 최근 요청했으면(8초) 다이얼로그 스팸 방지로 스킵.
