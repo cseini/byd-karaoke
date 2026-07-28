@@ -475,6 +475,21 @@ class EmbeddedPlayer(
 
     private fun fmt(ms: Int): String { val s = ms / 1000; return "%d:%02d".format(s / 60, s % 60) }
 
+    // ── 마이크 버튼(리모컨) 제어: 재생 중일 때만 동작 ──
+    /** 다음 예약곡으로. 예약이 없으면 아무것도 하지 않는다. */
+    fun remoteNext() {
+        if (!isShowing) return
+        cancelCountdown()
+        queue.reload()
+        if (queue.size() > 0) playNext() else statusView.text = "예약된 곡이 없습니다"
+    }
+
+    /** 노래 종료(채점). 다시듣기 중이면 재생만 멈춘다. */
+    fun remoteStop() {
+        if (!isShowing) return
+        stopSong()
+    }
+
     /** 녹음함/랭킹에서 저장된 녹음을 임베드로 다시 듣기(채점·녹음 없이, 영상은 음소거). */
     fun replayRecording(item: RecordingItem) {
         overlay.visibility = View.VISIBLE

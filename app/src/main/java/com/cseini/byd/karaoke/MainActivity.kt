@@ -58,6 +58,19 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         if (target == "search") closeScreen() else showScreen(target)
     }
 
+    /**
+     * 마이크 버튼(길게 누름) → 앱 제어.
+     * 마이크=음성검색 / 볼륨↑=다음 예약곡 / 볼륨↓=노래 종료(채점).
+     * 재생 중이 아니면 다음곡·종료는 무시(짧게 누름의 네이티브 볼륨 동작은 그대로).
+     */
+    private fun onMicButton(action: UsbMicButtons.Action) {
+        when (action) {
+            UsbMicButtons.Action.VOICE -> { cancelAutoPlay(); startVoice() }
+            UsbMicButtons.Action.NEXT -> embeddedPlayer?.remoteNext()
+            UsbMicButtons.Action.STOP -> embeddedPlayer?.remoteStop()
+        }
+    }
+
     /** 설정 저장 즉시 반영 — 화면을 닫지 않아도 음성 버튼·물리버튼이 바로 적용된다. */
     override fun onSettingsSaved() {
         if (::autoplayCheck.isInitialized) refreshVoiceUi()
@@ -651,7 +664,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
      */
     private fun syncPhysicalButtons() {
         if (settings.micButtonControl) {
-            if (usbMic == null) usbMic = UsbMicButtons(this) { cancelAutoPlay(); startVoice() }
+            if (usbMic == null) usbMic = UsbMicButtons(this) { action -> onMicButton(action) }
             usbMic?.start()
         } else {
             usbMic?.stop(); usbMic = null

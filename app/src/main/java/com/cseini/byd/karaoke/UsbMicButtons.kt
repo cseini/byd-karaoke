@@ -22,8 +22,11 @@ import kotlin.concurrent.thread
  */
 class UsbMicButtons(
     private val activity: AppCompatActivity,
-    private val onButton: () -> Unit,
+    private val onAction: (Action) -> Unit,
 ) {
+    /** 마이크 버튼으로 실행할 앱 동작. */
+    enum class Action { VOICE, NEXT, STOP }
+
     companion object {
         private const val TAG = "karaoke-usb"
         private const val ACTION_PERM = "com.cseini.byd.karaoke.USB_PERM"
@@ -152,22 +155,28 @@ class UsbMicButtons(
                 if (code == lastCode) continue
                 val prev = lastCode
                 lastCode = code
-                // 마이크 버튼에서 손 뗌: 길게(음성검색)가 아직 안 걸렸으면 짧게 누름 → 노래방 패널 토글.
-                if (prev == CODE_MIC) {
+
+                // 어떤 버튼이든 손을 떼면 대기 중인 '길게 누름'은 취소.
+                if (prev != 0 && prev != code) {
                     held = false
                     pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
-                    if (!longFired) sendMicEvent(KEY_MIC_TOGGLE)
+                    // 마이크 버튼을 짧게 눌렀다 뗀 경우 → 노래방 패널 토글(길게가 이미 걸렸으면 제외)
+                    if (prev == CODE_MIC && !longFired) sendMicEvent(KEY_MIC_TOGGLE)
                 }
+
+                // 누름: 볼륨은 즉시 네이티브 동작(마이크 볼륨±) + 길게 누르면 앱 제어.
                 when (code) {
-                    CODE_MIC -> {                       // 누름: 길게=음성검색 / 짧게=패널(뗄 때 처리)
-                        held = true; longFired = false
-                        val r = Runnable { if (held) { longFired = true; fireButton() } }
-                        pendingLong = r
-                        handler.postDelayed(r, LONG_PRESS_MS)
+                    CODE_MIC -> armLongPress(Action.VOICE) { longFired = true }
+                    CODE_VOL_UP -> {
+                        sendMicEvent(KEY_VOL_UP)
+                        armLongPress(Action.NEXT) { longFired = true }
                     }
-                    CODE_VOL_UP -> sendMicEvent(KEY_VOL_UP)       // 마이크 볼륨↑ + 패널(네이티브, 자동 닫힘)
-                    CODE_VOL_DOWN -> sendMicEvent(KEY_VOL_DOWN)   // 마이크 볼륨↓ + 패널
+                    CODE_VOL_DOWN -> {
+                        sendMicEvent(KEY_VOL_DOWN)
+                        armLongPress(Action.STOP) { longFired = true }
+                    }
                 }
+                if (code != 0) longFired = false
             }
         }
     }
@@ -184,10 +193,19 @@ class UsbMicButtons(
         }
     }
 
-    private fun fireButton() {
+    /** 버튼을 누른 상태로 LONG_PRESS_MS 가 지나면 앱 동작 실행(누르고 있는 동안만 유효). */
+    private fun armLongPress(action: Action, onFired: () -> Unit) {
+        held = true
+        val r = Runnable { if (held) { onFired(); fireAction(action) } }
+        pendingLong?.let { handler.removeCallbacks(it) }
+        pendingLong = r
+        handler.postDelayed(r, LONG_PRESS_MS)
+    }
+
+    private fun fireAction(action: Action) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastTrigger < DEBOUNCE_MS) return
         lastTrigger = now
-        activity.runOnUiThread { onButton() }
+        activity.runOnUiThread { onAction(action) }
     }
 }
