@@ -74,6 +74,7 @@ class EmbeddedPlayer(
     private val scoreNum: TextView = activity.findViewById(R.id.embed_score_num)
     private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
     private val scoreDetail: TextView = activity.findViewById(R.id.embed_score_detail)
+    private val scoreNextInfo: TextView = activity.findViewById(R.id.embed_score_next_info)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
@@ -327,7 +328,7 @@ class EmbeddedPlayer(
             var n = 10
             override fun run() {
                 if (n <= 0) { countdown = null; playNext(); return }
-                statusView.text = "${n}초 후 다음 예약곡 ▶ '${next.title}'"
+                showCountdown("${n}초 후 다음 예약곡 ▶ '${next.title}'")
                 n--; ui.postDelayed(this, 1000)
             }
         }
@@ -341,14 +342,25 @@ class EmbeddedPlayer(
             var n = 10
             override fun run() {
                 if (n <= 0) { countdown = null; close(); return }
-                statusView.text = "${n}초 후 검색으로 돌아갑니다"
+                showCountdown("${n}초 후 검색으로 돌아갑니다")
                 n--; ui.postDelayed(this, 1000)
             }
         }
         countdown = r; ui.post(r)
     }
 
-    private fun cancelCountdown() { countdown?.let { ui.removeCallbacks(it) }; countdown = null }
+    /** 카운트다운은 상태줄과 채점 화면 양쪽에 — 채점 화면이 상태줄을 덮기 때문. */
+    private fun showCountdown(text: String) {
+        statusView.text = text
+        scoreNextInfo.text = text
+        scoreNextInfo.visibility = View.VISIBLE
+    }
+
+    private fun cancelCountdown() {
+        countdown?.let { ui.removeCallbacks(it) }
+        countdown = null
+        scoreNextInfo.visibility = View.GONE
+    }
 
     // ── 재생 위치 seek 바 갱신(실제 재생 중일 때만 — 정지 후 보간으로 계속 흐르는 것 방지) ──
     private val songTicker = object : Runnable {
