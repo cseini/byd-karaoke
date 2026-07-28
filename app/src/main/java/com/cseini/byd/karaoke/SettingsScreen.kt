@@ -32,6 +32,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
+    private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
+    private val voiceGainLabel: TextView = root.findViewById(R.id.voice_gain_label)
+    private val accompGainSeek: SeekBar = root.findViewById(R.id.accomp_gain_seek)
+    private val accompGainLabel: TextView = root.findViewById(R.id.accomp_gain_label)
     private val micButtonCheck: CheckBox = root.findViewById(R.id.chk_mic_button)
     private val wheelButtonCheck: CheckBox = root.findViewById(R.id.chk_wheel_button)
     private val updateStatus: TextView = root.findViewById(R.id.update_status)
@@ -72,6 +76,18 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 else -> R.id.ms_auto
             }
         )
+        // 녹음 음량(목소리 50~500%, 반주 0~150%)
+        voiceGainSeek.progress = (settings.voiceGainPct - 50).coerceIn(0, 450)
+        accompGainSeek.progress = settings.accompGainPct.coerceIn(0, 150)
+        updateGainLabels()
+        val gainListener = object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) = updateGainLabels()
+            override fun onStartTrackingTouch(sb: SeekBar) {}
+            override fun onStopTrackingTouch(sb: SeekBar) {}
+        }
+        voiceGainSeek.setOnSeekBarChangeListener(gainListener)
+        accompGainSeek.setOnSeekBarChangeListener(gainListener)
+
         micButtonCheck.isChecked = settings.micButtonControl
         wheelButtonCheck.isChecked = settings.wheelButtonControl
 
@@ -88,6 +104,11 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
         if (host.embedded) NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
         else (activity as? Activity)?.let { NavBar.wire(it, SettingsActivity::class.java) }
+    }
+
+    private fun updateGainLabels() {
+        voiceGainLabel.text = "목소리 ${voiceGainSeek.progress + 50}%"
+        accompGainLabel.text = "반주 ${accompGainSeek.progress}%"
     }
 
     private fun updateSyncLabel() {
@@ -114,6 +135,8 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             R.id.ms_comm -> "VOICE_COMMUNICATION"
             else -> "AUTO"
         }
+        settings.voiceGainPct = voiceGainSeek.progress + 50
+        settings.accompGainPct = accompGainSeek.progress
         settings.micButtonControl = micButtonCheck.isChecked
         settings.wheelButtonControl = wheelButtonCheck.isChecked
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"

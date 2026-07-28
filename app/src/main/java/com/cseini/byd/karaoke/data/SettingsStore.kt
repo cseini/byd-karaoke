@@ -105,6 +105,16 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("voice_clarity", 45)
         set(v) = prefs.edit().putInt("voice_clarity", v.coerceIn(0, 100)).apply()
 
+    /** 녹음 시 목소리 크기(%). 100=원음. 차량 마이크가 작아 반주에 묻힐 때 올린다. */
+    var voiceGainPct: Int
+        get() = prefs.getInt("voice_gain_pct", 100)
+        set(v) = prefs.edit().putInt("voice_gain_pct", v.coerceIn(50, 500)).apply()
+
+    /** 녹음 시 반주 크기(%). 기본 60. 낮추면 목소리가 상대적으로 커진다. */
+    var accompGainPct: Int
+        get() = prefs.getInt("accomp_gain_pct", 60)
+        set(v) = prefs.edit().putInt("accomp_gain_pct", v.coerceIn(0, 150)).apply()
+
     /** 목소리 에코(0~100). 노래방 리버브 느낌. */
     var voiceEcho: Int
         get() = prefs.getInt("voice_echo", 20)

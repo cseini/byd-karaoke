@@ -330,6 +330,76 @@
                     android:text="최소\n11kHz" />
             </RadioGroup>
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginBottom="18dp"
+                android:background="@color/tj_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="녹음 음량 (다시듣기)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:paddingBottom="2dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/tj_text_secondary"
+                android:paddingBottom="6dp"
+                android:text="다시듣기에서 내 목소리가 작으면 목소리를 올리거나 반주를 내리세요. 새로 녹음할 때 적용." />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/voice_gain_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="110dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_cyan"
+                    android:text="목소리 100%" />
+
+                <SeekBar
+                    android:id="@+id/voice_gain_seek"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="450" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/accomp_gain_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="110dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_cyan"
+                    android:text="반주 60%" />
+
+                <SeekBar
+                    android:id="@+id/accomp_gain_seek"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="150" />
+            </LinearLayout>
+
             <CheckBox
                 android:id="@+id/chk_recording"
                 android:layout_width="match_parent"

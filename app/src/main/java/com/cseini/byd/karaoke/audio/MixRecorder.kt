@@ -155,6 +155,9 @@ class MixRecorder(
             var readPos = (startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
             val step = accompRate.toDouble() / rate
             // 목소리 처리: 명료도(고음 강조 pre-emphasis) + 에코(리버브)
+            // 녹음 믹스 음량: 목소리(기본 1.0)와 반주(기본 0.6)를 설정으로 조절.
+            val voiceGain = settings.voiceGainPct / 100.0
+            val accompGain = settings.accompGainPct / 100.0
             val clarity = settings.voiceClarity / 100.0 * 0.9
             val echoDecay = settings.voiceEcho / 100.0 * 0.55
             val echoLen = (rate * 130 / 1000).coerceAtLeast(1)   // ~130ms 지연
@@ -186,7 +189,7 @@ class MixRecorder(
                             }
                             val ai = readPos.toInt()
                             val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
-                            var m = v.toInt() + (acc * 6 / 10)
+                            var m = (v * voiceGain).toInt() + (acc * accompGain).toInt()
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
                             readPos += step

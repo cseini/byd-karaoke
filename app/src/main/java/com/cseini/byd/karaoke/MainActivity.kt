@@ -131,6 +131,30 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
     )
 
+    // 홈 화면 예약 목록(폰 리모컨으로 넣은 곡이 바로 보이게)
+    private lateinit var homeQueueSection: View
+    private lateinit var homeQueueTitle: TextView
+    private val homeQueueAdapter = HomeQueueAdapter(
+        onPlay = { queue.removeByVideoId(it.videoId); playNow(it) },
+        onDelete = { queue.removeByVideoId(it.videoId); refreshHomeQueue() },
+    )
+    private val queuePoll = object : Runnable {
+        override fun run() {
+            refreshHomeQueue()
+            searchDebounce.postDelayed(this, 2500)
+        }
+    }
+
+    /** 예약 목록 갱신 — 서버(폰)가 SharedPreferences 에 넣으므로 reload 후 읽는다. */
+    private fun refreshHomeQueue() {
+        if (!::homeQueueSection.isInitialized) return
+        queue.reload()
+        val items = queue.all()
+        homeQueueAdapter.submit(items)
+        homeQueueTitle.text = "🎫 예약된 곡 ${items.size}"
+        homeQueueSection.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -180,6 +204,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         findViewById<RecyclerView>(R.id.history).apply {
             layoutManager = GridLayoutManager(this@MainActivity, 4)
             adapter = this@MainActivity.historyAdapter
+        }
+        homeQueueSection = findViewById(R.id.home_queue_section)
+        homeQueueTitle = findViewById(R.id.home_queue_title)
+        findViewById<RecyclerView>(R.id.home_queue).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = this@MainActivity.homeQueueAdapter
         }
 
         findViewById<Button>(R.id.btn_search).setOnClickListener { hideKeyboard(); doSearch() }
@@ -280,6 +310,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onResume() {
         super.onResume()
         refreshHistory()
+        searchDebounce.removeCallbacks(queuePoll)
+        searchDebounce.post(queuePoll)   // 폰 예약이 바로 보이도록 주기 갱신
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         // 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출
@@ -569,6 +601,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onPause() {
         super.onPause()
         cancelAutoPlay()   // 화면을 떠나면(네비바 등) 자동재생 취소
+        searchDebounce.removeCallbacks(queuePoll)
     }
 
     // 창이 포커스 받을 때 설정에 따라 USB 마이크·휠 버튼 제어를 켜거나 끈다(옵트인, 즉시 반영).
