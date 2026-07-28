@@ -42,8 +42,10 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
          * 한 모델의 하루 한도가 차면(429) 다음 모델로 내려가고, 선호 계열을 다 쓰면
          * 반대 계열까지 이어서 쓴다 → 키 1개로 8개 모델분(≈160회/일)을 확보.
          */
+        // 실제 계정에서 확인된 모델 ID 기준(2026-07). 없는 모델은 404 → 자동으로 건너뛴다.
         private val FLASH = listOf(
-            "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash", "gemini-2.5-flash",
+            "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash",
+            "gemini-3.1-flash", "gemini-2.5-flash",
         )
         private val LITE = listOf(
             "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
