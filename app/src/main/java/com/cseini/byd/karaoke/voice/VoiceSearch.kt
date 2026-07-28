@@ -37,18 +37,21 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         private const val MAX_MS = 8000L         // 하드 상한(계속 말해도 여기서 끊음)
 
         /**
-         * 음성인식 모델 폴백 순서(전부 무료 티어 제공 · 한도는 모델별로 따로 잡힘).
+         * 음성인식 모델 폴백 순서(전부 무료 티어 · 한도는 모델별로 따로 = 모델당 하루 20회 수준).
          * `*-latest` 는 구글이 최신 세대를 가리키는 별칭이라 앱 수정 없이 성능이 따라 올라간다.
-         * 앞 모델의 하루 한도가 차면(429) 다음 세대로 자동으로 내려간다.
+         * 한 모델의 하루 한도가 차면(429) 다음 모델로 내려가고, 선호 계열을 다 쓰면
+         * 반대 계열까지 이어서 쓴다 → 키 1개로 8개 모델분(≈160회/일)을 확보.
          */
+        private val FLASH = listOf(
+            "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash", "gemini-2.5-flash",
+        )
+        private val LITE = listOf(
+            "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
+        )
         private val MODELS = mapOf(
-            "flash" to listOf(
-                "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash", "gemini-2.5-flash",
-            ),
-            "flash-lite" to listOf(
-                "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
-                "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
-            ),
+            "flash" to (FLASH + LITE),
+            "flash-lite" to (LITE + FLASH),
         )
     }
 
