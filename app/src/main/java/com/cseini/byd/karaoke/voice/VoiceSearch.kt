@@ -35,6 +35,21 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         private const val MIN_MS = 700L          // 최소 녹음 시간(너무 이른 종료 방지)
         private const val NO_SPEECH_MS = 4000L   // 이때까지 말이 없으면 포기
         private const val MAX_MS = 8000L         // 하드 상한(계속 말해도 여기서 끊음)
+
+        /**
+         * 음성인식 모델 폴백 순서(전부 무료 티어 제공 · 한도는 모델별로 따로 잡힘).
+         * `*-latest` 는 구글이 최신 세대를 가리키는 별칭이라 앱 수정 없이 성능이 따라 올라간다.
+         * 앞 모델의 하루 한도가 차면(429) 다음 세대로 자동으로 내려간다.
+         */
+        private val MODELS = mapOf(
+            "flash" to listOf(
+                "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash", "gemini-2.5-flash",
+            ),
+            "flash-lite" to listOf(
+                "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
+            ),
+        )
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -240,25 +255,34 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                     ),
                 ),
             )
-            val model = if (settings.geminiModel == "flash-lite") "gemini-2.5-flash-lite" else "gemini-2.5-flash"
             val keys = settings.geminiApiKeys()
             if (keys.isEmpty()) { deliver { onError("설정에서 Gemini API 키(무료)를 넣으세요.") }; return }
-            // 키를 순서대로 시도 — 한도 초과(429)면 다음 키로 자동 전환.
+            // 모델 × 키 이중 폴백. 한도(RPD)는 모델별로 따로 잡히므로, 최신 모델부터 쓰고
+            // 그 모델의 한도가 다 차면 아래 세대로 내려간다 → 무료 사용량이 사실상 합산된다.
+            val models = MODELS[settings.geminiModel] ?: MODELS.getValue("flash")
             var lastErr = ""
             val payloadStr = payload.toString()
-            for (key in keys) {
-                var r = requestGemini(key, payloadStr, model)
-                if (r is KeyResult.Fail && r.retryable) r = requestGemini(key, payloadStr, model)   // 타임아웃 1회 재시도
-                when (r) {
-                    is KeyResult.Ok -> {
-                        deliver { if (r.text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(r.text) }
-                        return
+            for (model in models) {
+                var allQuota = true
+                for (key in keys) {
+                    var r = requestGemini(key, payloadStr, model)
+                    if (r is KeyResult.Fail && r.retryable) r = requestGemini(key, payloadStr, model)  // 타임아웃 1회 재시도
+                    when (r) {
+                        is KeyResult.Ok -> {
+                            deliver { if (r.text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(r.text) }
+                            return
+                        }
+                        is KeyResult.Quota -> lastErr = r.msg           // 이 키는 소진 → 다음 키
+                        is KeyResult.Fail -> {
+                            if (r.retryModel) { lastErr = r.msg; allQuota = false; break }  // 이 모델을 못 씀 → 다음 모델
+                            deliver { onError(if (r.retryable) "네트워크가 느려요 — 다시 시도하세요" else r.msg) }
+                            return
+                        }
                     }
-                    is KeyResult.Quota -> { lastErr = r.msg }   // 다음 키로
-                    is KeyResult.Fail -> { deliver { onError(if (r.retryable) "네트워크가 느려요 — 다시 시도하세요" else r.msg) }; return }
                 }
+                if (!allQuota) continue   // 모델 자체 문제였으면 다음 모델로
             }
-            deliver { onError("모든 Gemini 키의 한도를 초과했어요. 잠시 후 다시 시도하세요.${if (lastErr.isNotBlank()) "\n($lastErr)" else ""}") }
+            deliver { onError("모든 모델·키의 오늘 한도를 다 썼어요. 잠시 후 다시 시도하세요.${if (lastErr.isNotBlank()) "\n($lastErr)" else ""}") }
         } catch (e: Exception) {
             deliver { onError("음성 인식 오류: ${e.message}") }
         }
@@ -267,7 +291,8 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     private sealed class KeyResult {
         data class Ok(val text: String) : KeyResult()
         data class Quota(val msg: String) : KeyResult()
-        data class Fail(val msg: String, val retryable: Boolean = false) : KeyResult()
+        /** retryable=네트워크 일시 오류(재시도) · retryModel=이 모델을 못 씀(다음 모델로) */
+        data class Fail(val msg: String, val retryable: Boolean = false, val retryModel: Boolean = false) : KeyResult()
     }
 
     /** 키 1개로 Gemini 호출. 한도 초과(429/RESOURCE_EXHAUSTED)면 Quota 로 반환해 다음 키를 쓰게 한다. */
@@ -284,8 +309,14 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                         .getOrDefault(json.take(150))
                     val quota = resp.code == 429 ||
                         emsg.contains("RESOURCE_EXHAUSTED", true) || emsg.contains("quota", true)
-                    if (quota) KeyResult.Quota("Gemini 오류 ${resp.code}: $emsg")
-                    else KeyResult.Fail("Gemini 오류 ${resp.code}: $emsg")
+                    // 그 모델이 없거나(404) 이 키로 못 쓰는 경우엔 다음 세대 모델로 넘어간다.
+                    val badModel = resp.code == 404 ||
+                        emsg.contains("not found", true) || emsg.contains("not supported", true)
+                    when {
+                        quota -> KeyResult.Quota("Gemini 오류 ${resp.code}: $emsg")
+                        badModel -> KeyResult.Fail("모델 사용 불가($model): $emsg", retryModel = true)
+                        else -> KeyResult.Fail("Gemini 오류 ${resp.code}: $emsg")
+                    }
                 } else {
                     val text = runCatching {
                         JSONObject(json).getJSONArray("candidates").getJSONObject(0)
