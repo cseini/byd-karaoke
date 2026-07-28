@@ -12,4 +12,10 @@ interface ScreenHost {
     fun onReplayRecording(item: RecordingItem)
     /** 임베드 상태에서 하단바로 화면 전환: "search" | "recordings" | "ranking" | "settings". */
     fun onNavigate(target: String) {}
+
+    /**
+     * 설정이 저장됐을 때. 임베드 화면은 같은 창이라 닫아도 onResume 이 안 불리므로,
+     * 호스트가 여기서 화면·기능(음성 버튼 노출, 물리버튼 등)을 즉시 갱신한다.
+     */
+    fun onSettingsSaved() {}
 }

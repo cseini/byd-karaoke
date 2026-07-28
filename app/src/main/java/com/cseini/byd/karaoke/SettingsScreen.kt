@@ -142,6 +142,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
         refreshStorageInfo()
+        host.onSettingsSaved()   // 저장 즉시 반영(음성 버튼 노출·물리버튼 등)
         Toast.makeText(activity, "저장되었습니다", Toast.LENGTH_SHORT).show()
     }
 

@@ -57,6 +57,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onNavigate(target: String) {
         if (target == "search") closeScreen() else showScreen(target)
     }
+
+    /** 설정 저장 즉시 반영 — 화면을 닫지 않아도 음성 버튼·물리버튼이 바로 적용된다. */
+    override fun onSettingsSaved() {
+        if (::autoplayCheck.isInitialized) refreshVoiceUi()
+        syncPhysicalButtons()
+    }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
         embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
             ?: startActivity(PlaybackActivity.replayIntent(this, item))
