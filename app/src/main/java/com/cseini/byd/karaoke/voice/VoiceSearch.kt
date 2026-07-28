@@ -285,7 +285,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 }
                 if (!allQuota) continue   // 모델 자체 문제였으면 다음 모델로
             }
-            deliver { onError("모든 모델·키의 오늘 한도를 다 썼어요. 잠시 후 다시 시도하세요.${if (lastErr.isNotBlank()) "\n($lastErr)" else ""}") }
+            deliver { onError("오늘 무료 사용량을 다 썼어요.\n설정에서 키를 더 넣거나 내일 다시 시도해 주세요.") }
         } catch (e: Exception) {
             deliver { onError("음성 인식 오류: ${e.message}") }
         }
@@ -296,6 +296,27 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
         data class Quota(val msg: String) : KeyResult()
         /** retryable=네트워크 일시 오류(재시도) · retryModel=이 모델을 못 씀(다음 모델로) */
         data class Fail(val msg: String, val retryable: Boolean = false, val retryModel: Boolean = false) : KeyResult()
+    }
+
+    /**
+     * 구글이 주는 영어 오류를 사용자가 이해할 한글 안내로 바꾼다.
+     * (그대로 보여주면 "영어가 잔뜩 나온다"는 신고가 들어온다.)
+     */
+    private fun friendlyError(code: Int, msg: String): String {
+        val m = msg.lowercase()
+        return when {
+            m.contains("api key not valid") || m.contains("api_key_invalid") || m.contains("invalid api key") ->
+                "API 키가 올바르지 않습니다.\n설정에서 Gemini 키를 다시 확인해 주세요."
+            code == 403 || m.contains("permission") || m.contains("denied") ->
+                "이 키로는 사용할 수 없습니다.\naistudio.google.com 에서 발급한 키인지 확인해 주세요."
+            code == 400 && m.contains("user location") ->
+                "이 지역에서는 사용할 수 없는 키입니다."
+            code == 400 ->
+                "요청이 거부되었습니다. 설정에서 키를 다시 저장해 보세요."
+            code in 500..599 ->
+                "구글 서버가 일시적으로 불안정합니다. 잠시 후 다시 시도해 주세요."
+            else -> "음성 인식에 실패했습니다. (오류 $code)"
+        }
     }
 
     /** 키 1개로 Gemini 호출. 한도 초과(429/RESOURCE_EXHAUSTED)면 Quota 로 반환해 다음 키를 쓰게 한다. */
@@ -315,10 +336,12 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                     // 그 모델이 없거나(404) 이 키로 못 쓰는 경우엔 다음 세대 모델로 넘어간다.
                     val badModel = resp.code == 404 ||
                         emsg.contains("not found", true) || emsg.contains("not supported", true)
+                    // 진단은 로그로만 남기고(영문 원문), 화면엔 한글 안내를 보여준다.
+                    android.util.Log.w("KaraokeVoice", "model=$model http=${resp.code} $emsg")
                     when {
-                        quota -> KeyResult.Quota("Gemini 오류 ${resp.code}: $emsg")
-                        badModel -> KeyResult.Fail("모델 사용 불가($model): $emsg", retryModel = true)
-                        else -> KeyResult.Fail("Gemini 오류 ${resp.code}: $emsg")
+                        quota -> KeyResult.Quota("한도 초과")
+                        badModel -> KeyResult.Fail("모델 사용 불가", retryModel = true)
+                        else -> KeyResult.Fail(friendlyError(resp.code, emsg))
                     }
                 } else {
                     val text = runCatching {
@@ -331,7 +354,11 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             }
         } catch (e: Exception) {
             // 타임아웃/네트워크 예외는 재시도 가능으로 표시.
-            KeyResult.Fail("음성 인식 오류: ${e.message}", retryable = e is java.io.IOException)
+            android.util.Log.w("KaraokeVoice", "call failed: ${e.message}")
+            KeyResult.Fail(
+                if (e is java.io.IOException) "네트워크 연결을 확인해 주세요" else "음성 인식에 실패했습니다",
+                retryable = e is java.io.IOException,
+            )
         }
     }
 

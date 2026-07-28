@@ -477,9 +477,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
                 doSearch()
             },
             onError = {
-                showVoiceOverlay("⚠️", "다시 시도해주세요", it)
-                voiceOverlay.postDelayed({ hideVoiceOverlay() }, 1800)
-                status.text = it
+                // 오류는 읽을 시간을 준다(예전엔 1.8초 만에 사라져 원인을 못 봤다). 탭하면 즉시 닫힘.
+                showVoiceOverlay("⚠️", "음성 검색 실패", "$it\n\n(화면을 누르면 닫힙니다)")
+                voiceOverlay.postDelayed({ hideVoiceOverlay() }, 6000)
+                status.text = it.lineSequence().firstOrNull().orEmpty()
             },
             onLevel = { db -> updateVoiceLevel(db) },
         )
