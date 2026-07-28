@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     // (테스트) USB 마이크 버튼 HID 직접 읽기 — 대상 버튼 길게 누르면 음성검색.
     private var usbMic: UsbMicButtons? = null
+    private var keyCatcherWarned = false   // 접근성 미활성 안내는 실행당 1회만
 
     // ── ScreenHost: 임베드 화면(녹음함/랭킹/설정)이 콜백하는 호스트 ──
     override val embedded: Boolean get() = useEmbedded
@@ -261,6 +262,17 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         }
     }
 
+    /** 접근성 서비스(휠 버튼 감지)가 실제로 켜져 있는지. */
+    private fun isKeyCatcherEnabled(): Boolean {
+        val comp = android.content.ComponentName(this, KeyCatcherService::class.java).flattenToString()
+        val cur = runCatching {
+            android.provider.Settings.Secure.getString(
+                contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ).orEmpty()
+        }.getOrDefault("")
+        return cur.split(':').any { it.equals(comp, ignoreCase = true) }
+    }
+
     /** 키 감지 접근성 서비스를 자동 활성화 시도. 권한·결과를 토스트로 눈에 보이게 알린다. */
     private fun enableKeyCatcher() {
         val comp = android.content.ComponentName(this, KeyCatcherService::class.java).flattenToString()
@@ -268,8 +280,13 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             this, Manifest.permission.WRITE_SECURE_SETTINGS
         ) == PackageManager.PERMISSION_GRANTED
         if (!hasPerm) {
-            // 이 유닛엔 권한이 없어 자동설정 불가 — 접근성은 수동(adb settings)으로 켠다. 조용히 넘어감.
-            android.util.Log.i("karaoke-keys", "WRITE_SECURE_SETTINGS 없음 — 접근성 자동설정 스킵")
+            // 이 유닛엔 권한이 없어 자동설정 불가 — 접근성은 사용자가 켜야 한다.
+            // 설정을 켰는데 서비스가 꺼져 있으면 조용히 실패하지 말고 알려준다(원인 파악 불가 방지).
+            android.util.Log.i("karaoke-keys", "WRITE_SECURE_SETTINGS 없음 — 수동 활성 필요: $comp")
+            if (!isKeyCatcherEnabled() && !keyCatcherWarned) {
+                keyCatcherWarned = true
+                toast("휠 버튼을 쓰려면 '접근성'에서 노래방 키 감지를 켜야 합니다")
+            }
             return
         }
         val cur = android.provider.Settings.Secure.getString(
