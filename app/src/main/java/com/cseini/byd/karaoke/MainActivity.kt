@@ -356,10 +356,28 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     /** 앱 시작 시 새 버전이 있으면 토스트로 알려준다(다운로드·설치는 설정에서 수동). */
+    /**
+     * 앱 시작 시 새 버전이 있으면 설정을 거치지 않고 바로 받도록 안내한다.
+     * (설정 화면이 크래시하는 버전이 배포됐을 때도 업데이트 경로가 살아있어야 한다 — v4.16 교훈)
+     */
     private fun checkOtaUpdate() {
         lifecycleScope.launch {
             val release = UpdateManager.checkForUpdate() ?: return@launch
-            toast("🔔 새 버전 v${release.version} 있음 — 설정 › 업데이트 확인에서 받으세요")
+            androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle("🔔 새 버전 v${release.version}")
+                .setMessage("지금 업데이트할까요? (다운로드 후 설치 확인만 누르면 됩니다)")
+                .setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
+                .setNegativeButton("나중에", null)
+                .show()
+        }
+    }
+
+    private fun startOtaDownload(release: UpdateManager.Release) {
+        lifecycleScope.launch {
+            toast("⬇ v${release.version} 다운로드 중…")
+            val apk = UpdateManager.download(this@MainActivity, release) { }
+            if (apk != null) UpdateManager.install(this@MainActivity, apk)
+            else toast("다운로드 실패 — 네트워크 확인 후 앱을 다시 실행해주세요")
         }
     }
 
