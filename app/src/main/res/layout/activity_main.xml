@@ -123,26 +123,61 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- 좌: 최근 부른 노래 / 우: 예약 대기열(플레이어 화면과 같은 배치, 예약 있을 때만) -->
         <LinearLayout
             android:id="@+id/history_section"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
-            <!-- 폰(리모컨)으로 예약한 곡 — 예약이 있을 때만 표시 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:text="🕘 최근 부른 노래"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan" />
+
+                <TextView
+                    android:id="@+id/history_empty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="24dp"
+                    android:gravity="center"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:visibility="gone"
+                    android:text="아직 부른 노래가 없습니다.\n검색해서 첫 곡을 불러보세요." />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/history"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/home_queue_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_width="250dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="12dp"
                 android:orientation="vertical"
                 android:visibility="gone"
-                android:paddingBottom="8dp">
+                android:background="@color/tj_panel"
+                android:padding="8dp">
 
                 <TextView
                     android:id="@+id/home_queue_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:paddingTop="4dp"
                     android:paddingBottom="4dp"
                     android:text="🎫 예약된 곡"
                     android:textSize="15sp"
@@ -152,36 +187,9 @@
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/home_queue"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxHeight="150dp" />
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
             </LinearLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:text="🕘 최근 부른 노래"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan" />
-
-            <TextView
-                android:id="@+id/history_empty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="24dp"
-                android:gravity="center"
-                android:textSize="13sp"
-                android:textColor="@color/tj_text_secondary"
-                android:visibility="gone"
-                android:text="아직 부른 노래가 없습니다.\n검색해서 첫 곡을 불러보세요." />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/history"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
         </LinearLayout>
     </FrameLayout>
 

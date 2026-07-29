@@ -99,6 +99,15 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
+
+        // 고급 설정 접기/펼치기 — 자주 안 쓰는 항목은 숨겨 화면을 단순하게
+        val advanced = root.findViewById<View>(R.id.advanced_section)
+        val advBtn = root.findViewById<Button>(R.id.btn_advanced)
+        advBtn.setOnClickListener {
+            val show = advanced.visibility != View.VISIBLE
+            advanced.visibility = if (show) View.VISIBLE else View.GONE
+            advBtn.text = if (show) "⚙ 고급 설정 접기 ▾" else "⚙ 고급 설정 펼치기 ▸"
+        }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 

@@ -49,28 +49,30 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- ═══════════ 기본: 자주 쓰는 것만 ═══════════ -->
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="음성 검색"
+                android:text="🎤 음성 검색 (Gemini 키)"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_cyan"
                 android:paddingBottom="6dp" />
 
-            <TextView
+            <Button
+                android:id="@+id/btn_key_qr"
+                style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="4dp"
-                android:text="키를 넣으면 🎤 음성 검색이 켜집니다. aistudio.google.com 무료 발급.\n키를 여러 개 넣으면 한도 초과 시 자동으로 다음 키를 씁니다." />
+                android:text="📱 폰으로 키 입력 (QR) — 권장" />
 
             <EditText
                 android:id="@+id/openai_key_input"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:hint="Gemini API 키 1 (무료)"
+                android:layout_marginTop="6dp"
+                android:hint="또는 직접 입력: Gemini API 키 1"
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
@@ -79,7 +81,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_marginTop="4dp"
-                android:hint="Gemini API 키 2 (선택 · 예비)"
+                android:hint="키 2 (선택 · 한도 초과 시 자동 전환)"
                 android:inputType="text"
                 android:importantForAutofill="no" />
 
@@ -88,195 +90,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_marginTop="4dp"
-                android:hint="Gemini API 키 3 (선택 · 예비)"
+                android:hint="키 3 (선택)"
                 android:inputType="text"
                 android:importantForAutofill="no" />
-
-            <Button
-                android:id="@+id/btn_key_qr"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="📱 폰으로 키 입력 (QR)" />
-
-            <RadioGroup
-                android:id="@+id/gemini_model_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
-
-                <RadioButton
-                    android:id="@+id/gm_flash"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="정확 (flash 계열)" />
-
-                <RadioButton
-                    android:id="@+id/gm_lite"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="한도↑ (flash-lite 계열)" />
-            </RadioGroup>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="녹음 싱크 보정"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="2dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="6dp"
-                android:text="목소리가 느리면 왼쪽(−), 빠르면 오른쪽(+). 새로 녹음할 때 적용." />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/sync_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="90dp"
-                    android:textSize="13sp"
-                    android:textColor="@color/tj_cyan"
-                    android:text="0 ms" />
-
-                <SeekBar
-                    android:id="@+id/sync_seek"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="600" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="마이크 입력 방식"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="2dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="6dp"
-                android:text="소리가 안 들어가면 '일반(MIC)'으로 바꿔보세요(유닛에 따라 다름). 기본은 자동." />
-
-            <RadioGroup
-                android:id="@+id/mic_source_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <RadioButton
-                    android:id="@+id/ms_auto"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="자동" />
-
-                <RadioButton
-                    android:id="@+id/ms_mic"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="일반\nMIC" />
-
-                <RadioButton
-                    android:id="@+id/ms_recognition"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="음성\n인식" />
-
-                <RadioButton
-                    android:id="@+id/ms_comm"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="통화\n마이크" />
-            </RadioGroup>
-
-            <CheckBox
-                android:id="@+id/chk_mic_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:textColor="@color/tj_text_primary"
-                android:text="🎙 USB 마이크 버튼으로 제어" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="11sp"
                 android:textColor="@color/tj_text_hint"
-                android:paddingStart="8dp"
-                android:text="마이크만으로 조작할 수 있어요.\n· 마이크 버튼 — 짧게: 노래방 패널 / 길게: 음성 검색\n· 볼륨▲ — 한 번: 마이크 볼륨↑ / 빠르게 두 번: 다음 예약곡\n· 볼륨▼ — 한 번: 마이크 볼륨↓ / 빠르게 두 번: 노래 종료(채점)\n켜면 USB 권한 허용창이 뜹니다.\n⚠️ 마이크 기종마다 버튼 신호가 달라서, 켰는데 버튼이 안 되거나 오히려 기본 버튼(볼륨·에코)이 안 먹으면 이 옵션을 끄세요." />
-
-            <Button
-                android:id="@+id/btn_mic_diag"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:layout_marginStart="8dp"
-                android:textSize="13sp"
-                android:text="🔍 마이크 버튼 진단" />
-
-            <CheckBox
-                android:id="@+id/chk_wheel_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/tj_text_primary"
-                android:visibility="gone"
-                android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
-
-            <!-- 휠 버튼: 접근성 서비스를 켜야 하는데 앱이 자동으로 못 켜고(WRITE_SECURE_SETTINGS 는
-                 시스템 앱 전용) 일반 사용자는 adb 를 써야 해서 UI 에서 숨김.
-                 기능·코드는 유지 — 이미 접근성을 켠 기기에서는 설정값이 켜져 있으면 그대로 동작한다. -->
+                android:paddingTop="2dp"
+                android:text="aistudio.google.com 에서 무료 발급" />
 
             <View
                 android:layout_width="match_parent"
@@ -288,77 +112,11 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="녹음 품질"
+                android:text="🔊 녹음 음량 (다시듣기)"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_cyan"
-                android:paddingBottom="2dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="6dp"
-                android:text="낮을수록 용량이 줄고 채점이 빨라집니다(반주 음질은 조금 낮아짐)." />
-
-            <RadioGroup
-                android:id="@+id/rate_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <RadioButton
-                    android:id="@+id/rate_standard"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="표준\n22kHz" />
-
-                <RadioButton
-                    android:id="@+id/rate_save"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="절약\n16kHz" />
-
-                <RadioButton
-                    android:id="@+id/rate_min"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/tj_text_primary"
-                    android:textSize="13sp"
-                    android:text="최소\n11kHz" />
-            </RadioGroup>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="녹음 음량 (다시듣기)"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="2dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="6dp"
-                android:text="다시듣기에서 내 목소리가 작으면 목소리를 올리거나 반주를 내리세요. 새로 녹음할 때 적용." />
+                android:paddingBottom="6dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -406,98 +164,12 @@
                     android:max="150" />
             </LinearLayout>
 
-            <CheckBox
-                android:id="@+id/chk_recording"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/tj_text_primary"
-                android:text="노래 녹음 사용 (끄면 녹음·채점 없이 재생만)" />
-
-            <CheckBox
-                android:id="@+id/chk_scoring"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/tj_text_primary"
-                android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="녹음 저장 위치"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="6dp" />
-
-            <RadioGroup
-                android:id="@+id/storage_group"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <RadioButton
-                    android:id="@+id/st_internal"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="차 내부 저장소" />
-
-                <RadioButton
-                    android:id="@+id/st_sd"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="SD카드" />
-            </RadioGroup>
-
-            <TextView
-                android:id="@+id/storage_info"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="6dp"
-                android:textSize="12sp"
-                android:textColor="@color/tj_text_secondary"
-                android:fontFamily="monospace"
-                android:text="용량 확인 중…" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="최대 사용 용량(MB):" />
-
-                <EditText
-                    android:id="@+id/max_storage_input"
-                    android:layout_width="100dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="8dp"
-                    android:inputType="number"
-                    android:importantForAutofill="no" />
-            </LinearLayout>
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingTop="2dp"
                 android:textSize="11sp"
                 android:textColor="@color/tj_text_hint"
-                android:text="이 용량을 넘으면 오래된 녹음부터 자동으로 지웁니다." />
+                android:text="내 목소리가 작으면 목소리↑ 또는 반주↓ · 새로 녹음할 때 적용" />
 
             <View
                 android:layout_width="match_parent"
@@ -505,15 +177,6 @@
                 android:layout_marginTop="18dp"
                 android:layout_marginBottom="18dp"
                 android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="앱 업데이트"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="6dp" />
 
             <TextView
                 android:id="@+id/update_status"
@@ -531,6 +194,371 @@
                 app:backgroundTint="@color/tj_green"
                 android:textColor="@color/tj_bg_deep"
                 android:text="🔄 업데이트 확인" />
+
+            <!-- ═══════════ 고급: 접어둠 ═══════════ -->
+
+            <Button
+                android:id="@+id/btn_advanced"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="⚙ 고급 설정 펼치기 ▸" />
+
+            <LinearLayout
+                android:id="@+id/advanced_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="음성인식 모델"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="2dp" />
+
+                <RadioGroup
+                    android:id="@+id/gemini_model_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/gm_flash"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="정확 (flash 계열)" />
+
+                    <RadioButton
+                        android:id="@+id/gm_lite"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="한도↑ (flash-lite 계열)" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="녹음 싱크 보정"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="2dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:paddingBottom="6dp"
+                    android:text="다시듣기에서 목소리가 느리면 왼쪽(−), 빠르면 오른쪽(+)" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/sync_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="90dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/tj_cyan"
+                        android:text="0 ms" />
+
+                    <SeekBar
+                        android:id="@+id/sync_seek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="600" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="마이크 입력 방식"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="2dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:paddingBottom="6dp"
+                    android:text="녹음에 소리가 안 들어가면 '일반 MIC'로 바꿔보세요" />
+
+                <RadioGroup
+                    android:id="@+id/mic_source_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/ms_auto"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="자동" />
+
+                    <RadioButton
+                        android:id="@+id/ms_mic"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="일반\nMIC" />
+
+                    <RadioButton
+                        android:id="@+id/ms_recognition"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="음성\n인식" />
+
+                    <RadioButton
+                        android:id="@+id/ms_comm"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="통화\n마이크" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <CheckBox
+                    android:id="@+id/chk_mic_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="🎙 USB 마이크 버튼으로 제어" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="@color/tj_text_hint"
+                    android:paddingStart="8dp"
+                    android:text="마이크 길게=음성검색 · 볼륨▲ 두 번=다음곡 · 볼륨▼ 두 번=종료\n⚠️ 기종에 따라 안 될 수 있어요 — 기본 버튼이 이상해지면 끄세요" />
+
+                <Button
+                    android:id="@+id/btn_mic_diag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginStart="8dp"
+                    android:textSize="13sp"
+                    android:text="🔍 마이크 버튼 진단" />
+
+                <CheckBox
+                    android:id="@+id/chk_wheel_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/tj_text_primary"
+                    android:visibility="gone"
+                    android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
+
+                <!-- 휠 버튼: 접근성 활성에 adb 가 필요해 UI 숨김. 기능·설정값은 유지. -->
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="녹음"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="6dp" />
+
+                <CheckBox
+                    android:id="@+id/chk_recording"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="노래 녹음 사용 (끄면 녹음·채점 없이 재생만)" />
+
+                <CheckBox
+                    android:id="@+id/chk_scoring"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="10dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:text="녹음 품질 — 낮을수록 용량↓·채점 빠름" />
+
+                <RadioGroup
+                    android:id="@+id/rate_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rate_standard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="표준\n22kHz" />
+
+                    <RadioButton
+                        android:id="@+id/rate_save"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="절약\n16kHz" />
+
+                    <RadioButton
+                        android:id="@+id/rate_min"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="13sp"
+                        android:text="최소\n11kHz" />
+                </RadioGroup>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="녹음 저장 위치"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="6dp" />
+
+                <RadioGroup
+                    android:id="@+id/storage_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/st_internal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:text="차 내부 저장소" />
+
+                    <RadioButton
+                        android:id="@+id/st_sd"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:text="SD카드" />
+                </RadioGroup>
+
+                <TextView
+                    android:id="@+id/storage_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="6dp"
+                    android:textSize="12sp"
+                    android:textColor="@color/tj_text_secondary"
+                    android:fontFamily="monospace"
+                    android:text="용량 확인 중…" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:text="최대 사용 용량(MB):" />
+
+                    <EditText
+                        android:id="@+id/max_storage_input"
+                        android:layout_width="100dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:inputType="number"
+                        android:importantForAutofill="no" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="2dp"
+                    android:textSize="11sp"
+                    android:textColor="@color/tj_text_hint"
+                    android:text="이 용량을 넘으면 오래된 녹음부터 자동으로 지웁니다." />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
