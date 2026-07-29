@@ -16,6 +16,21 @@ import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.update.UpdateManager
 import kotlinx.coroutines.launch
 
+/**
+ * 마이크 버튼 제스처에 매핑 가능한 기능 목록(코드 ↔ 표시 이름).
+ * 파일 최상위 상수 — 클래스 프로퍼티로 두면 init 보다 늦게 초기화돼 NPE(v4.16~v4.18 크래시).
+ */
+private val MAP_FUNCTIONS = listOf(
+    "none" to "사용 안 함",
+    "voice" to "🎤 음성 검색",
+    "back" to "◀ 뒤로",
+    "mute" to "🔇 반주 음소거",
+    "next" to "⏭ 다음 예약곡",
+    "stop" to "⏹ 노래 종료(채점)",
+    "pause" to "⏯ 일시정지/재생",
+    "panel" to "🎛 노래방 패널",
+)
+
 /** 설정 화면(Activity/임베드 공용): 검색 방식·API 키·싱크·마이크·저장·수동 업데이트. */
 class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
@@ -162,27 +177,14 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     /** 차 내부·SD카드의 여유/사용 용량과 현재 저장 경로를 표시. */
-    /** 마이크 버튼 제스처에 매핑 가능한 기능 목록(코드 ↔ 표시 이름).
-     *  init 에서 접근하므로 선언 위치와 무관하게 초기화되도록 lazy. */
-    private val mapFunctions by lazy { listOf(
-        "none" to "사용 안 함",
-        "voice" to "🎤 음성 검색",
-        "back" to "◀ 뒤로",
-        "mute" to "🔇 반주 음소거",
-        "next" to "⏭ 다음 예약곡",
-        "stop" to "⏹ 노래 종료(채점)",
-        "pause" to "⏯ 일시정지/재생",
-        "panel" to "🎛 노래방 패널",
-    ) }
-
     private fun setupMapSpinners() {
         val adapter = android.widget.ArrayAdapter(
-            activity, android.R.layout.simple_spinner_item, mapFunctions.map { it.second }
+            activity, android.R.layout.simple_spinner_item, MAP_FUNCTIONS.map { it.second }
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         fun bind(id: Int, code: String) {
             root.findViewById<android.widget.Spinner>(id).apply {
                 this.adapter = adapter
-                setSelection(mapFunctions.indexOfFirst { it.first == code }.coerceAtLeast(0))
+                setSelection(MAP_FUNCTIONS.indexOfFirst { it.first == code }.coerceAtLeast(0))
             }
         }
         bind(R.id.map_mic_long, settings.mapMicLong)
@@ -192,7 +194,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     private fun selectedMap(id: Int): String =
-        mapFunctions[root.findViewById<android.widget.Spinner>(id).selectedItemPosition].first
+        MAP_FUNCTIONS[root.findViewById<android.widget.Spinner>(id).selectedItemPosition].first
 
     /**
      * 마이크 버튼 진단: 버튼 신호(HID hex)를 화면에 그대로 보여주고 복사하게 한다.
