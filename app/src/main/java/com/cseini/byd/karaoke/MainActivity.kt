@@ -118,19 +118,42 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         cancelAutoPlay()
         if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close()
         closeScreen()
-        val layout = when (which) {
-            "recordings" -> R.layout.activity_recordings
-            "ranking" -> R.layout.activity_ranking
-            else -> R.layout.activity_settings
+        // 화면 생성 실패 시 앱이 죽는 대신 에러 전문을 보여준다(원인 파악·제보용).
+        runCatching {
+            val layout = when (which) {
+                "recordings" -> R.layout.activity_recordings
+                "ranking" -> R.layout.activity_ranking
+                else -> R.layout.activity_settings
+            }
+            val v = layoutInflater.inflate(layout, embedScreen, false)
+            embedScreen.addView(v)
+            when (which) {
+                "recordings" -> RecordingsScreen(v, this).also { it.refresh(); screenCleanup = { it.destroy() } }
+                "ranking" -> RankingScreen(v, this).refresh()
+                "settings" -> SettingsScreen(v, this)
+            }
+            embedScreen.visibility = View.VISIBLE
+        }.onFailure { e ->
+            closeScreen()
+            val trace = e.stackTraceToString().take(4000)
+            val tv = android.widget.TextView(this).apply {
+                typeface = android.graphics.Typeface.MONOSPACE
+                textSize = 11f
+                setTextIsSelectable(true)
+                setPadding(24, 16, 24, 16)
+                text = trace
+            }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("⚠ 화면 열기 실패 — 이 내용을 복사해 제보해주세요")
+                .setView(android.widget.ScrollView(this).apply { addView(tv) })
+                .setPositiveButton("복사") { _, _ ->
+                    val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", trace))
+                    toast("복사되었습니다")
+                }
+                .setNegativeButton("닫기", null)
+                .show()
         }
-        val v = layoutInflater.inflate(layout, embedScreen, false)
-        embedScreen.addView(v)
-        when (which) {
-            "recordings" -> RecordingsScreen(v, this).also { it.refresh(); screenCleanup = { it.destroy() } }
-            "ranking" -> RankingScreen(v, this).refresh()
-            "settings" -> SettingsScreen(v, this)
-        }
-        embedScreen.visibility = View.VISIBLE
     }
 
     private fun closeScreen() {
