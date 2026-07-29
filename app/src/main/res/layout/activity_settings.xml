@@ -387,7 +387,7 @@
                     android:textSize="11sp"
                     android:textColor="@color/tj_text_hint"
                     android:paddingStart="8dp"
-                    android:text="마이크 길게=음성검색 · 볼륨▲ 두 번=다음곡 · 볼륨▼ 두 번=종료\n⚠️ 기종에 따라 안 될 수 있어요 — 기본 버튼이 이상해지면 끄세요" />
+                    android:text="마이크 길게=음성검색 · 마이크 두 번=뒤로 · 볼륨▲ 두 번=다음곡 · 볼륨▼ 두 번=종료\n⚠️ 기종에 따라 안 될 수 있어요 — 기본 버튼이 이상해지면 끄세요" />
 
                 <Button
                     android:id="@+id/btn_mic_diag"

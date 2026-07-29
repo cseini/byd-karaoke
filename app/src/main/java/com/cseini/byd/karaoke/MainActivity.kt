@@ -68,6 +68,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             UsbMicButtons.Action.VOICE -> { cancelAutoPlay(); startVoice() }
             UsbMicButtons.Action.NEXT -> embeddedPlayer?.remoteNext()
             UsbMicButtons.Action.STOP -> embeddedPlayer?.remoteStop()
+            // 뒤로: 채점 화면 → 검색(재생 중엔 무시), 그 외엔 열린 화면 닫기
+            UsbMicButtons.Action.BACK -> {
+                if (embeddedPlayer?.remoteBack() != true && isScreenShowing) closeScreen()
+            }
         }
     }
 

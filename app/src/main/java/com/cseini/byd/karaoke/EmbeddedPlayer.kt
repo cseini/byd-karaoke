@@ -490,6 +490,16 @@ class EmbeddedPlayer(
         stopSong()
     }
 
+    /**
+     * 뒤로(마이크 버튼 더블탭): 채점 화면이면 검색으로 닫고 true.
+     * 노래 재생 중이면 실수로 곡이 꺼지지 않게 무시하고 true(소비만).
+     */
+    fun remoteBack(): Boolean {
+        if (!isShowing) return false
+        if (scoreOverlay.visibility == View.VISIBLE) close() // 채점 → 검색
+        return true
+    }
+
     /** 녹음함/랭킹에서 저장된 녹음을 임베드로 다시 듣기(채점·녹음 없이, 영상은 음소거). */
     fun replayRecording(item: RecordingItem) {
         overlay.visibility = View.VISIBLE

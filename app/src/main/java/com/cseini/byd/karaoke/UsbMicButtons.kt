@@ -25,7 +25,7 @@ class UsbMicButtons(
     private val onAction: (Action) -> Unit,
 ) {
     /** 마이크 버튼으로 실행할 앱 동작. */
-    enum class Action { VOICE, NEXT, STOP }
+    enum class Action { VOICE, NEXT, STOP, BACK }
 
     companion object {
         private const val TAG = "karaoke-usb"
@@ -122,6 +122,7 @@ class UsbMicButtons(
         held = false
         pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
         pendingVol?.let { handler.removeCallbacks(it) }; pendingVol = null
+        pendingMicTap?.let { handler.removeCallbacks(it) }; pendingMicTap = null
         reader?.let { runCatching { it.join(500) } }; reader = null
         iface?.let { i -> conn?.releaseInterface(i) }; iface = null
         conn?.let { runCatching { it.close() } }; conn = null
@@ -184,8 +185,8 @@ class UsbMicButtons(
                 if (prev != 0 && prev != code) {
                     held = false
                     pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
-                    // 마이크 버튼을 짧게 눌렀다 뗀 경우 → 노래방 패널 토글(길게가 이미 걸렸으면 제외)
-                    if (prev == CODE_MIC && !longFired) sendMicEvent(KEY_MIC_TOGGLE)
+                    // 마이크 버튼 짧게 뗌: 더블탭 판정(뒤로) — 단일이면 판정창 뒤 노래방 패널 토글
+                    if (prev == CODE_MIC && !longFired) handleMicTap()
                 }
 
                 // 누름: 마이크는 유지형(길게 누름 가능), 볼륨은 이벤트형(누름+뗌이 즉시 옴)이라
@@ -214,6 +215,25 @@ class UsbMicButtons(
 
     private var pendingVol: Runnable? = null
     private var pendingVolCode = 0
+    private var pendingMicTap: Runnable? = null
+
+    /**
+     * 마이크 버튼 짧게 뗌: 빠르게 두 번이면 뒤로(BACK), 한 번이면 노래방 패널 토글.
+     * 볼륨과 같은 보류 방식 — 더블탭 시 패널이 안 뜬다.
+     */
+    private fun handleMicTap() {
+        handler.post {
+            val p = pendingMicTap
+            if (p != null) {
+                handler.removeCallbacks(p); pendingMicTap = null
+                fireAction(Action.BACK)
+                return@post
+            }
+            val r = Runnable { pendingMicTap = null; sendMicEvent(KEY_MIC_TOGGLE) }
+            pendingMicTap = r
+            handler.postDelayed(r, DOUBLE_MS)
+        }
+    }
 
     /**
      * 볼륨 버튼 클릭(이벤트형): 더블클릭이면 앱 동작(▲=다음곡/▼=종료), 단일이면 원래 볼륨 조절.
