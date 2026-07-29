@@ -59,6 +59,10 @@ class UsbMicButtons(
     private var notified = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    /** 진단 화면용: 설정하면 장치 정보·버튼 신호(hex)가 그대로 전달된다(메인 스레드). */
+    @Volatile var onRaw: ((String) -> Unit)? = null
+    private fun raw(msg: String) { onRaw?.let { cb -> handler.post { cb(msg) } } }
+
     /** 같은 안내가 반복되지 않도록 1회만 표시(멱등 start 가 자주 불리므로). */
     private fun notifyOnce(msg: String) {
         if (notified) return
@@ -72,7 +76,7 @@ class UsbMicButtons(
             if (i?.action != ACTION_PERM) return
             val dev: UsbDevice = i.getParcelableExtra(UsbManager.EXTRA_DEVICE) ?: return
             if (i.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) openAndRead(dev)
-            else Log.i(TAG, "USB 권한 거부: ${dev.productName}")
+            else { Log.i(TAG, "USB 권한 거부: ${dev.productName}"); raw("USB 권한이 거부되었습니다") }
         }
     }
 
@@ -86,15 +90,21 @@ class UsbMicButtons(
         if (devices.isEmpty()) {
             Log.i(TAG, "USB 장치 없음")
             notifyOnce("USB 마이크가 연결돼 있지 않습니다")
+            raw("USB 장치가 없습니다 — 마이크를 꽂아주세요")
             return
         }
-        devices.forEach { logDevice(it) }
+        devices.forEach {
+            logDevice(it)
+            raw("장치: ${it.productName ?: it.deviceName} vid=${it.vendorId} pid=${it.productId} ifaces=${it.interfaceCount}")
+        }
         val cand = devices.firstOrNull { findHidInterrupt(it) != null } ?: run {
             Log.i(TAG, "HID 버튼 인터페이스 없음")
             notifyOnce("이 마이크는 버튼 제어를 지원하지 않습니다 (설정에서 꺼주세요)")
+            raw("버튼(HID) 인터페이스가 없습니다 — 이 마이크는 버튼 신호를 USB 로 보내지 않습니다")
             return
         }
         if (usb.hasPermission(cand)) { openAndRead(cand); return }
+        raw("USB 권한 요청 중 — 허용을 눌러주세요")
         // 권한 없음 → 요청. 단 최근 요청했으면(8초) 다이얼로그 스팸 방지로 스킵.
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastPermReq < 8000L) return
@@ -143,14 +153,26 @@ class UsbMicButtons(
         if (!c.claimInterface(hid, true)) { Log.i(TAG, "HID claim 실패"); c.close(); return }
         conn = c; iface = hid
         Log.i(TAG, "USB 버튼 읽기 시작: ${dev.productName ?: dev.deviceName}")
+        raw("읽기 시작: ${dev.productName ?: dev.deviceName} — 버튼을 눌러보세요")
         running = true
         reader = thread(name = "usb-mic") {
             val buf = ByteArray(ep.maxPacketSize.coerceIn(1, 64))
             var lastCode = -1
             var longFired = false
+            var lastHex = ""
+            val t0 = android.os.SystemClock.elapsedRealtime()
             while (running) {
                 val n = runCatching { c.bulkTransfer(ep, buf, buf.size, READ_TIMEOUT_MS) }.getOrDefault(-1)
                 if (n <= 0) continue
+                // 버튼별 실제 리포트: 시각 + 전체 hex. 눌러서 잡히는지·계속 유지되는지·자동뗌 여부를 본다.
+                // (같은 리포트 반복은 생략 — 일부 장치는 주기적으로 동일 리포트를 보내 화면을 도배한다)
+                val hex = (0 until n).joinToString(" ") { "%02x".format(buf[it]) }
+                if (hex != lastHex) {
+                    lastHex = hex
+                    val line = "t=+%.1fs hex=".format((android.os.SystemClock.elapsedRealtime() - t0) / 1000.0) + hex
+                    Log.i(TAG, line)
+                    raw(line)
+                }
                 val code = if (n > CODE_INDEX) buf[CODE_INDEX].toInt() and 0xFF else 0
                 if (code == lastCode) continue
                 val prev = lastCode

@@ -71,6 +71,22 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         }
     }
 
+    /** 마이크 버튼 진단: 옵션을 안 켠 상태여도 임시 인스턴스로 신호를 읽어 보여준다. */
+    private var diagTemp = false
+    override fun onMicDiagStart(onLine: (String) -> Unit) {
+        if (usbMic == null) {
+            usbMic = UsbMicButtons(this) { action -> onMicButton(action) }
+            diagTemp = true
+        }
+        usbMic?.onRaw = onLine
+        usbMic?.start()
+    }
+
+    override fun onMicDiagStop() {
+        usbMic?.onRaw = null
+        if (diagTemp) { usbMic?.stop(); usbMic = null; diagTemp = false }
+    }
+
     /** 설정 저장 즉시 반영 — 화면을 닫지 않아도 음성 버튼·물리버튼이 바로 적용된다. */
     override fun onSettingsSaved() {
         if (::autoplayCheck.isInitialized) refreshVoiceUi()

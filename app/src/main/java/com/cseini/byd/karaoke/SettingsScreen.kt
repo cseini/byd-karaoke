@@ -98,6 +98,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
+        root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
@@ -147,6 +148,46 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     /** 차 내부·SD카드의 여유/사용 용량과 현재 저장 경로를 표시. */
+    /**
+     * 마이크 버튼 진단: 버튼 신호(HID hex)를 화면에 그대로 보여주고 복사하게 한다.
+     * adb 없이도 사용자가 채보 결과를 카페에 붙여넣을 수 있게 하는 용도(기종별 지원 확대).
+     */
+    private fun showMicDiag() {
+        val tv = TextView(activity).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setTextIsSelectable(true)
+            setPadding(28, 20, 28, 20)
+        }
+        val scroll = android.widget.ScrollView(activity).apply { addView(tv) }
+        val lines = StringBuilder()
+            .append("앱 v${BuildConfig.VERSION_NAME} 마이크 버튼 진단\n")
+            .append("마이크 버튼을 하나씩 눌러보세요.\n")
+            .append("(볼륨▲ 2초 꾹 → 볼륨▼ 2초 꾹 → 마이크 2초 꾹, 사이에 1초 쉬고)\n\n")
+        tv.text = lines
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("🔍 마이크 버튼 진단")
+            .setView(scroll)
+            .setPositiveButton("결과 복사", null)
+            .setNegativeButton("닫기", null)
+            .create()
+        dlg.setOnShowListener {
+            // 기본 리스너는 자동으로 닫히므로 복사 버튼만 직접 연결(닫지 않고 계속 채보 가능)
+            dlg.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val cm = activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("mic-diag", lines.toString()))
+                Toast.makeText(activity, "복사되었습니다 — 카페 댓글에 붙여넣어 주세요", Toast.LENGTH_LONG).show()
+            }
+        }
+        dlg.setOnDismissListener { host.onMicDiagStop() }
+        dlg.show()
+        host.onMicDiagStart { line ->
+            lines.append(line).append('\n')
+            tv.text = lines
+            scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        }
+    }
+
     private fun refreshStorageInfo() {
         val mode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         val intBase = Storage.internalBase(activity)

@@ -18,4 +18,8 @@ interface ScreenHost {
      * 호스트가 여기서 화면·기능(음성 버튼 노출, 물리버튼 등)을 즉시 갱신한다.
      */
     fun onSettingsSaved() {}
+
+    /** 마이크 버튼 진단 시작/종료 — 장치 정보·버튼 신호(hex)를 onLine 으로 스트리밍. */
+    fun onMicDiagStart(onLine: (String) -> Unit) {}
+    fun onMicDiagStop() {}
 }
