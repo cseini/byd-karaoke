@@ -162,8 +162,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     /** 차 내부·SD카드의 여유/사용 용량과 현재 저장 경로를 표시. */
-    /** 마이크 버튼 제스처에 매핑 가능한 기능 목록(코드 ↔ 표시 이름). */
-    private val mapFunctions = listOf(
+    /** 마이크 버튼 제스처에 매핑 가능한 기능 목록(코드 ↔ 표시 이름).
+     *  init 에서 접근하므로 선언 위치와 무관하게 초기화되도록 lazy. */
+    private val mapFunctions by lazy { listOf(
         "none" to "사용 안 함",
         "voice" to "🎤 음성 검색",
         "back" to "◀ 뒤로",
@@ -172,7 +173,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         "stop" to "⏹ 노래 종료(채점)",
         "pause" to "⏯ 일시정지/재생",
         "panel" to "🎛 노래방 패널",
-    )
+    ) }
 
     private fun setupMapSpinners() {
         val adapter = android.widget.ArrayAdapter(
