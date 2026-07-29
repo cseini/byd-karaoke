@@ -470,14 +470,29 @@
                         android:layout_weight="1" />
                 </LinearLayout>
 
-                <Button
-                    android:id="@+id/btn_mic_diag"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginStart="8dp"
-                    android:textSize="13sp"
-                    android:text="🔍 마이크 버튼 진단" />
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+
+                    <Button
+                        android:id="@+id/btn_mic_learn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="13sp"
+                        android:text="🎯 버튼 학습 (내 마이크에 맞추기)" />
+
+                    <Button
+                        android:id="@+id/btn_mic_diag"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="13sp"
+                        android:text="🔍 진단" />
+                </LinearLayout>
 
                 <CheckBox
                     android:id="@+id/chk_wheel_button"

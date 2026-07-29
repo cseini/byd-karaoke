@@ -100,6 +100,24 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         if (diagTemp) { usbMic?.stop(); usbMic = null; diagTemp = false }
     }
 
+    /** 마이크 버튼 학습: 진단과 같은 방식으로 리더를 빌려 쓰되 캡처 콜백만 단다. */
+    override fun onMicLearnStart(onCapture: (Int, Int, String) -> Unit) {
+        if (usbMic == null) {
+            usbMic = UsbMicButtons(this) { action -> onMicButton(action) }
+            diagTemp = true
+        }
+        usbMic?.onCapture = onCapture
+        usbMic?.start()
+    }
+
+    override fun onMicLearnStop() {
+        usbMic?.onCapture = null
+        // 학습된 코드를 다시 읽도록 리더를 재시작(임시 인스턴스면 정리만)
+        usbMic?.stop()
+        if (diagTemp) { usbMic = null; diagTemp = false }
+        syncPhysicalButtons()
+    }
+
     /** 설정 저장 즉시 반영 — 화면을 닫지 않아도 음성 버튼·물리버튼이 바로 적용된다. */
     override fun onSettingsSaved() {
         if (::autoplayCheck.isInitialized) refreshVoiceUi()

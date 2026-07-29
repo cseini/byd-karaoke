@@ -81,6 +81,22 @@ class SettingsStore(context: Context) {
         set(v) = prefs.edit().putBoolean("mic_button_control", v).apply()
 
     /**
+     * 학습된 HID 버튼 코드 — "바이트인덱스:값(10진)". 설정의 '버튼 학습'으로 채워지며,
+     * 기본값은 최초 실측 마이크(리포트[5]=0x3C/0x3D/0x3E). 기종마다 달라 학습으로 덮어쓴다.
+     */
+    var hidMicCode: String
+        get() = prefs.getString("hid_mic", "5:60")!!
+        set(v) = prefs.edit().putString("hid_mic", v).apply()
+
+    var hidVolUpCode: String
+        get() = prefs.getString("hid_vol_up", "5:61")!!
+        set(v) = prefs.edit().putString("hid_vol_up", v).apply()
+
+    var hidVolDownCode: String
+        get() = prefs.getString("hid_vol_down", "5:62")!!
+        set(v) = prefs.edit().putString("hid_vol_down", v).apply()
+
+    /**
      * 마이크 버튼 제스처 → 기능 매핑. 값: none/voice/back/mute/next/stop/pause/panel.
      * 기본값은 기존 동작과 동일(길게=음성검색, 마이크 두 번=뒤로, 볼륨▲▲=다음곡, 볼륨▼▼=종료).
      */

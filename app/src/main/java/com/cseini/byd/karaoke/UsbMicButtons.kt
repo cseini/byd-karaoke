@@ -34,11 +34,10 @@ class UsbMicButtons(
         private const val DEBOUNCE_MS = 800L
         private const val LONG_PRESS_MS = 600L
         private const val DOUBLE_MS = 400L   // 볼륨 버튼 더블클릭 판정창
-        // 리포트[5] 버튼 코드(실측). 마이크 음성=0x3C, 볼륨=0x3D/0x3E(업/다운 가정, 반대면 스왑).
-        private const val CODE_INDEX = 5
-        private const val CODE_MIC = 0x3C
-        private const val CODE_VOL_UP = 0x3D
-        private const val CODE_VOL_DOWN = 0x3E
+        // 버튼 식별자(내부용). 실제 HID 코드는 설정(hid*Code, 학습 가능)에서 읽는다.
+        private const val BTN_MIC = 1
+        private const val BTN_UP = 2
+        private const val BTN_DOWN = 3
         // BYD 노래방 시스템(com.byd.minikaraoke) micevent 로 넘길 KEY_EVENT 값(디컴파일로 확인).
         private const val KEY_MIC_TOGGLE = 133   // 패널 토글(KEY_AUTO_VOICE)
         private const val KEY_VOL_UP = 134       // 마이크 볼륨 업
@@ -64,6 +63,36 @@ class UsbMicButtons(
     @Volatile var onRaw: ((String) -> Unit)? = null
     private fun raw(msg: String) { onRaw?.let { cb -> handler.post { cb(msg) } } }
 
+    /**
+     * 버튼 학습 모드: 설정하면 '눌렀다 뗌'에서 감지된 버튼 코드(바이트인덱스, 값)를 전달하고
+     * 제스처·네이티브 전달은 잠시 멈춘다. (뗄 때 원래 값으로 되돌아가는 바이트가 그 버튼의 코드)
+     */
+    @Volatile var onCapture: ((Int, Int, String) -> Unit)? = null
+
+    private data class BtnCode(val idx: Int, val v: Int)
+    private val settings by lazy { com.cseini.byd.karaoke.data.SettingsStore(activity) }
+    private var codeMic: BtnCode? = null
+    private var codeVolUp: BtnCode? = null
+    private var codeVolDown: BtnCode? = null
+
+    private fun parseCode(s: String): BtnCode? {
+        val p = s.split(':')
+        val i = p.getOrNull(0)?.trim()?.toIntOrNull() ?: return null
+        val v = p.getOrNull(1)?.trim()?.toIntOrNull() ?: return null
+        return if (i in 0..63 && v in 1..255) BtnCode(i, v) else null
+    }
+
+    /** 리포트 → 버튼 판별(학습된 코드 기준). 어느 버튼도 아니면 0. */
+    private fun classify(b: ByteArray, n: Int): Int {
+        fun hit(c: BtnCode?) = c != null && n > c.idx && (b[c.idx].toInt() and 0xFF) == c.v
+        return when {
+            hit(codeMic) -> BTN_MIC
+            hit(codeVolUp) -> BTN_UP
+            hit(codeVolDown) -> BTN_DOWN
+            else -> 0
+        }
+    }
+
     /** 같은 안내가 반복되지 않도록 1회만 표시(멱등 start 가 자주 불리므로). */
     private fun notifyOnce(msg: String) {
         if (notified) return
@@ -83,6 +112,10 @@ class UsbMicButtons(
 
     /** 여러 번 호출해도 안전(멱등). 아직 권한이 없으면 요청, 권한 있으면 읽기 시작. */
     fun start() {
+        // 학습으로 바뀌었을 수 있으니 시작할 때마다 버튼 코드를 다시 읽는다.
+        codeMic = parseCode(settings.hidMicCode) ?: BtnCode(5, 0x3C)
+        codeVolUp = parseCode(settings.hidVolUpCode) ?: BtnCode(5, 0x3D)
+        codeVolDown = parseCode(settings.hidVolDownCode) ?: BtnCode(5, 0x3E)
         if (conn != null) return   // 이미 읽는 중
         if (!registered) runCatching {
             activity.registerReceiver(permReceiver, IntentFilter(ACTION_PERM)); registered = true
@@ -160,6 +193,7 @@ class UsbMicButtons(
         running = true
         reader = thread(name = "usb-mic") {
             val buf = ByteArray(ep.maxPacketSize.coerceIn(1, 64))
+            val prevBuf = ByteArray(buf.size)
             var lastCode = -1
             var longFired = false
             var lastHex = ""
@@ -175,8 +209,24 @@ class UsbMicButtons(
                     val line = "t=+%.1fs hex=".format((android.os.SystemClock.elapsedRealtime() - t0) / 1000.0) + hex
                     Log.i(TAG, line)
                     raw(line)
+                    // 학습 모드: '뗌'에서 0이 아니던 값이 바뀐(대개 0으로 되돌아간) 첫 바이트가 버튼 코드.
+                    // 직전 리포트를 기준으로 비교하므로 상시 1인 프리픽스 바이트는 걸리지 않는다.
+                    onCapture?.let { cb ->
+                        for (i in 0 until n) {
+                            val pv = prevBuf[i].toInt() and 0xFF
+                            val nv = buf[i].toInt() and 0xFF
+                            if (pv != 0 && nv != pv) {
+                                val ci = i
+                                handler.post { cb(ci, pv, hex) }
+                                break
+                            }
+                        }
+                    }
+                    System.arraycopy(buf, 0, prevBuf, 0, n)
                 }
-                val code = if (n > CODE_INDEX) buf[CODE_INDEX].toInt() and 0xFF else 0
+                if (onCapture != null) continue   // 학습 중엔 제스처·네이티브 전달 정지
+
+                val code = classify(buf, n)
                 if (code == lastCode) continue
                 val prev = lastCode
                 lastCode = code
@@ -185,16 +235,16 @@ class UsbMicButtons(
                 if (prev != 0 && prev != code) {
                     held = false
                     pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
-                    // 마이크 버튼 짧게 뗌: 더블탭 판정(뒤로) — 단일이면 판정창 뒤 노래방 패널 토글
-                    if (prev == CODE_MIC && !longFired) handleMicTap()
+                    // 마이크 버튼 짧게 뗌: 더블탭 판정 — 단일이면 판정창 뒤 노래방 패널 토글
+                    if (prev == BTN_MIC && !longFired) handleMicTap()
                 }
 
                 // 누름: 마이크는 유지형(길게 누름 가능), 볼륨은 이벤트형(누름+뗌이 즉시 옴)이라
                 // 길게 누름이 불가 → 더블클릭으로 판정. 첫 클릭의 볼륨 이벤트는 더블 판정창만큼
                 // 보류했다가 단일 클릭으로 확정되면 그때 보낸다(더블이면 취소 → 볼륨 변화 0).
                 when (code) {
-                    CODE_MIC -> armLongPress(Event.MIC_LONG) { longFired = true }
-                    CODE_VOL_UP, CODE_VOL_DOWN -> handleVolClick(code)
+                    BTN_MIC -> armLongPress(Event.MIC_LONG) { longFired = true }
+                    BTN_UP, BTN_DOWN -> handleVolClick(code)
                 }
                 if (code != 0) longFired = false
             }
@@ -244,12 +294,12 @@ class UsbMicButtons(
             val p = pendingVol
             if (p != null && pendingVolCode == code) {
                 handler.removeCallbacks(p); pendingVol = null
-                fireEvent(if (code == CODE_VOL_UP) Event.VOL_UP_DOUBLE else Event.VOL_DOWN_DOUBLE)
+                fireEvent(if (code == BTN_UP) Event.VOL_UP_DOUBLE else Event.VOL_DOWN_DOUBLE)
                 return@post
             }
             // 다른 버튼의 보류분이 있으면 그건 단일 클릭으로 확정해 즉시 실행
             if (p != null) { handler.removeCallbacks(p); pendingVol = null; p.run() }
-            val key = if (code == CODE_VOL_UP) KEY_VOL_UP else KEY_VOL_DOWN
+            val key = if (code == BTN_UP) KEY_VOL_UP else KEY_VOL_DOWN
             val r = Runnable { pendingVol = null; sendMicEvent(key) }
             pendingVol = r; pendingVolCode = code
             handler.postDelayed(r, DOUBLE_MS)

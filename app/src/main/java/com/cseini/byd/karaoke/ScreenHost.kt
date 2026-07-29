@@ -22,4 +22,8 @@ interface ScreenHost {
     /** 마이크 버튼 진단 시작/종료 — 장치 정보·버튼 신호(hex)를 onLine 으로 스트리밍. */
     fun onMicDiagStart(onLine: (String) -> Unit) {}
     fun onMicDiagStop() {}
+
+    /** 마이크 버튼 학습 — 눌렀다 뗀 버튼의 (바이트인덱스, 값, hex)를 전달. */
+    fun onMicLearnStart(onCapture: (Int, Int, String) -> Unit) {}
+    fun onMicLearnStop() {}
 }

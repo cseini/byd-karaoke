@@ -115,6 +115,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
+        root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
 
         // 고급 설정 접기/펼치기 — 자주 안 쓰는 항목은 숨겨 화면을 단순하게
         val advanced = root.findViewById<View>(R.id.advanced_section)
@@ -195,6 +196,58 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
     private fun selectedMap(id: Int): String =
         MAP_FUNCTIONS[root.findViewById<android.widget.Spinner>(id).selectedItemPosition].first
+
+    /**
+     * 마이크 버튼 학습: 버튼을 하나씩 눌러보게 해 이 마이크의 HID 코드를 자동으로 찾아 저장.
+     * 기종마다 코드가 달라도 학습 한 번이면 버튼 제어를 쓸 수 있다.
+     */
+    private fun showMicLearn() {
+        val steps = listOf("🔊 볼륨▲", "🔉 볼륨▼", "🎙 마이크(음성)")
+        val results = arrayOfNulls<Pair<Int, Int>>(3)
+        var step = 0
+        val tv = TextView(activity).apply { textSize = 15f; setPadding(36, 24, 36, 24) }
+        fun render() {
+            val sb = StringBuilder()
+            for (i in steps.indices) {
+                val r = results[i]
+                sb.append(
+                    when {
+                        r != null -> "✅ ${steps[i]}  (코드 [${r.first}]=0x%02X)\n\n".format(r.second)
+                        i == step -> "👉 ${steps[i]} 버튼을 짧게 눌렀다 떼세요\n\n"
+                        else -> "· ${steps[i]}\n\n"
+                    }
+                )
+            }
+            if (step >= steps.size) sb.append("🎉 완료! 저장했습니다. 이제 이 마이크로 제어할 수 있어요.")
+            tv.text = sb.toString()
+        }
+        render()
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("🎯 마이크 버튼 학습")
+            .setView(android.widget.ScrollView(activity).apply { addView(tv) })
+            .setNegativeButton("닫기", null)
+            .create()
+        dlg.setOnDismissListener { host.onMicLearnStop() }
+        dlg.show()
+        var lastCap = 0L
+        host.onMicLearnStart { idx, v, _ ->
+            val now = android.os.SystemClock.elapsedRealtime()
+            // 한 번의 누름에서 여러 변화가 오거나 연타해도 한 단계씩만 진행
+            if (step >= steps.size || now - lastCap < 700) return@onMicLearnStart
+            lastCap = now
+            results[step] = idx to v
+            step++
+            if (step >= steps.size) {
+                settings.hidVolUpCode = "${results[0]!!.first}:${results[0]!!.second}"
+                settings.hidVolDownCode = "${results[1]!!.first}:${results[1]!!.second}"
+                settings.hidMicCode = "${results[2]!!.first}:${results[2]!!.second}"
+                // 버튼 제어 옵션도 같이 켜준다(학습했다는 건 쓰겠다는 뜻)
+                settings.micButtonControl = true
+                micButtonCheck.isChecked = true
+            }
+            render()
+        }
+    }
 
     /**
      * 마이크 버튼 진단: 버튼 신호(HID hex)를 화면에 그대로 보여주고 복사하게 한다.
