@@ -33,6 +33,7 @@ class UsbMicButtons(
         private const val READ_TIMEOUT_MS = 300
         private const val DEBOUNCE_MS = 800L
         private const val LONG_PRESS_MS = 600L
+        private const val DOUBLE_MS = 400L   // 볼륨 버튼 더블클릭 판정창
         // 리포트[5] 버튼 코드(실측). 마이크 음성=0x3C, 볼륨=0x3D/0x3E(업/다운 가정, 반대면 스왑).
         private const val CODE_INDEX = 5
         private const val CODE_MIC = 0x3C
@@ -120,6 +121,7 @@ class UsbMicButtons(
         running = false
         held = false
         pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
+        pendingVol?.let { handler.removeCallbacks(it) }; pendingVol = null
         reader?.let { runCatching { it.join(500) } }; reader = null
         iface?.let { i -> conn?.releaseInterface(i) }; iface = null
         conn?.let { runCatching { it.close() } }; conn = null
@@ -186,17 +188,12 @@ class UsbMicButtons(
                     if (prev == CODE_MIC && !longFired) sendMicEvent(KEY_MIC_TOGGLE)
                 }
 
-                // 누름: 볼륨은 즉시 네이티브 동작(마이크 볼륨±) + 길게 누르면 앱 제어.
+                // 누름: 마이크는 유지형(길게 누름 가능), 볼륨은 이벤트형(누름+뗌이 즉시 옴)이라
+                // 길게 누름이 불가 → 더블클릭으로 판정. 첫 클릭의 볼륨 이벤트는 더블 판정창만큼
+                // 보류했다가 단일 클릭으로 확정되면 그때 보낸다(더블이면 취소 → 볼륨 변화 0).
                 when (code) {
                     CODE_MIC -> armLongPress(Action.VOICE) { longFired = true }
-                    CODE_VOL_UP -> {
-                        sendMicEvent(KEY_VOL_UP)
-                        armLongPress(Action.NEXT) { longFired = true }
-                    }
-                    CODE_VOL_DOWN -> {
-                        sendMicEvent(KEY_VOL_DOWN)
-                        armLongPress(Action.STOP) { longFired = true }
-                    }
+                    CODE_VOL_UP, CODE_VOL_DOWN -> handleVolClick(code)
                 }
                 if (code != 0) longFired = false
             }
@@ -212,6 +209,30 @@ class UsbMicButtons(
                 i.putExtra("android.intent.extra.KEY_EVENT", keyEvent)
                 activity.sendBroadcast(i)
             }
+        }
+    }
+
+    private var pendingVol: Runnable? = null
+    private var pendingVolCode = 0
+
+    /**
+     * 볼륨 버튼 클릭(이벤트형): 더블클릭이면 앱 동작(▲=다음곡/▼=종료), 단일이면 원래 볼륨 조절.
+     * 첫 클릭의 네이티브 볼륨 이벤트를 DOUBLE_MS 보류 → 더블이면 취소돼 볼륨이 안 움직인다.
+     */
+    private fun handleVolClick(code: Int) {
+        handler.post {
+            val p = pendingVol
+            if (p != null && pendingVolCode == code) {
+                handler.removeCallbacks(p); pendingVol = null
+                fireAction(if (code == CODE_VOL_UP) Action.NEXT else Action.STOP)
+                return@post
+            }
+            // 다른 버튼의 보류분이 있으면 그건 단일 클릭으로 확정해 즉시 실행
+            if (p != null) { handler.removeCallbacks(p); pendingVol = null; p.run() }
+            val key = if (code == CODE_VOL_UP) KEY_VOL_UP else KEY_VOL_DOWN
+            val r = Runnable { pendingVol = null; sendMicEvent(key) }
+            pendingVol = r; pendingVolCode = code
+            handler.postDelayed(r, DOUBLE_MS)
         }
     }
 
