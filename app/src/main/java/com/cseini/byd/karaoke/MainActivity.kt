@@ -58,20 +58,29 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         if (target == "search") closeScreen() else showScreen(target)
     }
 
-    /**
-     * 마이크 버튼(길게 누름) → 앱 제어.
-     * 마이크=음성검색 / 볼륨↑=다음 예약곡 / 볼륨↓=노래 종료(채점).
-     * 재생 중이 아니면 다음곡·종료는 무시(짧게 누름의 네이티브 볼륨 동작은 그대로).
-     */
-    private fun onMicButton(action: UsbMicButtons.Action) {
-        when (action) {
-            UsbMicButtons.Action.VOICE -> { cancelAutoPlay(); startVoice() }
-            UsbMicButtons.Action.NEXT -> embeddedPlayer?.remoteNext()
-            UsbMicButtons.Action.STOP -> embeddedPlayer?.remoteStop()
+    /** 마이크 버튼 제스처 → 설정에서 매핑된 기능 실행. */
+    private fun onMicButton(event: UsbMicButtons.Event) {
+        val fn = when (event) {
+            UsbMicButtons.Event.MIC_LONG -> settings.mapMicLong
+            UsbMicButtons.Event.MIC_DOUBLE -> settings.mapMicDouble
+            UsbMicButtons.Event.VOL_UP_DOUBLE -> settings.mapVolUpDouble
+            UsbMicButtons.Event.VOL_DOWN_DOUBLE -> settings.mapVolDownDouble
+        }
+        runMappedFunction(fn)
+    }
+
+    private fun runMappedFunction(fn: String) {
+        when (fn) {
+            // 음성검색: 노래 재생 중만 제외하고 어디서든(검색·채점·녹음함…) 동작
+            "voice" -> if (embeddedPlayer?.isPlayingSong != true) { cancelAutoPlay(); startVoice() }
             // 뒤로: 채점 화면 → 검색(재생 중엔 무시), 그 외엔 열린 화면 닫기
-            UsbMicButtons.Action.BACK -> {
-                if (embeddedPlayer?.remoteBack() != true && isScreenShowing) closeScreen()
-            }
+            "back" -> if (embeddedPlayer?.remoteBack() != true && isScreenShowing) closeScreen()
+            "mute" -> embeddedPlayer?.remoteMuteToggle()
+            "next" -> embeddedPlayer?.remoteNext()
+            "stop" -> embeddedPlayer?.remoteStop()
+            "pause" -> embeddedPlayer?.remotePauseToggle()
+            "panel" -> usbMic?.sendPanelToggle()
+            // "none" → 아무것도 안 함
         }
     }
 

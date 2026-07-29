@@ -170,6 +170,7 @@ class EmbeddedPlayer(
         stopMediaPlayer()
         player?.release()
         currentVideoId = videoId
+        remoteMuted = false   // 새 곡은 항상 음소거 해제 상태로
         recordStarted = false; scored = false; playLogged = false; replaying = false
         lastRecording = null
         titleView.text = title
@@ -498,6 +499,25 @@ class EmbeddedPlayer(
         if (!isShowing) return false
         if (scoreOverlay.visibility == View.VISIBLE) close() // 채점 → 검색
         return true
+    }
+
+    /** 노래(채점 화면 아님)가 진행 중인지 — 매핑된 음성검색이 곡을 방해하지 않게 하는 판별용. */
+    val isPlayingSong: Boolean get() = isShowing && scoreOverlay.visibility != View.VISIBLE
+
+    private var remoteMuted = false
+
+    /** 반주 음소거 토글(목소리 마이크는 그대로). 재생 중일 때만. */
+    fun remoteMuteToggle() {
+        if (!isPlayingSong) return
+        remoteMuted = !remoteMuted
+        player?.setVolume(if (remoteMuted) 0f else 1f)
+        statusView.text = if (remoteMuted) "🔇 반주 음소거 (한 번 더 누르면 해제)" else ""
+    }
+
+    /** 일시정지/재생 토글. 재생 중일 때만. */
+    fun remotePauseToggle() {
+        if (!isPlayingSong) return
+        if (player?.isPlaying() == true) player?.pause() else player?.play()
     }
 
     /** 녹음함/랭킹에서 저장된 녹음을 임베드로 다시 듣기(채점·녹음 없이, 영상은 음소거). */

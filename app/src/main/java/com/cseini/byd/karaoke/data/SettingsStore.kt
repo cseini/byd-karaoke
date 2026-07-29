@@ -80,6 +80,26 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("mic_button_control", false)
         set(v) = prefs.edit().putBoolean("mic_button_control", v).apply()
 
+    /**
+     * 마이크 버튼 제스처 → 기능 매핑. 값: none/voice/back/mute/next/stop/pause/panel.
+     * 기본값은 기존 동작과 동일(길게=음성검색, 마이크 두 번=뒤로, 볼륨▲▲=다음곡, 볼륨▼▼=종료).
+     */
+    var mapMicLong: String
+        get() = prefs.getString("map_mic_long", "voice")!!
+        set(v) = prefs.edit().putString("map_mic_long", v).apply()
+
+    var mapMicDouble: String
+        get() = prefs.getString("map_mic_double", "back")!!
+        set(v) = prefs.edit().putString("map_mic_double", v).apply()
+
+    var mapVolUpDouble: String
+        get() = prefs.getString("map_vol_up2", "next")!!
+        set(v) = prefs.edit().putString("map_vol_up2", v).apply()
+
+    var mapVolDownDouble: String
+        get() = prefs.getString("map_vol_down2", "stop")!!
+        set(v) = prefs.edit().putString("map_vol_down2", v).apply()
+
     /** 휠 무음 버튼 더블클릭으로 음성검색(접근성 기반). 기본 꺼짐. USB 점유 안 해 안전. */
     var wheelButtonControl: Boolean
         get() = prefs.getBoolean("wheel_button_control", false)

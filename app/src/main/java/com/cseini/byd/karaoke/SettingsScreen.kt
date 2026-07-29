@@ -89,6 +89,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         accompGainSeek.setOnSeekBarChangeListener(gainListener)
 
         micButtonCheck.isChecked = settings.micButtonControl
+        setupMapSpinners()
         wheelButtonCheck.isChecked = settings.wheelButtonControl
 
         storageGroup.check(if (settings.storageMode == "sd") R.id.st_sd else R.id.st_internal)
@@ -148,6 +149,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.voiceGainPct = voiceGainSeek.progress + 50
         settings.accompGainPct = accompGainSeek.progress
         settings.micButtonControl = micButtonCheck.isChecked
+        settings.mapMicLong = selectedMap(R.id.map_mic_long)
+        settings.mapMicDouble = selectedMap(R.id.map_mic_double)
+        settings.mapVolUpDouble = selectedMap(R.id.map_vol_up2)
+        settings.mapVolDownDouble = selectedMap(R.id.map_vol_down2)
         settings.wheelButtonControl = wheelButtonCheck.isChecked
         settings.storageMode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
         maxStorageInput.text.toString().toIntOrNull()?.let { if (it > 0) settings.maxStorageMb = it }
@@ -157,6 +162,37 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     /** 차 내부·SD카드의 여유/사용 용량과 현재 저장 경로를 표시. */
+    /** 마이크 버튼 제스처에 매핑 가능한 기능 목록(코드 ↔ 표시 이름). */
+    private val mapFunctions = listOf(
+        "none" to "사용 안 함",
+        "voice" to "🎤 음성 검색",
+        "back" to "◀ 뒤로",
+        "mute" to "🔇 반주 음소거",
+        "next" to "⏭ 다음 예약곡",
+        "stop" to "⏹ 노래 종료(채점)",
+        "pause" to "⏯ 일시정지/재생",
+        "panel" to "🎛 노래방 패널",
+    )
+
+    private fun setupMapSpinners() {
+        val adapter = android.widget.ArrayAdapter(
+            activity, android.R.layout.simple_spinner_item, mapFunctions.map { it.second }
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        fun bind(id: Int, code: String) {
+            root.findViewById<android.widget.Spinner>(id).apply {
+                this.adapter = adapter
+                setSelection(mapFunctions.indexOfFirst { it.first == code }.coerceAtLeast(0))
+            }
+        }
+        bind(R.id.map_mic_long, settings.mapMicLong)
+        bind(R.id.map_mic_double, settings.mapMicDouble)
+        bind(R.id.map_vol_up2, settings.mapVolUpDouble)
+        bind(R.id.map_vol_down2, settings.mapVolDownDouble)
+    }
+
+    private fun selectedMap(id: Int): String =
+        mapFunctions[root.findViewById<android.widget.Spinner>(id).selectedItemPosition].first
+
     /**
      * 마이크 버튼 진단: 버튼 신호(HID hex)를 화면에 그대로 보여주고 복사하게 한다.
      * adb 없이도 사용자가 채보 결과를 카페에 붙여넣을 수 있게 하는 용도(기종별 지원 확대).

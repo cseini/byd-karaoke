@@ -22,10 +22,10 @@ import kotlin.concurrent.thread
  */
 class UsbMicButtons(
     private val activity: AppCompatActivity,
-    private val onAction: (Action) -> Unit,
+    private val onEvent: (Event) -> Unit,
 ) {
-    /** 마이크 버튼으로 실행할 앱 동작. */
-    enum class Action { VOICE, NEXT, STOP, BACK }
+    /** 마이크 버튼 제스처(기능은 설정에서 매핑). 한 번 클릭은 원래 기능(패널/볼륨) 유지. */
+    enum class Event { MIC_LONG, MIC_DOUBLE, VOL_UP_DOUBLE, VOL_DOWN_DOUBLE }
 
     companion object {
         private const val TAG = "karaoke-usb"
@@ -193,7 +193,7 @@ class UsbMicButtons(
                 // 길게 누름이 불가 → 더블클릭으로 판정. 첫 클릭의 볼륨 이벤트는 더블 판정창만큼
                 // 보류했다가 단일 클릭으로 확정되면 그때 보낸다(더블이면 취소 → 볼륨 변화 0).
                 when (code) {
-                    CODE_MIC -> armLongPress(Action.VOICE) { longFired = true }
+                    CODE_MIC -> armLongPress(Event.MIC_LONG) { longFired = true }
                     CODE_VOL_UP, CODE_VOL_DOWN -> handleVolClick(code)
                 }
                 if (code != 0) longFired = false
@@ -226,7 +226,7 @@ class UsbMicButtons(
             val p = pendingMicTap
             if (p != null) {
                 handler.removeCallbacks(p); pendingMicTap = null
-                fireAction(Action.BACK)
+                fireEvent(Event.MIC_DOUBLE)
                 return@post
             }
             val r = Runnable { pendingMicTap = null; sendMicEvent(KEY_MIC_TOGGLE) }
@@ -244,7 +244,7 @@ class UsbMicButtons(
             val p = pendingVol
             if (p != null && pendingVolCode == code) {
                 handler.removeCallbacks(p); pendingVol = null
-                fireAction(if (code == CODE_VOL_UP) Action.NEXT else Action.STOP)
+                fireEvent(if (code == CODE_VOL_UP) Event.VOL_UP_DOUBLE else Event.VOL_DOWN_DOUBLE)
                 return@post
             }
             // 다른 버튼의 보류분이 있으면 그건 단일 클릭으로 확정해 즉시 실행
@@ -257,18 +257,21 @@ class UsbMicButtons(
     }
 
     /** 버튼을 누른 상태로 LONG_PRESS_MS 가 지나면 앱 동작 실행(누르고 있는 동안만 유효). */
-    private fun armLongPress(action: Action, onFired: () -> Unit) {
+    private fun armLongPress(event: Event, onFired: () -> Unit) {
         held = true
-        val r = Runnable { if (held) { onFired(); fireAction(action) } }
+        val r = Runnable { if (held) { onFired(); fireEvent(event) } }
         pendingLong?.let { handler.removeCallbacks(it) }
         pendingLong = r
         handler.postDelayed(r, LONG_PRESS_MS)
     }
 
-    private fun fireAction(action: Action) {
+    private fun fireEvent(event: Event) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastTrigger < DEBOUNCE_MS) return
         lastTrigger = now
-        activity.runOnUiThread { onAction(action) }
+        activity.runOnUiThread { onEvent(event) }
     }
+
+    /** '노래방 패널' 기능 매핑용 — BYD 패널 토글을 그대로 실행. */
+    fun sendPanelToggle() = sendMicEvent(KEY_MIC_TOGGLE)
 }
