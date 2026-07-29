@@ -19,6 +19,23 @@
         <item name="materialButtonOutlinedStyle">@style/Widget.Karaoke.Button.Outlined</item>
         <item name="editTextStyle">@style/Widget.Karaoke.EditText</item>
         <item name="android:editTextStyle" tools:targetApi="21">@style/Widget.Karaoke.EditText</item>
+        <item name="seekBarStyle">@style/Widget.Karaoke.SeekBar</item>
+        <item name="android:seekBarStyle">@style/Widget.Karaoke.SeekBar</item>
+    </style>
+
+    <!-- 차량 터치스크린용: 큰 손잡이(34dp) + 두꺼운 트랙 + 상하 패딩으로 터치 영역 확대 -->
+    <style name="Widget.Karaoke.SeekBar" parent="Widget.AppCompat.SeekBar">
+        <item name="android:thumb">@drawable/seek_thumb</item>
+        <item name="android:minHeight">12dp</item>
+        <item name="android:maxHeight">12dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
+        <item name="android:thumbOffset">10dp</item>
+        <item name="android:splitTrack">false</item>
+        <item name="android:progressTint">@color/tj_pink</item>
+        <item name="android:progressBackgroundTint">@color/tj_panel_light</item>
     </style>
 
     <style name="Widget.Karaoke.Button" parent="Widget.Material3.Button">
