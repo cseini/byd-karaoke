@@ -95,6 +95,15 @@
             </intent-filter>
         </service>
 
+        <!-- OTA 설치 완료 시 앱 자동 재시작 -->
+        <receiver
+            android:name=".update.RestartReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
