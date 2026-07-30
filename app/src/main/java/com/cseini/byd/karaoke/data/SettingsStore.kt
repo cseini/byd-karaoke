@@ -121,6 +121,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("wheel_button_control", false)
         set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
 
+    /** 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제). 기본 꺼짐. */
+    var startFullscreen: Boolean
+        get() = prefs.getBoolean("start_fullscreen", false)
+        set(v) = prefs.edit().putBoolean("start_fullscreen", v).apply()
+
     /** 음성 검색 후 첫 곡을 3초 뒤 자동 재생. */
     var autoPlayVoiceFirst: Boolean
         get() = prefs.getBoolean("auto_play_voice", false)

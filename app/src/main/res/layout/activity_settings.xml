@@ -515,6 +515,29 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="재생"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/tj_cyan"
+                    android:paddingBottom="6dp" />
+
+                <CheckBox
+                    android:id="@+id/chk_start_fullscreen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="▶ 영상을 전체화면으로 시작 (화면을 탭하면 해제)" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="18dp"
+                    android:background="@color/tj_divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:text="녹음"
                     android:textSize="16sp"
                     android:textStyle="bold"

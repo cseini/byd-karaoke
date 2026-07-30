@@ -100,12 +100,12 @@ class EmbeddedPlayer(
 
     val isShowing: Boolean get() = overlay.visibility == View.VISIBLE
 
-    // 영상 더블탭 → 전체화면 토글(진입/해제).
+    // 영상 탭(한 번) → 전체화면 토글(진입/해제).
     private val fsGesture = android.view.GestureDetector(
         activity,
         object : android.view.GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: android.view.MotionEvent) = true
-            override fun onDoubleTap(e: android.view.MotionEvent): Boolean { toggleFullscreen(); return true }
+            override fun onSingleTapUp(e: android.view.MotionEvent): Boolean { toggleFullscreen(); return true }
         },
     )
 
@@ -139,7 +139,7 @@ class EmbeddedPlayer(
             keySemitones = 0; speedRate = 1.0f; applyTune()
         }
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
-        // 영상 영역 더블탭으로 전체화면 진입, 전체화면 중엔 더블탭으로 해제.
+        // 영상 영역 탭으로 전체화면 진입, 전체화면 중엔 탭으로 해제.
         val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
         container.setOnTouchListener(fsTouch)
         fullscreenTap.setOnTouchListener(fsTouch)
@@ -192,6 +192,8 @@ class EmbeddedPlayer(
         keySemitones = 0
         speedRate = 1.0f
         applyTune()
+        // 옵션: 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제)
+        if (settings.startFullscreen && !fullscreen) toggleFullscreen()
         player?.load(videoId)
     }
 

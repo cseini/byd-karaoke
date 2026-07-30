@@ -52,6 +52,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val accompGainSeek: SeekBar = root.findViewById(R.id.accomp_gain_seek)
     private val accompGainLabel: TextView = root.findViewById(R.id.accomp_gain_label)
     private val micButtonCheck: CheckBox = root.findViewById(R.id.chk_mic_button)
+    private val startFullscreenCheck: CheckBox = root.findViewById(R.id.chk_start_fullscreen)
     private val wheelButtonCheck: CheckBox = root.findViewById(R.id.chk_wheel_button)
     private val updateStatus: TextView = root.findViewById(R.id.update_status)
     private val storageGroup: RadioGroup = root.findViewById(R.id.storage_group)
@@ -104,6 +105,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         accompGainSeek.setOnSeekBarChangeListener(gainListener)
 
         micButtonCheck.isChecked = settings.micButtonControl
+        startFullscreenCheck.isChecked = settings.startFullscreen
         setupMapSpinners()
         wheelButtonCheck.isChecked = settings.wheelButtonControl
 
@@ -165,6 +167,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.voiceGainPct = voiceGainSeek.progress + 50
         settings.accompGainPct = accompGainSeek.progress
         settings.micButtonControl = micButtonCheck.isChecked
+        settings.startFullscreen = startFullscreenCheck.isChecked
         settings.mapMicLong = selectedMap(R.id.map_mic_long)
         settings.mapMicDouble = selectedMap(R.id.map_mic_double)
         settings.mapVolUpDouble = selectedMap(R.id.map_vol_up2)
