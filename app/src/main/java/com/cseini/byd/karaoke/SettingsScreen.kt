@@ -45,6 +45,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val syncLabel: TextView = root.findViewById(R.id.sync_label)
     private val rateGroup: RadioGroup = root.findViewById(R.id.rate_group)
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
+    private val aiScoringCheck: CheckBox = root.findViewById(R.id.chk_ai_scoring)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
@@ -82,6 +83,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             }
         )
         scoringCheck.isChecked = settings.scoringEnabled
+        aiScoringCheck.isChecked = settings.aiScoring
         recordingCheck.isChecked = settings.recordingEnabled
 
         micSourceGroup.check(
@@ -157,6 +159,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
+        settings.aiScoring = aiScoringCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"

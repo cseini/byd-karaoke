@@ -121,6 +121,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("wheel_button_control", false)
         set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
 
+    /** Gemini AI 채점(점수+코멘트). 음성검색과 무료 한도 공유 — 기본 꺼짐. */
+    var aiScoring: Boolean
+        get() = prefs.getBoolean("ai_scoring", false)
+        set(v) = prefs.edit().putBoolean("ai_scoring", v).apply()
+
     /** 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제). 기본 꺼짐. */
     var startFullscreen: Boolean
         get() = prefs.getBoolean("start_fullscreen", false)

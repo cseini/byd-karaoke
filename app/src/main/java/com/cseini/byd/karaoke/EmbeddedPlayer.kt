@@ -29,6 +29,7 @@ import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.player.KaraokePlayer
 import com.cseini.byd.karaoke.player.PlayerCallbacks
 import com.cseini.byd.karaoke.player.StreamPlayer
+import com.cseini.byd.karaoke.scoring.AiScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -254,12 +255,27 @@ class EmbeddedPlayer(
         }
         statusView.text = "채점 중…"
         activity.lifecycleScope.launch {
-            val result = withContext(Dispatchers.Default) {
+            val voicePair = withContext(Dispatchers.Default) {
+                runCatching { rec!!.voiceForScoring() }.getOrNull()
+            }
+            var result = withContext(Dispatchers.Default) {
                 runCatching {
-                    val (s, sr) = rec!!.voiceForScoring()
-                    val accomp = rec.accompForScoring()
-                    ScoringEngine.score(s, sr, accomp?.first, accomp?.second ?: 0)
+                    val accomp = rec!!.accompForScoring()
+                    ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
                 }.getOrNull()
+            }
+            // 옵션: Gemini AI 채점 — 성공하면 점수·코멘트를 채택, 실패하면 기본 채점 그대로.
+            if (result != null && voicePair != null &&
+                settings.aiScoring && settings.geminiApiKeys().isNotEmpty()
+            ) {
+                statusView.text = "🤖 AI 채점 중…"
+                val ai = AiScorer.score(settings, voicePair.first, voicePair.second)
+                if (ai != null) {
+                    result = result.copy(
+                        total = ai.total,
+                        breakdown = "🤖 AI 심사평: “${ai.comment}”\n\n" + result.breakdown,
+                    )
+                }
             }
             saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
