@@ -8,47 +8,96 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Gemini 로 노래 채점(옵션). 목소리 트랙 90초 발췌를 보내 점수+한 줄 코멘트를 받는다.
+ * Gemini 로 노래 채점(옵션). 목소리 트랙 60초 발췌(16kHz 다운샘플)를 보내 점수+한 줄 코멘트를 받는다.
  * 음성검색과 같은 무료 한도를 쓰므로(모델당 RPD 20) 실패·한도초과 시 null → 기본 채점 폴백.
+ * 요청 형식은 차에서 검증된 VoiceSearch 와 동일(text part 먼저, inline_data 다음).
  */
 object AiScorer {
 
     private const val TAG = "karaoke-ai-score"
-    private const val EXCERPT_SEC = 90
+    private const val EXCERPT_SEC = 60
+    private const val TARGET_RATE = 16000
+    private const val BUDGET_MS = 30_000L   // 전체 시도 시간 상한 — 채점 화면을 너무 오래 잡지 않게
 
     data class AiScore(val total: Int, val comment: String)
 
+    /** 마지막 실패 사유(진단용) — 성공 시 null. 채점 화면에 그대로 보여 제보받는다. */
+    @Volatile var lastError: String? = null
+
     suspend fun score(settings: SettingsStore, samples: FloatArray, sampleRate: Int): AiScore? =
         withContext(Dispatchers.IO) {
+            lastError = null
             val keys = settings.geminiApiKeys()
-            if (keys.isEmpty() || samples.isEmpty() || sampleRate <= 0) return@withContext null
+            if (keys.isEmpty() || samples.isEmpty() || sampleRate <= 0) {
+                lastError = "키 없음/입력 없음"; return@withContext null
+            }
             val wav = excerptWav(samples, sampleRate)
             val b64 = Base64.encodeToString(wav, Base64.NO_WRAP)
+            Log.i(TAG, "excerpt=${wav.size / 1024}KB b64=${b64.length / 1024}KB")
             val prompt = "당신은 노래방 심사위원입니다. 첨부 오디오는 사용자가 노래방에서 부른 목소리 트랙입니다(반주 제거됨). " +
                 "음정·박자·표현력·성량을 종합해 0~100점으로 채점하세요. 노래방 점수처럼 후하게(평균이면 75~85, 잘 부르면 90+), " +
                 "대신 곡마다 차이가 나게 정밀하게 주세요. 한국어 한 줄 코멘트도 함께. " +
-                "JSON만 출력: {\"score\": 정수, \"comment\": \"한 줄\"}"
-            val body = """{"contents":[{"parts":[{"inline_data":{"mime_type":"audio/wav","data":"$b64"}},{"text":${Gson().toJson(prompt)}}]}],"generationConfig":{"response_mime_type":"application/json","temperature":0.3}}"""
+                "다른 말 없이 JSON만 출력: {\"score\": 정수, \"comment\": \"한 줄\"}"
+            // 차에서 검증된 VoiceSearch 페이로드 구조 그대로(JSONObject, text 먼저).
+            val payload = JSONObject().put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put(
+                        "parts",
+                        JSONArray()
+                            .put(JSONObject().put("text", prompt))
+                            .put(
+                                JSONObject().put(
+                                    "inline_data",
+                                    JSONObject().put("mime_type", "audio/wav").put("data", b64),
+                                ),
+                            ),
+                    ),
+                ),
+            ).toString()
             val models = VoiceSearch.MODELS[settings.geminiModel] ?: VoiceSearch.MODELS.getValue("flash")
 
+            val t0 = android.os.SystemClock.elapsedRealtime()
+            var err = ""
             for (model in models) {
                 var modelMissing = false
                 for (key in keys) {
                     if (modelMissing) break
-                    val res = runCatching { call(model, key, body) }.getOrNull() ?: continue
-                    when {
-                        res.first == 200 -> parse(res.second)?.let { return@withContext it }
-                        res.first == 404 -> modelMissing = true          // 이 계정에 없는 모델 → 다음 모델
-                        res.first == 429 -> {}                            // 한도 → 다음 키
-                        else -> Log.i(TAG, "$model http=${res.first}")
+                    if (android.os.SystemClock.elapsedRealtime() - t0 > BUDGET_MS) {
+                        lastError = err.ifEmpty { "시간 초과(네트워크 느림)" }
+                        return@withContext null
+                    }
+                    val attempt = runCatching { call(model, key, payload) }
+                    val res = attempt.getOrNull()
+                    if (res == null) {
+                        val e = attempt.exceptionOrNull()
+                        err = "${e?.javaClass?.simpleName}: ${e?.message?.take(80)}"
+                        Log.w(TAG, "$model $err")
+                        continue
+                    }
+                    when (res.first) {
+                        200 -> {
+                            parse(res.second)?.let { return@withContext it }
+                            err = "응답 파싱 실패: ${res.second.take(120)}"
+                            Log.w(TAG, err)
+                        }
+                        404 -> modelMissing = true
+                        429 -> err = "한도 초과(429)"
+                        else -> {
+                            err = "http=${res.first} ${res.second.take(120)}"
+                            Log.w(TAG, "$model $err")
+                        }
                     }
                 }
             }
+            lastError = err.ifEmpty { "알 수 없는 실패" }
             null
         }
 
@@ -58,8 +107,8 @@ object AiScorer {
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
             doOutput = true
-            connectTimeout = 10_000
-            readTimeout = 60_000
+            connectTimeout = 8_000
+            readTimeout = 25_000
         }
         conn.outputStream.use { it.write(body.toByteArray()) }
         val code = conn.responseCode
@@ -72,31 +121,41 @@ object AiScorer {
 
     private fun parse(body: String): AiScore? = runCatching {
         val root = Gson().fromJson(body, JsonObject::class.java)
-        val text = root.getAsJsonArray("candidates").get(0).asJsonObject
+        var text = root.getAsJsonArray("candidates").get(0).asJsonObject
             .getAsJsonObject("content").getAsJsonArray("parts").get(0).asJsonObject
-            .get("text").asString
+            .get("text").asString.trim()
+        // 모델이 ```json 펜스나 부연을 붙여도 첫 { .. 마지막 } 만 취해 파싱
+        val s = text.indexOf('{'); val e = text.lastIndexOf('}')
+        if (s >= 0 && e > s) text = text.substring(s, e + 1)
         val j = Gson().fromJson(text, JsonObject::class.java)
         val score = j.get("score").asInt.coerceIn(0, 100)
         val comment = j.get("comment")?.asString.orEmpty().take(120)
         AiScore(score, comment)
     }.getOrNull()
 
-    /** 중간 90초 발췌(전주 회피: 15초 이후부터) → 16bit PCM mono WAV. */
+    /** 중간 60초 발췌(전주 회피: 15초 이후부터) → 16kHz 다운샘플 → 16bit PCM mono WAV. */
     private fun excerptWav(samples: FloatArray, sampleRate: Int): ByteArray {
         val maxN = EXCERPT_SEC * sampleRate
         val start = if (samples.size > maxN + 15 * sampleRate) 15 * sampleRate
         else ((samples.size - maxN) / 2).coerceAtLeast(0)
         val n = minOf(maxN, samples.size - start)
-        val out = ByteArrayOutputStream(44 + n * 2)
+        // 선형 보간 다운샘플(음질보다 크기·업로드 속도가 중요)
+        val outN = (n.toLong() * TARGET_RATE / sampleRate).toInt().coerceAtLeast(1)
+        val out = ByteArrayOutputStream(44 + outN * 2)
         fun le16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
         fun le32(v: Int) { le16(v and 0xFFFF); le16((v ushr 16) and 0xFFFF) }
-        out.write("RIFF".toByteArray()); le32(36 + n * 2); out.write("WAVE".toByteArray())
+        out.write("RIFF".toByteArray()); le32(36 + outN * 2); out.write("WAVE".toByteArray())
         out.write("fmt ".toByteArray()); le32(16); le16(1); le16(1)
-        le32(sampleRate); le32(sampleRate * 2); le16(2); le16(16)
-        out.write("data".toByteArray()); le32(n * 2)
-        for (i in start until start + n) {
-            val v = (samples[i].coerceIn(-1f, 1f) * 32767).toInt()
-            le16(v and 0xFFFF)
+        le32(TARGET_RATE); le32(TARGET_RATE * 2); le16(2); le16(16)
+        out.write("data".toByteArray()); le32(outN * 2)
+        val step = sampleRate.toDouble() / TARGET_RATE
+        for (i in 0 until outN) {
+            val pos = start + i * step
+            val i0 = pos.toInt().coerceIn(0, samples.size - 1)
+            val i1 = (i0 + 1).coerceAtMost(samples.size - 1)
+            val frac = (pos - i0).toFloat()
+            val v = samples[i0] * (1 - frac) + samples[i1] * frac
+            le16(((v.coerceIn(-1f, 1f)) * 32767).toInt() and 0xFFFF)
         }
         return out.toByteArray()
     }

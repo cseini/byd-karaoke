@@ -270,10 +270,15 @@ class EmbeddedPlayer(
             ) {
                 statusView.text = "🤖 AI 채점 중…"
                 val ai = AiScorer.score(settings, voicePair.first, voicePair.second)
-                if (ai != null) {
-                    result = result.copy(
+                result = if (ai != null) {
+                    result.copy(
                         total = ai.total,
                         breakdown = "🤖 AI 심사평: “${ai.comment}”\n\n" + result.breakdown,
+                    )
+                } else {
+                    // 실패 사유를 화면에 남겨 원인 제보가 가능하게(기본 채점은 그대로 사용)
+                    result.copy(
+                        breakdown = "🤖 AI 채점 실패 → 기본 채점 사용\n(${AiScorer.lastError ?: "?"})\n\n" + result.breakdown,
                     )
                 }
             }
