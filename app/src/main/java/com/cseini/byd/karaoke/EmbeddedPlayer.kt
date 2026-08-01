@@ -32,7 +32,6 @@ import com.cseini.byd.karaoke.player.StreamPlayer
 import com.cseini.byd.karaoke.scoring.AiScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -259,33 +258,35 @@ class EmbeddedPlayer(
             val voicePair = withContext(Dispatchers.Default) {
                 runCatching { rec!!.voiceForScoring() }.getOrNull()
             }
-            // AI 채점은 로컬 채점(DSP)과 병렬로 — 완료 시각 = 둘 중 늦은 쪽(직렬이던 v4.24~25보다 빠름)
+            // AI 채점이 켜져 있으면 항목별 점수·총점·심사평을 전부 AI가 낸다(앱 자체 DSP 채점은 안 돌림).
+            // AI 실패 시에만 기본 채점으로 폴백(사유 표시).
             val useAi = settings.aiScoring && settings.geminiApiKeys().isNotEmpty() && voicePair != null
-            if (useAi) statusView.text = "🤖 AI 채점 중…"
-            val aiJob = if (useAi) activity.lifecycleScope.async(Dispatchers.IO) {
-                runCatching { AiScorer.score(settings, voicePair!!.first, voicePair.second) }.getOrNull()
-            } else null
-            var result = withContext(Dispatchers.Default) {
-                runCatching {
-                    val accomp = rec!!.accompForScoring()
-                    ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
-                }.getOrNull()
-            }
-            val ai = aiJob?.await()
-            if (result != null && useAi) {
-                result = if (ai != null) {
-                    // 상단 점수=AI. 상세의 로컬 총점 줄은 빼고 '참고' 라벨을 달아 숫자가 안 헷갈리게.
-                    val local = result
-                    val ref = local.breakdown.lines()
-                        .let { if (it.firstOrNull()?.startsWith("총점") == true) it.drop(1) else it }
-                        .joinToString("\n")
-                    local.copy(
+            var result: ScoringEngine.Score? = null
+            if (useAi) {
+                statusView.text = "🤖 AI 채점 중…"
+                val ai = withContext(Dispatchers.IO) {
+                    runCatching { AiScorer.score(settings, voicePair!!.first, voicePair.second) }.getOrNull()
+                }
+                if (ai != null) {
+                    result = ScoringEngine.Score(
                         total = ai.total,
-                        breakdown = "🤖 AI 심사평: “${ai.comment}”\n\n[참고] 앱 자체 채점 ${local.total}점\n$ref",
+                        pitchAccuracy = ai.pitch, pitchStability = ai.stability,
+                        beatConsistency = ai.beat, volumeDynamics = ai.volume, vibratoReach = ai.vibrato,
+                        voicedPct = 0, medianF0 = 0f,
+                        breakdown = ai.breakdownText(),
                     )
-                } else {
-                    // 실패 사유를 화면에 남겨 원인 제보가 가능하게(기본 채점은 그대로 사용)
-                    result.copy(
+                }
+            }
+            if (result == null) {
+                result = withContext(Dispatchers.Default) {
+                    runCatching {
+                        val accomp = rec!!.accompForScoring()
+                        ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
+                    }.getOrNull()
+                }
+                // AI를 쓰려다 실패한 경우엔 사유를 남겨 제보가 가능하게
+                if (useAi && result != null) {
+                    result = result.copy(
                         breakdown = "🤖 AI 채점 실패 → 기본 채점 사용\n(${AiScorer.lastError ?: "?"})\n\n" + result.breakdown,
                     )
                 }
