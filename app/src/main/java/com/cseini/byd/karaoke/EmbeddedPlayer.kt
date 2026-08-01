@@ -32,6 +32,7 @@ import com.cseini.byd.karaoke.player.StreamPlayer
 import com.cseini.byd.karaoke.scoring.AiScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -258,22 +259,29 @@ class EmbeddedPlayer(
             val voicePair = withContext(Dispatchers.Default) {
                 runCatching { rec!!.voiceForScoring() }.getOrNull()
             }
+            // AI 채점은 로컬 채점(DSP)과 병렬로 — 완료 시각 = 둘 중 늦은 쪽(직렬이던 v4.24~25보다 빠름)
+            val useAi = settings.aiScoring && settings.geminiApiKeys().isNotEmpty() && voicePair != null
+            if (useAi) statusView.text = "🤖 AI 채점 중…"
+            val aiJob = if (useAi) activity.lifecycleScope.async(Dispatchers.IO) {
+                runCatching { AiScorer.score(settings, voicePair!!.first, voicePair.second) }.getOrNull()
+            } else null
             var result = withContext(Dispatchers.Default) {
                 runCatching {
                     val accomp = rec!!.accompForScoring()
                     ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
                 }.getOrNull()
             }
-            // 옵션: Gemini AI 채점 — 성공하면 점수·코멘트를 채택, 실패하면 기본 채점 그대로.
-            if (result != null && voicePair != null &&
-                settings.aiScoring && settings.geminiApiKeys().isNotEmpty()
-            ) {
-                statusView.text = "🤖 AI 채점 중…"
-                val ai = AiScorer.score(settings, voicePair.first, voicePair.second)
+            val ai = aiJob?.await()
+            if (result != null && useAi) {
                 result = if (ai != null) {
-                    result.copy(
+                    // 상단 점수=AI. 상세의 로컬 총점 줄은 빼고 '참고' 라벨을 달아 숫자가 안 헷갈리게.
+                    val local = result
+                    val ref = local.breakdown.lines()
+                        .let { if (it.firstOrNull()?.startsWith("총점") == true) it.drop(1) else it }
+                        .joinToString("\n")
+                    local.copy(
                         total = ai.total,
-                        breakdown = "🤖 AI 심사평: “${ai.comment}”\n\n" + result.breakdown,
+                        breakdown = "🤖 AI 심사평: “${ai.comment}”\n\n[참고] 앱 자체 채점 ${local.total}점\n$ref",
                     )
                 } else {
                     // 실패 사유를 화면에 남겨 원인 제보가 가능하게(기본 채점은 그대로 사용)
