@@ -560,12 +560,12 @@
                     android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
 
                 <CheckBox
-                    android:id="@+id/chk_ai_scoring"
+                    android:id="@+id/chk_melody_scoring"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:textColor="@color/tj_text_primary"
-                    android:text="🤖 AI 채점 (Gemini가 듣고 점수 + 한 줄 심사평)" />
+                    android:text="🎼 멜로디 대조 채점 (반주 멜로디와 직접 비교)" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -573,7 +573,7 @@
                     android:textSize="11sp"
                     android:textColor="@color/tj_text_hint"
                     android:paddingStart="8dp"
-                    android:text="⚠️ 음성 검색과 같은 Gemini 무료 한도를 씁니다(모델당 하루 20회 수준). 노래를 많이 부르면 한도가 금방 소진돼 음성 검색까지 안 될 수 있어요. 실패하거나 한도가 차면 자동으로 기본 채점을 씁니다." />
+                    android:text="반주에서 가이드 멜로디를 추출해 내 음정·박자를 직접 비교합니다(TV 노래방식). 안 부르면 낮은 점수가 나와요. 가이드 멜로디가 없는 반주 영상에선 자동으로 기본 채점을 씁니다." />
 
                 <TextView
                     android:layout_width="wrap_content"

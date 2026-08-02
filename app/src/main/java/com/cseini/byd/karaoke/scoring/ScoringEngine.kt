@@ -153,7 +153,7 @@ object ScoringEngine {
     }
 
     // ── 음량 다이나믹스: 적당한 변화 보상 + 클리핑 페널티 ──
-    private fun volumeDynamicsFraction(frames: List<SignalAnalysis.Frame>): Double {
+    internal fun volumeDynamicsFraction(frames: List<SignalAnalysis.Frame>): Double {
         val voicedDb = frames.filter { it.voiced }.map { it.rmsDb.toDouble() }
         if (voicedDb.size < 5) return 0.4
         val mean = voicedDb.average()
@@ -169,7 +169,7 @@ object ScoringEngine {
     }
 
     // ── 고음 도달(0.5) + 비브라토(0.5) ──
-    private fun vibratoReachFraction(voiced: List<SignalAnalysis.Frame>): Double {
+    internal fun vibratoReachFraction(voiced: List<SignalAnalysis.Frame>): Double {
         val f0s = voiced.map { it.f0 }
         val reach = f0s.count { it > 150f }.toDouble() / f0s.size.coerceAtLeast(1)
         val vibrato = vibratoPresence(voiced)

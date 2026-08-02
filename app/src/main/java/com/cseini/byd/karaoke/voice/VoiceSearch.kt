@@ -51,7 +51,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             "gemini-flash-lite-latest", "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
         )
-        internal val MODELS = mapOf(
+        private val MODELS = mapOf(
             "flash" to (FLASH + LITE),
             "flash-lite" to (LITE + FLASH),
         )

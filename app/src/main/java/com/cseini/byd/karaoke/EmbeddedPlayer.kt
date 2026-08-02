@@ -29,7 +29,7 @@ import com.cseini.byd.karaoke.data.Storage
 import com.cseini.byd.karaoke.player.KaraokePlayer
 import com.cseini.byd.karaoke.player.PlayerCallbacks
 import com.cseini.byd.karaoke.player.StreamPlayer
-import com.cseini.byd.karaoke.scoring.AiScorer
+import com.cseini.byd.karaoke.scoring.MelodyScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -258,38 +258,17 @@ class EmbeddedPlayer(
             val voicePair = withContext(Dispatchers.Default) {
                 runCatching { rec!!.voiceForScoring() }.getOrNull()
             }
-            // AI 채점이 켜져 있으면 항목별 점수·총점·심사평을 전부 AI가 낸다(앱 자체 DSP 채점은 안 돌림).
-            // AI 실패 시에만 기본 채점으로 폴백(사유 표시).
-            val useAi = settings.aiScoring && settings.geminiApiKeys().isNotEmpty() && voicePair != null
-            var result: ScoringEngine.Score? = null
-            if (useAi) {
-                statusView.text = "🤖 AI 채점 중…"
-                val ai = withContext(Dispatchers.IO) {
-                    runCatching { AiScorer.score(settings, voicePair!!.first, voicePair.second) }.getOrNull()
-                }
-                if (ai != null) {
-                    result = ScoringEngine.Score(
-                        total = ai.total,
-                        pitchAccuracy = ai.pitch, pitchStability = ai.stability,
-                        beatConsistency = ai.beat, volumeDynamics = ai.volume, vibratoReach = ai.vibrato,
-                        voicedPct = 0, medianF0 = 0f,
-                        breakdown = ai.breakdownText(),
-                    )
-                }
-            }
-            if (result == null) {
-                result = withContext(Dispatchers.Default) {
-                    runCatching {
-                        val accomp = rec!!.accompForScoring()
+            // 멜로디 대조 채점(기본): 반주에서 추출한 가이드 멜로디와 음정을 직접 비교.
+            // 반주에서 멜로디를 못 뽑거나 옵션이 꺼져 있으면 기존 자체 채점.
+            val result: ScoringEngine.Score? = withContext(Dispatchers.Default) {
+                runCatching {
+                    val accomp = rec!!.accompForScoring()
+                    if (settings.melodyScoring && accomp != null) {
+                        MelodyScorer.score(voicePair!!.first, voicePair.second, accomp.first, accomp.second)
+                    } else {
                         ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
-                    }.getOrNull()
-                }
-                // AI를 쓰려다 실패한 경우엔 사유를 남겨 제보가 가능하게
-                if (useAi && result != null) {
-                    result = result.copy(
-                        breakdown = "🤖 AI 채점 실패 → 기본 채점 사용\n(${AiScorer.lastError ?: "?"})\n\n" + result.breakdown,
-                    )
-                }
+                    }
+                }.getOrNull()
             }
             saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
