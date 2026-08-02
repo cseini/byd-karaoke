@@ -61,16 +61,20 @@ object AiScorer {
             val wav = excerptWav(samples, sampleRate)
             val b64 = Base64.encodeToString(wav, Base64.NO_WRAP)
             Log.i(TAG, "excerpt=${wav.size / 1024}KB b64=${b64.length / 1024}KB")
-            val prompt = "당신은 노래방 심사위원입니다. 첨부 오디오는 사용자가 노래방에서 부른 목소리 트랙입니다(반주 제거됨). " +
-                "다음 5개 항목을 각각 채점하세요: pitch=멜로디 음정(0~30), stability=음정 안정성(0~20), " +
+            val prompt = "당신은 노래방 심사위원입니다. 첨부 오디오는 차량 노래방 마이크 트랙입니다. " +
+                "⚠️ 가장 먼저 판정할 것: 사람이 마이크에 대고 '직접 부른' 목소리가 뚜렷이 있는가? " +
+                "마이크에는 차 스피커에서 새어 들어온 반주·원곡이 작게 섞여 있을 수 있습니다. " +
+                "가까이서 녹음된 생생한 사람 목소리 없이 멀리서 들리는 음악·원곡 가수 소리만 있다면 sang=false 로 하고 " +
+                "모든 항목을 0~3점으로 주세요(comment: \"노래가 감지되지 않았어요. 마이크에 대고 불러주세요!\"). " +
+                "sang=true 인 경우에만 다음 5개 항목을 채점: pitch=멜로디 음정(0~30), stability=음정 안정성(0~20), " +
                 "beat=박자 규칙성(0~25), volume=음량 표현(0~10), vibrato=고음·비브라토(0~15). " +
-                "노래방 점수처럼 후하게 — 평균 실력이면 합계가 75~85, 잘 부르면 90 이상이 되게. " +
-                "대신 곡마다·항목마다 차이가 나게 정밀하게 주세요. " +
+                "노래방 점수처럼 후하게 — 평균 실력이면 합계가 75~85, 잘 부르면 90 이상. " +
+                "대신 곡마다·항목마다 차이가 나게 정밀하게. 원곡 가수처럼 완벽한 스튜디오 음질이면 오히려 의심하고 sang 을 재검토하세요. " +
                 "심사평(comment)은 한국어 25~60자로, 잘한 점 1가지와 보완할 점 1가지를 구체적으로 " +
                 "(예: \"고음 뻗음이 시원해요. 후렴에서 박자가 살짝 밀리니 반주를 더 들어보세요.\"). " +
                 "\"열창!\" 같은 한두 단어 감탄사는 금지. " +
                 "다른 말 없이 JSON만 출력: " +
-                "{\"pitch\": 정수, \"stability\": 정수, \"beat\": 정수, \"volume\": 정수, \"vibrato\": 정수, \"comment\": \"심사평\"}"
+                "{\"sang\": true|false, \"pitch\": 정수, \"stability\": 정수, \"beat\": 정수, \"volume\": 정수, \"vibrato\": 정수, \"comment\": \"심사평\"}"
             // 차에서 검증된 VoiceSearch 페이로드 구조 그대로(JSONObject, text 먼저).
             val payload = JSONObject().put(
                 "contents",
@@ -154,12 +158,15 @@ object AiScorer {
         val s = text.indexOf('{'); val e = text.lastIndexOf('}')
         if (s >= 0 && e > s) text = text.substring(s, e + 1)
         val j = Gson().fromJson(text, JsonObject::class.java)
+        // 직접 부른 목소리가 없다고 판정되면(반주 유출만 녹음) 항목 상한을 강제로 3점으로.
+        val sang = j.get("sang")?.asBoolean ?: true
+        fun cap(v: Int, max: Int) = if (sang) v.coerceIn(0, max) else v.coerceIn(0, 3)
         AiScore(
-            pitch = j.get("pitch").asInt.coerceIn(0, 30),
-            stability = j.get("stability").asInt.coerceIn(0, 20),
-            beat = j.get("beat").asInt.coerceIn(0, 25),
-            volume = j.get("volume").asInt.coerceIn(0, 10),
-            vibrato = j.get("vibrato").asInt.coerceIn(0, 15),
+            pitch = cap(j.get("pitch").asInt, 30),
+            stability = cap(j.get("stability").asInt, 20),
+            beat = cap(j.get("beat").asInt, 25),
+            volume = cap(j.get("volume").asInt, 10),
+            vibrato = cap(j.get("vibrato").asInt, 15),
             comment = j.get("comment")?.asString.orEmpty().take(120),
         )
     }.getOrNull()
