@@ -10,26 +10,43 @@ import kotlin.math.roundToInt
  * 반주(가이드 멜로디)에서 실측 음정 타임라인을 뽑아 '정답'으로 삼고, 마이크 음정을 시간축에서
  * 직접 비교한다(MIDI 불필요, Frank Karaoke 방식 벤치마킹). 옥타브는 무시(남/여 키 차이 허용).
  *
+ * 관용 장치(상용 채점기 벤치마킹):
+ *  · 정답은 '안정 구간'만 사용 — 반주 피치 추적의 잡음 프레임(코드·타악기)을 정답에서 제외
+ *  · 프레임 시차 ±70ms 창에서 최선의 일치를 인정
+ *
  * 배점: 멜로디 일치 40 / 박자 타이밍 25 / 완창률 15 / 음량 표현 10 / 고음·비브라토 10.
  * 치팅 방어: 마이크가 반주 유출(스피커 소리)만 담으면 정답과 '지나치게 완벽'하게 일치
  * (중앙 편차 <12cents & 음량 곡선 상관 >0.9) → 노래 안 부른 것으로 판정.
  */
 object MelodyScorer {
 
-    private const val MATCH_CENTS = 60.0        // 이내면 일치(반음=100)
+    private const val MATCH_CENTS = 70.0        // 이내면 일치(반음=100)
+    private const val MATCH_WIN = 3             // 프레임 시차 관용(±3×23ms ≈ ±70ms)
     private const val LAG_SEARCH_MS = 600       // 전역 정렬 탐색 범위(버퍼 시작 오프셋 흡수)
     private const val LAG_STEP_MS = 25
 
     fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int): ScoringEngine.Score {
         val mic = SignalAnalysis.analyze(voice, voiceRate)
         val ref = SignalAnalysis.analyze(bandpass(accomp, accompRate), accompRate)
-        val hopSec = SignalAnalysis.HOP_MS / 1000.0
 
         val micVoiced = mic.count { it.voiced && it.f0 > 0f }
         if (micVoiced < 8) return noSing("발성이 거의 감지되지 않았습니다. 마이크에 대고 불러주세요!")
 
-        val refVoicedIdx = ref.indices.filter { ref[it].voiced && ref[it].f0 > 0f }
-        if (refVoicedIdx.size < 20) {
+        // 정답 안정 구간: 이웃 프레임과 80cents 이내로 이어지는 유성 프레임만(멜로디 노트).
+        // 코드·타악기·추적 실패로 튀는 프레임을 정답에서 빼 '틀린 정답'과의 비교를 막는다.
+        val stable = BooleanArray(ref.size) { j ->
+            val r = ref[j]
+            if (!r.voiced || r.f0 <= 0f) false
+            else {
+                fun near(k: Int): Boolean {
+                    val o = ref.getOrNull(k) ?: return false
+                    return o.voiced && o.f0 > 0f && centsDev(o.f0, r.f0) <= 80.0
+                }
+                near(j - 1) || near(j + 1)
+            }
+        }
+        val matchable = stable.count { it }
+        if (matchable < 20) {
             // 반주에서 멜로디를 못 뽑으면(가이드 멜로디 없는 영상 등) 기존 방식으로 폴백
             return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(accomp, accompRate))
         }
@@ -41,15 +58,15 @@ object MelodyScorer {
         var bestMatched = -1
         for (s in -lagSteps..lagSteps) {
             val shift = (s * hopPerStep).roundToInt()
-            val m = countMatched(mic, ref, shift).first
+            val m = matchStat(mic, ref, stable, shift).matched
             if (m > bestMatched) { bestMatched = m; bestLag = shift }
         }
-        val (matched, sang, devs) = countMatchedFull(mic, ref, bestLag)
-        val matchable = refVoicedIdx.size
+        val stat = matchStat(mic, ref, stable, bestLag)
+        val (matched, sang, devs) = Triple(stat.matched, stat.sang, stat.devs)
 
         if (sang < 8) return noSing("멜로디 구간에서 목소리가 잡히지 않았어요.")
 
-        // ── 치팅(반주 유출) 판정: 사람은 신디 가이드와 12cents 중앙편차로 계속 일치하지 못한다 ──
+        // ── 치팅(반주 유출) 판정 ──
         val medDev = median(devs)
         val envCorr = envelopeCorr(mic, ref, bestLag)
         if (matched >= 20 && medDev < 12.0 && envCorr > 0.9) {
@@ -57,28 +74,31 @@ object MelodyScorer {
         }
 
         // ── 박자 타이밍: 곡을 8구간으로 나눠 구간별 최적 시차의 흔들림(전역 시차는 무죄) ──
-        val segLags = segmentLags(mic, ref, bestLag)
-        val timingDevMs = if (segLags.size >= 3) {
+        val segLags = segmentLags(mic, ref, stable, bestLag)
+        val timingFraction = if (segLags.size >= 3) {
             val med = median(segLags.map { it.toDouble() })
-            median(segLags.map { abs(it - med) }) * SignalAnalysis.HOP_MS
-        } else 120.0
+            val devMs = median(segLags.map { abs(it - med) }) * SignalAnalysis.HOP_MS
+            (1.0 - devMs / 250.0).coerceIn(0.0, 1.0)
+        } else 0.75   // 짧게 불러 데이터가 부족하면 의심 대신 무난한 점수(부분 가창 배려)
 
         // ── 점수 ──
         val quality = matched.toDouble() / sang
         val coverage = sang.toDouble() / matchable
-        val pitch = (40 * ((quality - 0.15) / 0.55).coerceIn(0.0, 1.0)).roundToInt()
-        val timing = (25 * (1.0 - timingDevMs / 250.0).coerceIn(0.0, 1.0)).roundToInt()
-        val cover = (15 * ((coverage - 0.10) / 0.70).coerceIn(0.0, 1.0)).roundToInt()
+        // 정답 자체가 실측이라 100% 일치는 불가능 — 50% 일치면 만점 취급(관대 곡선)
+        val pitch = (40 * ((quality - 0.10) / 0.40).coerceIn(0.0, 1.0)).roundToInt()
+        val timing = (25 * timingFraction).roundToInt()
+        val cover = (15 * ((coverage - 0.05) / 0.60).coerceIn(0.0, 1.0)).roundToInt()
         val volume = (10 * ScoringEngine.volumeDynamicsFraction(mic)).roundToInt().coerceIn(0, 10)
         val vibrato = (10 * ScoringEngine.vibratoReachFraction(mic.filter { it.voiced && it.f0 > 0f }))
             .roundToInt().coerceIn(0, 10)
         val raw = pitch + timing + cover + volume + vibrato
         val total = (30 + raw * 0.7).roundToInt().coerceIn(30, 100)
 
+        val timingDevMsShown = ((1.0 - timingFraction) * 250).roundToInt()
         val bd = buildString {
             append("총점 ${total}점 — 🎼 멜로디 대조 채점\n")
             append("· 멜로디 일치 $pitch/40 — 반주 멜로디와 음정 일치 ${(quality * 100).roundToInt()}%\n")
-            append("· 박자 타이밍 $timing/25 — 구간 타이밍 편차 ${timingDevMs.roundToInt()}ms\n")
+            append("· 박자 타이밍 $timing/25 — 구간 타이밍 편차 약 ${timingDevMsShown}ms\n")
             append("· 완창률 $cover/15 — 멜로디 구간의 ${(coverage * 100).roundToInt()}% 가창\n")
             append("· 음량 표현 $volume/10\n")
             append("· 고음·비브라토 $vibrato/10\n")
@@ -94,39 +114,37 @@ object MelodyScorer {
 
     private fun noSing(msg: String) = ScoringEngine.Score(10, 0, 0, 0, 0, 0, 0, 0f, "총점 10점\n$msg")
 
-    /** shift(프레임): mic[i] 를 ref[i+shift] 와 비교. 반환: (일치 수, 겹침 수) */
-    private fun countMatched(
-        mic: List<SignalAnalysis.Frame>, ref: List<SignalAnalysis.Frame>, shift: Int,
-    ): Pair<Int, Int> {
-        var matched = 0; var overlap = 0
-        for (i in mic.indices) {
-            val j = i + shift
-            if (j < 0 || j >= ref.size) continue
-            val m = mic[i]; val r = ref[j]
-            if (!m.voiced || m.f0 <= 0f || !r.voiced || r.f0 <= 0f) continue
-            overlap++
-            if (centsDev(m.f0, r.f0) <= MATCH_CENTS) matched++
-        }
-        return matched to overlap
-    }
-
     private data class MatchStat(val matched: Int, val sang: Int, val devs: List<Double>)
 
-    private fun countMatchedFull(
-        mic: List<SignalAnalysis.Frame>, ref: List<SignalAnalysis.Frame>, shift: Int,
+    /**
+     * shift(프레임)로 정렬해 비교. 정답은 안정 구간만, 마이크 프레임은 ±MATCH_WIN 창에서
+     * 가장 가까운 정답과 비교(미세 시차 관용).
+     */
+    private fun matchStat(
+        mic: List<SignalAnalysis.Frame>,
+        ref: List<SignalAnalysis.Frame>,
+        stable: BooleanArray,
+        shift: Int,
     ): MatchStat {
         var matched = 0; var sang = 0
         val devs = ArrayList<Double>()
         for (i in mic.indices) {
             val j = i + shift
             if (j < 0 || j >= ref.size) continue
-            val m = mic[i]; val r = ref[j]
-            if (!r.voiced || r.f0 <= 0f) continue
+            if (!stable[j]) continue
+            val m = mic[i]
             if (!m.voiced || m.f0 <= 0f) continue
             sang++
-            val d = centsDev(m.f0, r.f0)
-            devs.add(d)
-            if (d <= MATCH_CENTS) matched++
+            var best = Double.MAX_VALUE
+            for (w in -MATCH_WIN..MATCH_WIN) {
+                val k = j + w
+                if (k < 0 || k >= ref.size || !stable[k]) continue
+                val d = centsDev(m.f0, ref[k].f0)
+                if (d < best) best = d
+            }
+            if (best == Double.MAX_VALUE) continue
+            devs.add(best)
+            if (best <= MATCH_CENTS) matched++
         }
         return MatchStat(matched, sang, devs)
     }
@@ -138,9 +156,12 @@ object MelodyScorer {
         return abs(folded)
     }
 
-    /** 8구간 각각의 최적 시차(프레임) — 리듬 일관성 판정용. 유성 프레임 부족 구간은 제외. */
+    /** 8구간 각각의 최적 시차(프레임) — 리듬 일관성 판정용. 가창이 적은 구간은 제외. */
     private fun segmentLags(
-        mic: List<SignalAnalysis.Frame>, ref: List<SignalAnalysis.Frame>, globalLag: Int,
+        mic: List<SignalAnalysis.Frame>,
+        ref: List<SignalAnalysis.Frame>,
+        stable: BooleanArray,
+        globalLag: Int,
     ): List<Int> {
         val segN = 8
         val segLen = mic.size / segN
@@ -148,20 +169,20 @@ object MelodyScorer {
         val local = (300 / SignalAnalysis.HOP_MS).roundToInt()   // ±300ms
         val out = ArrayList<Int>()
         for (seg in 0 until segN) {
-            val slice = mic.subList(seg * segLen, (seg + 1) * segLen)
+            val from = seg * segLen
             var best = 0; var bestM = -1
             for (dl in -local..local) {
                 var m = 0
-                for (i in slice.indices) {
-                    val j = seg * segLen + i + globalLag + dl
-                    if (j < 0 || j >= ref.size) continue
-                    val mm = slice[i]; val r = ref[j]
-                    if (!mm.voiced || mm.f0 <= 0f || !r.voiced || r.f0 <= 0f) continue
-                    if (centsDev(mm.f0, r.f0) <= MATCH_CENTS) m++
+                for (i in 0 until segLen) {
+                    val j = from + i + globalLag + dl
+                    if (j < 0 || j >= ref.size || !stable[j]) continue
+                    val mm = mic[from + i]
+                    if (!mm.voiced || mm.f0 <= 0f) continue
+                    if (centsDev(mm.f0, ref[j].f0) <= MATCH_CENTS) m++
                 }
                 if (m > bestM) { bestM = m; best = dl }
             }
-            if (bestM >= 10) out.add(best)   // 그 구간에서 실제로 부른 경우만
+            if (bestM >= 6) out.add(best)   // 그 구간에서 실제로 부른 경우만
         }
         return out
     }
