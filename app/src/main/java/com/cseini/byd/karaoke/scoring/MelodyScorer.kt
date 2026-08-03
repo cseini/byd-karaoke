@@ -26,8 +26,15 @@ object MelodyScorer {
     private const val LAG_STEP_MS = 25
 
     fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int): ScoringEngine.Score {
-        val mic = SignalAnalysis.analyze(voice, voiceRate)
-        val ref = SignalAnalysis.analyze(bandpass(accomp, accompRate), accompRate)
+        // 속도: 피치 분석 비용은 샘플레이트 제곱에 비례 → ~11kHz 로 다운샘플(멜로디 대역엔 충분)
+        // + 목소리/반주 분석을 두 스레드로 병렬.
+        val (vDs, vRate) = decimate(voice, voiceRate)
+        val (aDs, aRate) = decimate(accomp, accompRate)
+        var micResult: List<SignalAnalysis.Frame>? = null
+        val voiceThread = kotlin.concurrent.thread { micResult = SignalAnalysis.analyze(vDs, vRate) }
+        val ref = SignalAnalysis.analyze(bandpass(aDs, aRate), aRate)
+        voiceThread.join()
+        val mic = micResult ?: return noSing("채점 분석에 실패했습니다.")
 
         val micVoiced = mic.count { it.voiced && it.f0 > 0f }
         if (micVoiced < 8) return noSing("발성이 거의 감지되지 않았습니다. 마이크에 대고 불러주세요!")
@@ -48,7 +55,7 @@ object MelodyScorer {
         val matchable = stable.count { it }
         if (matchable < 20) {
             // 반주에서 멜로디를 못 뽑으면(가이드 멜로디 없는 영상 등) 기존 방식으로 폴백
-            return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(accomp, accompRate))
+            return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(aDs, aRate))
         }
 
         // ── 전역 정렬: 녹음 버퍼 시작 오프셋·시스템 지연을 흡수하는 최적 시차 탐색 ──
@@ -92,7 +99,9 @@ object MelodyScorer {
         val vibrato = (10 * ScoringEngine.vibratoReachFraction(mic.filter { it.voiced && it.f0 > 0f }))
             .roundToInt().coerceIn(0, 10)
         val raw = pitch + timing + cover + volume + vibrato
-        val total = (30 + raw * 0.7).roundToInt().coerceIn(30, 100)
+        // 주 사용자(아이) 기준 후하게: 웬만큼 부르면 80+, 아주 잘 부르면 100.
+        // raw 55≈81, 65≈89, 80+→100. 변별력은 raw 그대로 살아있다(안 부르면 여전히 10점).
+        val total = (40 + raw * 0.75).roundToInt().coerceIn(40, 100)
 
         val timingDevMsShown = ((1.0 - timingFraction) * 250).roundToInt()
         val bd = buildString {
@@ -245,6 +254,21 @@ object MelodyScorer {
             x2 = x1; x1 = xi; y2 = y1; y1 = y
             x[i] = y.toFloat()
         }
+    }
+
+    /** 정수배 평균 데시메이션(박스 필터) — 피치 추적용으론 충분한 안티앨리어싱. */
+    private fun decimate(x: FloatArray, rate: Int): Pair<FloatArray, Int> {
+        val factor = (rate / 11025).coerceAtLeast(1)
+        if (factor == 1) return x to rate
+        val n = x.size / factor
+        val out = FloatArray(n)
+        for (i in 0 until n) {
+            var s = 0f
+            val base = i * factor
+            for (k in 0 until factor) s += x[base + k]
+            out[i] = s / factor
+        }
+        return out to rate / factor
     }
 
     private fun median(xs: List<Double>): Double {
