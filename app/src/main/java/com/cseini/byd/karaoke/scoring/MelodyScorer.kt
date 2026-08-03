@@ -82,18 +82,25 @@ object MelodyScorer {
 
         // ── 박자 타이밍: 곡을 8구간으로 나눠 구간별 최적 시차의 흔들림(전역 시차는 무죄) ──
         val segLags = segmentLags(mic, ref, stable, bestLag)
-        val timingFraction = if (segLags.size >= 3) {
+        val timingShort = segLags.size < 2
+        val timingFraction = if (!timingShort) {
             val med = median(segLags.map { it.toDouble() })
             val devMs = median(segLags.map { abs(it - med) }) * SignalAnalysis.HOP_MS
             (1.0 - devMs / 250.0).coerceIn(0.0, 1.0)
-        } else 0.65   // 짧게 불러 데이터가 부족하면 중립 점수(부분 가창 배려하되 공짜 고득점은 아님)
+        } else 0.7    // 짧게 불러 데이터가 부족하면 중립 점수(부분 가창 배려하되 공짜 고득점은 아님)
 
         // ── 점수 ──
         val quality = matched.toDouble() / sang
         val coverage = sang.toDouble() / matchable
-        // 정답 자체가 실측이라 100% 일치는 불가능 — 55% 일치면 만점.
-        // 시작점 0.15 는 '아무 음이나 부를 때'의 우연 일치율(≈12~15%) — 그 밑은 0점.
-        val pitch = (40 * ((quality - 0.15) / 0.40).coerceIn(0.0, 1.0)).roundToInt()
+        // 이 곡의 '우연 일치율'을 실측: 일부러 5초 어긋난 정렬로 비교한 일치율 = 아무렇게나 불러도
+        // 나오는 기준선. 정답(반주 추출)에 잡음이 많은 곡일수록 기준선·상한이 함께 낮아져
+        // 정확히 부른 사람이 정답 품질 때문에 손해 보지 않는다.
+        val ctrlShift = bestLag + (5000.0 / SignalAnalysis.HOP_MS).roundToInt()
+        val ctrl = matchStat(mic, ref, stable, ctrlShift)
+        val qRand = if (ctrl.sang >= 20) (ctrl.matched.toDouble() / ctrl.sang).coerceIn(0.05, 0.35) else 0.15
+        val ceiling = minOf(0.50, qRand + 0.30)
+        val skill = ((quality - qRand) / (ceiling - qRand)).coerceIn(0.0, 1.0)
+        val pitch = (40 * skill).roundToInt()
         val timing = (25 * timingFraction).roundToInt()
         val cover = (15 * ((coverage - 0.05) / 0.60).coerceIn(0.0, 1.0)).roundToInt()
         val volume = (10 * ScoringEngine.volumeDynamicsFraction(mic)).roundToInt().coerceIn(0, 10)
@@ -107,8 +114,9 @@ object MelodyScorer {
         val timingDevMsShown = ((1.0 - timingFraction) * 250).roundToInt()
         val bd = buildString {
             append("총점 ${total}점 — 🎼 멜로디 대조 채점\n")
-            append("· 멜로디 일치 $pitch/40 — 반주 멜로디와 음정 일치 ${(quality * 100).roundToInt()}%\n")
-            append("· 박자 타이밍 $timing/25 — 구간 타이밍 편차 약 ${timingDevMsShown}ms\n")
+            append("· 멜로디 일치 $pitch/40 — 일치 ${(quality * 100).roundToInt()}% (이 곡 우연 기준 ${(qRand * 100).roundToInt()}%)\n")
+            if (timingShort) append("· 박자 타이밍 $timing/25 — 가창이 짧아 대략 추정\n")
+            else append("· 박자 타이밍 $timing/25 — 구간 타이밍 편차 약 ${timingDevMsShown}ms\n")
             append("· 완창률 $cover/15 — 멜로디 구간의 ${(coverage * 100).roundToInt()}% 가창\n")
             append("· 음량 표현 $volume/10\n")
             append("· 고음·비브라토 $vibrato/10\n")
