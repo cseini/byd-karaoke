@@ -86,13 +86,14 @@ object MelodyScorer {
             val med = median(segLags.map { it.toDouble() })
             val devMs = median(segLags.map { abs(it - med) }) * SignalAnalysis.HOP_MS
             (1.0 - devMs / 250.0).coerceIn(0.0, 1.0)
-        } else 0.75   // 짧게 불러 데이터가 부족하면 의심 대신 무난한 점수(부분 가창 배려)
+        } else 0.65   // 짧게 불러 데이터가 부족하면 중립 점수(부분 가창 배려하되 공짜 고득점은 아님)
 
         // ── 점수 ──
         val quality = matched.toDouble() / sang
         val coverage = sang.toDouble() / matchable
-        // 정답 자체가 실측이라 100% 일치는 불가능 — 50% 일치면 만점 취급(관대 곡선)
-        val pitch = (40 * ((quality - 0.10) / 0.40).coerceIn(0.0, 1.0)).roundToInt()
+        // 정답 자체가 실측이라 100% 일치는 불가능 — 55% 일치면 만점.
+        // 시작점 0.15 는 '아무 음이나 부를 때'의 우연 일치율(≈12~15%) — 그 밑은 0점.
+        val pitch = (40 * ((quality - 0.15) / 0.40).coerceIn(0.0, 1.0)).roundToInt()
         val timing = (25 * timingFraction).roundToInt()
         val cover = (15 * ((coverage - 0.05) / 0.60).coerceIn(0.0, 1.0)).roundToInt()
         val volume = (10 * ScoringEngine.volumeDynamicsFraction(mic)).roundToInt().coerceIn(0, 10)
@@ -144,14 +145,17 @@ object MelodyScorer {
             val m = mic[i]
             if (!m.voiced || m.f0 <= 0f) continue
             sang++
-            var best = Double.MAX_VALUE
+            // 시차 관용은 '같은 노트 안'에서만 — 창 안의 다른 노트와 비교하면
+            // 아무 음이나 불러도 우연 일치가 폭증한다(v4.30~4.31 과잉 관용 버그).
+            val anchor = ref[j].f0
+            var best = centsDev(m.f0, anchor)
             for (w in -MATCH_WIN..MATCH_WIN) {
                 val k = j + w
-                if (k < 0 || k >= ref.size || !stable[k]) continue
+                if (w == 0 || k < 0 || k >= ref.size || !stable[k]) continue
+                if (centsDev(ref[k].f0, anchor) > 50.0) continue   // 같은 노트만
                 val d = centsDev(m.f0, ref[k].f0)
                 if (d < best) best = d
             }
-            if (best == Double.MAX_VALUE) continue
             devs.add(best)
             if (best <= MATCH_CENTS) matched++
         }
