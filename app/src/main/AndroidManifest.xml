@@ -95,6 +95,12 @@
             </intent-filter>
         </service>
 
+        <!-- 재생 중 프로세스 보호(백그라운드 전환 시에도 반주·녹음 유지) -->
+        <service
+            android:name=".media.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
         <!-- OTA 설치 완료 시 앱 자동 재시작 -->
         <receiver
             android:name=".update.RestartReceiver"

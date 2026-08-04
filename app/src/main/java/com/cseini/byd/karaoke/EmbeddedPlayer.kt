@@ -195,6 +195,8 @@ class EmbeddedPlayer(
         applyTune()
         // 옵션: 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제)
         if (settings.startFullscreen && !fullscreen) toggleFullscreen()
+        // 백그라운드(다른 앱) 전환에도 반주·녹음이 살아있게 재생 동안 포그라운드 서비스 유지
+        com.cseini.byd.karaoke.media.KeepAliveService.start(activity)
         player?.load(videoId)
     }
 
@@ -590,6 +592,7 @@ class EmbeddedPlayer(
         scoreOverlay.visibility = View.GONE
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
+        com.cseini.byd.karaoke.media.KeepAliveService.stop(activity)
         onClose()
     }
 }
