@@ -765,6 +765,9 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         cancelAutoPlay()
         voice.stop()
         usbMic?.stop()
+        // 액티비티가 재생성(구성 변경·메모리 회수)될 때 플레이어가 유출되면
+        // 화면은 초기화됐는데 소리만 계속 나고, 재시작 시 노래가 겹친다.
+        runCatching { embeddedPlayer?.close() }
         super.onDestroy()
     }
 
