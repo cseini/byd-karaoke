@@ -171,7 +171,7 @@ object MelodyScorer {
         )
     }
 
-    private fun noSing(msg: String) = ScoringEngine.Score(10, 0, 0, 0, 0, 0, 0, 0f, "총점 10점\n$msg")
+    private fun noSing(msg: String) = ScoringEngine.Score(0, 0, 0, 0, 0, 0, 0, 0f, "총점 0점\n$msg")
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의
     //    하모닉 스펙트럼 합이 최대인 후보. 중앙값 대비 3배 이상 두드러질 때만 채택. ──
@@ -292,9 +292,10 @@ object MelodyScorer {
         return FloatArray(x.size) { (x[it] * gain).coerceIn(-1f, 1f) }
     }
 
-    /** 정수배 평균 데시메이션(박스 필터). */
+    /** 평균 데시메이션(박스 필터) — 결과 레이트 ≤12kHz 가 되게 올림 배수 선택.
+     *  (기존 정수 내림은 16kHz 녹음을 그대로 분석해 채점이 수 배 느렸다) */
     private fun decimate(x: FloatArray, rate: Int): Pair<FloatArray, Int> {
-        val factor = (rate / 11025).coerceAtLeast(1)
+        val factor = Math.ceil(rate / 12000.0).toInt().coerceAtLeast(1)
         if (factor == 1) return x to rate
         val n = x.size / factor
         val out = FloatArray(n)

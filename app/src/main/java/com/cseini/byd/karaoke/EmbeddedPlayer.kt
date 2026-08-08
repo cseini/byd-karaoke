@@ -255,7 +255,16 @@ class EmbeddedPlayer(
             scheduleAfterSong()
             return
         }
-        statusView.text = "채점 중…"
+        // 채점 동안 화면이 멈춘 듯 보이지 않게 진행 표시(점 애니메이션)
+        var scoringDots = 0
+        val scoringTicker = object : Runnable {
+            override fun run() {
+                statusView.text = "🎯 채점 중" + ".".repeat(1 + scoringDots % 3)
+                scoringDots++
+                ui.postDelayed(this, 400)
+            }
+        }
+        ui.post(scoringTicker)
         activity.lifecycleScope.launch {
             val voicePair = withContext(Dispatchers.Default) {
                 runCatching { rec!!.voiceForScoring() }.getOrNull()
@@ -275,6 +284,7 @@ class EmbeddedPlayer(
                     }
                 }.getOrNull()
             }
+            ui.removeCallbacks(scoringTicker)
             saveRecording(file, result?.total ?: -1)
             result?.let { playHistory.setScore(currentVideoId, it.total) }
             if (result == null) {
