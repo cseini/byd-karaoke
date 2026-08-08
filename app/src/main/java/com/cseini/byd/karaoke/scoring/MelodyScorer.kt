@@ -22,9 +22,9 @@ import kotlin.math.roundToInt
 object MelodyScorer {
 
     private const val NOTE_MATCH_CENTS = 100.0   // 노트 단위 일치 허용(반음)
-    private const val BAND_SEC = 2.0             // DTW 시간 밴드
-    private const val LAG_SEARCH_MS = 600        // 전역 오프셋(버퍼 시작 차이) 탐색
-    private const val LAG_STEP_MS = 25
+    private const val BAND_SEC = 0.8             // DTW 시간 밴드(넓으면 아무 음이나 체리피킹됨)
+    private const val LAG_SEARCH_MS = 3000       // 전역 오프셋(버퍼 시작 차이) 탐색
+    private const val LAG_STEP_MS = 50
 
     private data class Note(val t: Double, val dur: Double, val cents: Double)
 
@@ -55,9 +55,10 @@ object MelodyScorer {
             }
         }
 
-        // 노트열 추출
+        // 노트열 추출(목소리는 중앙값 스무딩으로 옥타브 튐·흔들림 완화)
         val refNotes = extractNotes(ref) { j -> stable[j] }
-        val micNotes = extractNotes(mic) { j -> mic[j].voiced && mic[j].f0 > 0f }
+        val micSm = medianSmooth(mic)
+        val micNotes = extractNotes(micSm) { j -> micSm[j].voiced && micSm[j].f0 > 0f }
         if (refNotes.size < 10) {
             // 가이드 멜로디를 못 뽑는 영상 → 기존 자체 채점 폴백
             return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(aDs, aRate))
@@ -67,23 +68,27 @@ object MelodyScorer {
         // 전역 시간 오프셋(녹음 버퍼 시작 차이) — 프레임 유성 겹침이 최대가 되는 시차
         val offset = globalOffsetSec(mic, ref, stable)
 
-        // DTW 노트 매칭 (본판정 + 10초 어긋난 대조=우연 기준)
+        // DTW 노트 매칭. 우연 기준은 '음정만 섞은' 대조 — 같은 타이밍·음역에서 순서만 무작위.
         val real = dtwMatch(micNotes, refNotes, offset)
-        val ctrlShift = if (micNotes.last().t + offset + 10.0 < refNotes.last().t) 10.0 else -10.0
-        val ctrl = dtwMatch(micNotes, refNotes, offset + ctrlShift)
+        val shuffled = micNotes.map { it.cents }.shuffled(kotlin.random.Random(1234))
+        val ctrlNotes = micNotes.mapIndexed { i, n -> n.copy(cents = shuffled[i]) }
+        val ctrl = dtwMatch(ctrlNotes, refNotes, offset)
 
-        val q = real.matchedPairs.size.toDouble() / micNotes.size
-        val qRand = (ctrl.matchedPairs.size.toDouble() / micNotes.size).coerceIn(0.02, 0.5)
+        // 일치 '개수'가 아니라 정확도 가중(딱 맞으면 1, 100cents 경계면 0) — 우연 일치는 반토막 난다
+        fun weighted(r: DtwResult) = r.matchedPairs.sumOf { 1.0 - it.dev / NOTE_MATCH_CENTS } / micNotes.size
+        val q = weighted(real)
+        val qRand = weighted(ctrl).coerceIn(0.02, 0.5)
+        val qCount = real.matchedPairs.size.toDouble() / micNotes.size
 
         // 반주 유출(치팅) 적발: 노트가 거의 전부·초정밀로 맞고 음량 곡선까지 반주와 겹침
         val devMed = median(real.matchedPairs.map { it.dev })
         val envCorr = envelopeCorr(mic, ref, (offset / (SignalAnalysis.HOP_MS / 1000.0)).roundToInt())
-        if (q > 0.6 && devMed < 15.0 && envCorr > 0.9) {
+        if (qCount > 0.6 && devMed < 15.0 && envCorr > 0.9) {
             return noSing("노래가 감지되지 않았어요(반주 소리만 녹음됨). 마이크에 대고 불러주세요!")
         }
 
         // ── 멜로디 40: 우연 기준선 대비 실력 환산 ──
-        val ceiling = minOf(0.90, qRand + 0.55)
+        val ceiling = minOf(0.85, qRand + 0.45)
         val skill = ((q - qRand) / (ceiling - qRand)).coerceIn(0.0, 1.0)
         val pitch = (40 * skill).roundToInt()
 
@@ -93,7 +98,7 @@ object MelodyScorer {
         val timingFraction = if (!timingShort) {
             val med = median(offs)
             val jitterMs = median(offs.map { abs(it - med) }) * 1000.0
-            (1.0 - jitterMs / 300.0).coerceIn(0.0, 1.0)
+            (1.0 - jitterMs / 350.0).coerceIn(0.0, 1.0)
         } else 0.7
         val timing = (25 * timingFraction).roundToInt()
 
@@ -101,7 +106,12 @@ object MelodyScorer {
         val coverage = real.matchedRefCount.toDouble() / refNotes.size
         val cover = (15 * ((coverage - 0.05) / 0.55).coerceIn(0.0, 1.0)).roundToInt()
 
-        val volume = (10 * ScoringEngine.volumeDynamicsFraction(mic)).roundToInt().coerceIn(0, 10)
+        // 크게 자신있게 부르면 점수 — 성량(60%) + 강약 표현(40%)
+        val voicedDb = mic.filter { it.voiced }.map { it.rmsDb.toDouble() }
+        val loudness = if (voicedDb.isEmpty()) 0.0
+        else ((median(voicedDb) + 35.0) / 23.0).coerceIn(0.0, 1.0)   // -35dB→0, -12dB→1
+        val volume = (10 * (0.6 * loudness + 0.4 * ScoringEngine.volumeDynamicsFraction(mic)))
+            .roundToInt().coerceIn(0, 10)
         val vibrato = (10 * ScoringEngine.vibratoReachFraction(mic.filter { it.voiced && it.f0 > 0f }))
             .roundToInt().coerceIn(0, 10)
 
@@ -134,7 +144,21 @@ object MelodyScorer {
 
     private fun noSing(msg: String) = ScoringEngine.Score(10, 0, 0, 0, 0, 0, 0, 0f, "총점 10점\n$msg")
 
-    // ── 노트 추출: 연속(90cents 이내)으로 이어지는 유성 구간(≥3프레임 ≈ 70ms)을 한 노트로 ──
+    /** 유성 프레임 f0 에 3점 중앙값 필터 — 옥타브 튐·순간 흔들림 제거(아이 목소리 대응). */
+    private fun medianSmooth(frames: List<SignalAnalysis.Frame>): List<SignalAnalysis.Frame> =
+        frames.mapIndexed { i, fr ->
+            if (!fr.voiced || fr.f0 <= 0f) fr
+            else {
+                val c = ArrayList<Float>(3)
+                for (k in i - 1..i + 1) {
+                    val o = frames.getOrNull(k) ?: continue
+                    if (o.voiced && o.f0 > 0f) c.add(o.f0)
+                }
+                if (c.size < 2) fr else fr.copy(f0 = c.sorted()[c.size / 2])
+            }
+        }
+
+    // ── 노트 추출: 연속(120cents 이내)으로 이어지는 유성 구간(≥3프레임 ≈ 70ms)을 한 노트로 ──
     private fun extractNotes(frames: List<SignalAnalysis.Frame>, ok: (Int) -> Boolean): List<Note> {
         val hop = SignalAnalysis.HOP_MS / 1000.0
         val notes = ArrayList<Note>()
@@ -150,7 +174,7 @@ object MelodyScorer {
             if (ok(i)) {
                 val c = rawCents(frames[i].f0)
                 if (startIdx < 0) { startIdx = i; cur.add(c) }
-                else if (abs(c - median(cur)) <= 90.0) cur.add(c)
+                else if (abs(c - median(cur)) <= 120.0) cur.add(c)
                 else { flush(i); startIdx = i; cur.add(c) }
             } else flush(i)
         }
