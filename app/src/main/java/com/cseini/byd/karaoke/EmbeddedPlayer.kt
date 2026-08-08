@@ -266,7 +266,10 @@ class EmbeddedPlayer(
                 runCatching {
                     val accomp = rec!!.accompForScoring()
                     if (settings.melodyScoring && accomp != null) {
-                        MelodyScorer.score(voicePair!!.first, voicePair.second, accomp.first, accomp.second)
+                        MelodyScorer.score(
+                            voicePair!!.first, voicePair.second, accomp.first, accomp.second,
+                            debugDir = java.io.File(activity.filesDir, "scoredebug"),
+                        )
                     } else {
                         ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
                     }

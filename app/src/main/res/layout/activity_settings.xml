@@ -492,6 +492,15 @@
                         android:layout_marginStart="8dp"
                         android:textSize="13sp"
                         android:text="🔍 진단" />
+
+                    <Button
+                        android:id="@+id/btn_score_debug"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="13sp"
+                        android:text="🧪 채점 디버그" />
                 </LinearLayout>
 
                 <CheckBox

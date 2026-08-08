@@ -28,10 +28,17 @@ object MelodyScorer {
 
     private data class Note(val t: Double, val dur: Double, val cents: Double)
 
-    fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int): ScoringEngine.Score {
+    fun score(
+        voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int,
+        debugDir: java.io.File? = null,
+    ): ScoringEngine.Score {
         // 속도: 11kHz 다운샘플 + 두 스레드 병렬 분석
-        val (vDs, vRate) = decimate(voice, voiceRate)
+        val (vRaw, vRate) = decimate(voice, voiceRate)
         val (aDs, aRate) = decimate(accomp, accompRate)
+        // 차량 마이크 원음이 작으면 유성 판정(-45dB)을 못 넘어 채점이 통째로 무너진다
+        // → 분석 전 자동 정규화. 성량 점수는 정규화 '전' 원음 크기로 잰다(크게 부르면 보상).
+        val rawLoudDb = activeLevelDb(vRaw)
+        val vDs = normalize(vRaw, rawLoudDb)
         var micResult: List<SignalAnalysis.Frame>? = null
         val voiceThread = kotlin.concurrent.thread { micResult = SignalAnalysis.analyze(vDs, vRate) }
         val ref = SignalAnalysis.analyze(bandpass(aDs, aRate), aRate)
@@ -106,10 +113,8 @@ object MelodyScorer {
         val coverage = real.matchedRefCount.toDouble() / refNotes.size
         val cover = (15 * ((coverage - 0.05) / 0.55).coerceIn(0.0, 1.0)).roundToInt()
 
-        // 크게 자신있게 부르면 점수 — 성량(60%) + 강약 표현(40%)
-        val voicedDb = mic.filter { it.voiced }.map { it.rmsDb.toDouble() }
-        val loudness = if (voicedDb.isEmpty()) 0.0
-        else ((median(voicedDb) + 35.0) / 23.0).coerceIn(0.0, 1.0)   // -35dB→0, -12dB→1
+        // 크게 자신있게 부르면 점수 — 성량(원음 기준 60%) + 강약 표현(40%)
+        val loudness = ((rawLoudDb + 42.0) / 24.0).coerceIn(0.0, 1.0)   // 원음 -42dB→0, -18dB→1
         val volume = (10 * (0.6 * loudness + 0.4 * ScoringEngine.volumeDynamicsFraction(mic)))
             .roundToInt().coerceIn(0, 10)
         val vibrato = (10 * ScoringEngine.vibratoReachFraction(mic.filter { it.voiced && it.f0 > 0f }))
@@ -134,6 +139,22 @@ object MelodyScorer {
             append("· 고음·비브라토 $vibrato/10\n")
             append("(반주 가이드 멜로디와 노트 단위 비교 · 옥타브 차이 허용)")
         }
+        debugDir?.let { dir ->
+            runCatching {
+                dumpDebug(dir, vDs, vRate, aDs, aRate, buildString {
+                    append("v=${'$'}{com.cseini.byd.karaoke.BuildConfig.VERSION_NAME}\n")
+                    append("offset=${'$'}offset s\n")
+                    append("refNotes=${'$'}{refNotes.size} micNotes=${'$'}{micNotes.size}\n")
+                    append("matched=${'$'}{real.matchedPairs.size} q=${'$'}q qRand=${'$'}qRand qCount=${'$'}qCount\n")
+                    append("devMed=${'$'}devMed envCorr=${'$'}envCorr\n")
+                    append("refNotes(t,dur,cents):\n")
+                    refNotes.forEach { n -> append("%.2f,%.2f,%.0f\n".format(n.t, n.dur, n.cents)) }
+                    append("micNotes(t,dur,cents):\n")
+                    micNotes.forEach { n -> append("%.2f,%.2f,%.0f\n".format(n.t, n.dur, n.cents)) }
+                    append("\n").append(bd)
+                })
+            }
+        }
         return ScoringEngine.Score(
             total = total,
             pitchAccuracy = pitch, pitchStability = cover,
@@ -142,7 +163,61 @@ object MelodyScorer {
         )
     }
 
+    /** 마지막 채점의 목소리/반주(11kHz)와 지표를 zip 으로 — 실차 문제를 개발 PC 에서 재현하기 위한 덤프. */
+    private fun dumpDebug(
+        dir: java.io.File, voice: FloatArray, vRate: Int, accomp: FloatArray, aRate: Int, info: String,
+    ) {
+        dir.mkdirs()
+        val zip = java.io.File(dir, "score-debug.zip")
+        java.util.zip.ZipOutputStream(zip.outputStream().buffered()).use { z ->
+            fun putWav(name: String, x: FloatArray, rate: Int) {
+                z.putNextEntry(java.util.zip.ZipEntry(name))
+                z.write(wavBytes(x, rate)); z.closeEntry()
+            }
+            putWav("voice-11k.wav", voice, vRate)
+            putWav("accomp-11k.wav", accomp, aRate)
+            z.putNextEntry(java.util.zip.ZipEntry("debug.txt"))
+            z.write(info.toByteArray()); z.closeEntry()
+        }
+    }
+
+    private fun wavBytes(x: FloatArray, rate: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream(44 + x.size * 2)
+        fun le16(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        fun le32(v: Int) { le16(v and 0xFFFF); le16((v ushr 16) and 0xFFFF) }
+        out.write("RIFF".toByteArray()); le32(36 + x.size * 2); out.write("WAVE".toByteArray())
+        out.write("fmt ".toByteArray()); le32(16); le16(1); le16(1)
+        le32(rate); le32(rate * 2); le16(2); le16(16)
+        out.write("data".toByteArray()); le32(x.size * 2)
+        for (v in x) le16(((v.coerceIn(-1f, 1f)) * 32767).toInt() and 0xFFFF)
+        return out.toByteArray()
+    }
+
     private fun noSing(msg: String) = ScoringEngine.Score(10, 0, 0, 0, 0, 0, 0, 0f, "총점 10점\n$msg")
+
+    /** 46ms 프레임 RMS(dB)의 상위 30% 지점 = 실제 발성 구간의 대표 레벨. */
+    private fun activeLevelDb(x: FloatArray): Double {
+        val frame = 1024
+        val dbs = ArrayList<Double>()
+        var i = 0
+        while (i + frame <= x.size) {
+            var sum = 0.0
+            for (k in i until i + frame) sum += x[k] * x[k]
+            val rms = Math.sqrt(sum / frame)
+            if (rms > 1e-6) dbs.add(20 * Math.log10(rms))
+            i += frame
+        }
+        if (dbs.isEmpty()) return -60.0
+        val sorted = dbs.sorted()
+        return sorted[(sorted.size * 7 / 10).coerceAtMost(sorted.size - 1)]
+    }
+
+    /** 발성 레벨을 -14dB 로 끌어올림(최대 32배) — 작은 차량 마이크 대응. */
+    private fun normalize(x: FloatArray, activeDb: Double): FloatArray {
+        val gain = Math.pow(10.0, (-14.0 - activeDb) / 20.0).coerceIn(1.0, 32.0).toFloat()
+        if (gain <= 1.01f) return x
+        return FloatArray(x.size) { (x[it] * gain).coerceIn(-1f, 1f) }
+    }
 
     /** 유성 프레임 f0 에 3점 중앙값 필터 — 옥타브 튐·순간 흔들림 제거(아이 목소리 대응). */
     private fun medianSmooth(frames: List<SignalAnalysis.Frame>): List<SignalAnalysis.Frame> =

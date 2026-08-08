@@ -120,6 +120,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
+        root.findViewById<Button>(R.id.btn_score_debug).setOnClickListener { shareScoreDebug() }
 
         // 고급 설정 접기/펼치기 — 자주 안 쓰는 항목은 숨겨 화면을 단순하게
         val advanced = root.findViewById<View>(R.id.advanced_section)
@@ -293,6 +294,33 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             tv.text = lines
             scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
         }
+    }
+
+    /** 마지막 채점의 디버그 zip(목소리·반주 11kHz + 지표)을 폰으로 — 채점 문제 제보용. */
+    private var debugShare: com.cseini.byd.karaoke.share.FileShareServer? = null
+    private fun shareScoreDebug() {
+        val zip = java.io.File(activity.filesDir, "scoredebug/score-debug.zip")
+        if (!zip.exists()) {
+            Toast.makeText(activity, "아직 채점 기록이 없습니다. 한 곡 부른 뒤 다시 시도하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        runCatching { debugShare?.stop() }
+        val server = com.cseini.byd.karaoke.share.FileShareServer(zip)
+        server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+        debugShare = server
+        val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_share, null)
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.share_qr),
+            view.findViewById(R.id.share_url),
+            view.findViewById(R.id.share_hint),
+            server.listeningPort,
+        )
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("🧪 채점 디버그 공유")
+            .setView(view)
+            .setPositiveButton("닫기", null)
+            .setOnDismissListener { runCatching { debugShare?.stop() }; debugShare = null }
+            .show()
     }
 
     private fun refreshStorageInfo() {
