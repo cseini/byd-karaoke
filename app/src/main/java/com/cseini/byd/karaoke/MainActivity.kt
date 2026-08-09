@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private val queuePoll = object : Runnable {
         override fun run() {
             refreshHomeQueue()
-            searchDebounce.postDelayed(this, 2500)
+            searchDebounce.postDelayed(this, 5000)
         }
     }
 

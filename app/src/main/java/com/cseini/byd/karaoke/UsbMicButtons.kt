@@ -203,8 +203,9 @@ class UsbMicButtons(
                 if (n <= 0) continue
                 // 버튼별 실제 리포트: 시각 + 전체 hex. 눌러서 잡히는지·계속 유지되는지·자동뗌 여부를 본다.
                 // (같은 리포트 반복은 생략 — 일부 장치는 주기적으로 동일 리포트를 보내 화면을 도배한다)
-                val hex = (0 until n).joinToString(" ") { "%02x".format(buf[it]) }
-                if (hex != lastHex) {
+                val needHex = onRaw != null || onCapture != null
+                val hex = if (needHex) (0 until n).joinToString(" ") { "%02x".format(buf[it]) } else ""
+                if (needHex && hex != lastHex) {
                     lastHex = hex
                     val line = "t=+%.1fs hex=".format((android.os.SystemClock.elapsedRealtime() - t0) / 1000.0) + hex
                     Log.i(TAG, line)

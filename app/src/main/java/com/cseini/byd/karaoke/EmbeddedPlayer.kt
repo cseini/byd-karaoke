@@ -266,17 +266,22 @@ class EmbeddedPlayer(
         }
         ui.post(scoringTicker)
         activity.lifecycleScope.launch {
+            // 채점에 필요한(다운샘플된) 데이터만 뽑고 녹음 버퍼(~50MB)는 즉시 해제
+            var accomp: Pair<FloatArray, Int>? = null
             val voicePair = withContext(Dispatchers.Default) {
-                runCatching { rec!!.voiceForScoring() }.getOrNull()
+                runCatching {
+                    accomp = rec!!.accompForScoring()
+                    rec.voiceForScoring()
+                }.getOrNull()
             }
+            recorder = null
             // 멜로디 대조 채점(기본): 반주에서 추출한 가이드 멜로디와 음정을 직접 비교.
             // 반주에서 멜로디를 못 뽑거나 옵션이 꺼져 있으면 기존 자체 채점.
             val result: ScoringEngine.Score? = withContext(Dispatchers.Default) {
                 runCatching {
-                    val accomp = rec!!.accompForScoring()
                     if (settings.melodyScoring && accomp != null) {
                         MelodyScorer.score(
-                            voicePair!!.first, voicePair.second, accomp.first, accomp.second,
+                            voicePair!!.first, voicePair.second, accomp!!.first, accomp!!.second,
                             debugDir = java.io.File(activity.filesDir, "scoredebug"),
                         )
                     } else {
@@ -407,7 +412,7 @@ class EmbeddedPlayer(
 
     // ── 예약 목록(옆) 갱신 ──
     private val queuePoll = object : Runnable {
-        override fun run() { refreshQueueSide(); ui.postDelayed(this, 2500) }
+        override fun run() { refreshQueueSide(); ui.postDelayed(this, 5000) }
     }
 
     private fun refreshQueueSide() {

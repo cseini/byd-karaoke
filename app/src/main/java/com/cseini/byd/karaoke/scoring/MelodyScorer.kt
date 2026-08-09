@@ -158,9 +158,12 @@ object MelodyScorer {
         }
 
         debugDir?.let { dir ->
-            runCatching {
-                dumpDebug(dir, vDs, vRate, aDs, aRate,
-                    "lag=$bestLag q=$q qRand=$qRand ratio=$ratio overlap=$overlap gate=$gate base=$base\n$bd")
+            // 덤프(zip 압축·수 MB 쓰기)는 결과 표시를 막지 않게 백그라운드로
+            kotlin.concurrent.thread(name = "score-dump") {
+                runCatching {
+                    dumpDebug(dir, vDs, vRate, aDs, aRate,
+                        "lag=$bestLag q=$q qRand=$qRand ratio=$ratio overlap=$overlap gate=$gate base=$base\n$bd")
+                }
             }
         }
         return ScoringEngine.Score(

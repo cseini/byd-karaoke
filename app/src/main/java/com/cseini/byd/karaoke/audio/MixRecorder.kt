@@ -219,19 +219,31 @@ class MixRecorder(
         return outputFile
     }
 
-    /** 채점용 목소리(마이크 원음)를 정규화 float 로. rate 와 함께 반환. */
+    /** 채점용 목소리(마이크 원음). 추출하면서 바로 ≤12kHz 로 다운샘플해 메모리를 아낀다. */
     fun voiceForScoring(): Pair<FloatArray, Int> {
         val nSamp = voiceWrite.coerceAtMost(voiceBuffer.size)
-        val out = FloatArray(nSamp) { voiceBuffer[it] / 32768f }
-        return out to rate
+        return decimateToFloat(voiceBuffer, nSamp, rate)
     }
 
-    /** 반주(모노, accompRate) 를 곡 시작부터. 4초 미만이면 비트 추정 불가 → null. */
+    /** 반주(모노) 를 곡 시작부터, ≤12kHz 다운샘플. 4초 미만이면 비트 추정 불가 → null. */
     fun accompForScoring(): Pair<FloatArray, Int>? {
         val n = accompWrite.get().coerceAtMost(accompBuffer.size)
         if (n < accompRate * 4) return null
-        val out = FloatArray(n) { accompBuffer[it] / 32768f }
-        return out to accompRate
+        return decimateToFloat(accompBuffer, n, accompRate)
+    }
+
+    /** PCM16 → 평균 데시메이션 float. 전체 해상도 float 복사(수십 MB)를 만들지 않는다. */
+    private fun decimateToFloat(src: ShortArray, n: Int, rate: Int): Pair<FloatArray, Int> {
+        val factor = Math.ceil(rate / 12000.0).toInt().coerceAtLeast(1)
+        val outN = n / factor
+        val out = FloatArray(outN)
+        var i = 0
+        for (k in 0 until outN) {
+            var acc = 0
+            for (j in 0 until factor) acc += src[i++]
+            out[k] = acc / (32768f * factor)
+        }
+        return out to rate / factor
     }
 
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
