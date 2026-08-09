@@ -600,6 +600,11 @@ class EmbeddedPlayer(
     }
 
     fun close() {
+        // 튕김 추적: 어떤 경로가 close 를 불렀는지 기록
+        runCatching {
+            val caller = Throwable().stackTrace.drop(1).take(3).joinToString(" < ") { "${it.methodName}:${it.lineNumber}" }
+            CrashLog.event(activity, "player.close < $caller")
+        }
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
         stopMediaPlayer()

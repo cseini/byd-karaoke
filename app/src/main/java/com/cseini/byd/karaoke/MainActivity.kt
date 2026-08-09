@@ -253,6 +253,14 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 튕김(크래시/재생성) 추적: 이전 실행의 비정상 종료 증거가 있으면 표시
+        CrashLog.install(this)
+        CrashLog.takeCrash(this)?.let { showIncidentDialog("⚠ 이전 실행이 크래시로 종료됐어요", it) }
+            ?: CrashLog.takeAbnormalEnd(this)?.let {
+                showIncidentDialog("ℹ 이전 화면이 시스템에 의해 재시작됐었어요", it)
+            }
+        CrashLog.event(this, "onCreate saved=${savedInstanceState != null} cfg=${resources.configuration.uiMode}/${resources.configuration.orientation}")
+
         settings = SettingsStore(this)
         queue = QueueStore(this)
         recordings = RecordingStore(this)
@@ -761,7 +769,29 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         if (settings.wheelButtonControl) enableKeyCatcher()
     }
 
+    /** 튕김 증거(크래시/직전 로그) 표시 — 복사해 제보할 수 있게. */
+    private fun showIncidentDialog(title: String, body: String) {
+        val tv = TextView(this).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 11f
+            setTextIsSelectable(true)
+            setPadding(24, 16, 24, 16)
+            text = body
+        }
+        AlertDialog.Builder(this)
+            .setTitle("$title — 복사해 제보해주세요")
+            .setView(android.widget.ScrollView(this).apply { addView(tv) })
+            .setPositiveButton("복사") { _, _ ->
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("incident", body))
+                toast("복사되었습니다")
+            }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
+
     override fun onDestroy() {
+        CrashLog.event(this, "onDestroy fin=$isFinishing")
         cancelAutoPlay()
         voice.stop()
         usbMic?.stop()
