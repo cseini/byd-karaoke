@@ -279,7 +279,7 @@ class EmbeddedPlayer(
             // 반주에서 멜로디를 못 뽑거나 옵션이 꺼져 있으면 기존 자체 채점.
             val result: ScoringEngine.Score? = withContext(Dispatchers.Default) {
                 runCatching {
-                    if (settings.melodyScoring && accomp != null) {
+                    if (accomp != null) {
                         MelodyScorer.score(
                             voicePair!!.first, voicePair.second, accomp!!.first, accomp!!.second,
                             debugDir = java.io.File(activity.filesDir, "scoredebug"),

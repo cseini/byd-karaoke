@@ -121,11 +121,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("wheel_button_control", false)
         set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
 
-    /** 멜로디 대조 채점 — 반주 가이드 멜로디와 음정 직접 비교(TV 노래방식). 기본 켜짐. */
-    var melodyScoring: Boolean
-        get() = prefs.getBoolean("melody_scoring", true)
-        set(v) = prefs.edit().putBoolean("melody_scoring", v).apply()
-
     /** 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제). 기본 꺼짐. */
     var startFullscreen: Boolean
         get() = prefs.getBoolean("start_fullscreen", false)

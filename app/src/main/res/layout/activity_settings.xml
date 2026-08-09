@@ -568,22 +568,6 @@
                     android:textColor="@color/tj_text_primary"
                     android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
 
-                <CheckBox
-                    android:id="@+id/chk_melody_scoring"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="🎼 멜로디 대조 채점 (반주 멜로디와 직접 비교)" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="11sp"
-                    android:textColor="@color/tj_text_hint"
-                    android:paddingStart="8dp"
-                    android:text="반주에서 가이드 멜로디를 추출해 내 음정·박자를 직접 비교합니다(TV 노래방식). 안 부르면 낮은 점수가 나와요. 가이드 멜로디가 없는 반주 영상에선 자동으로 기본 채점을 씁니다." />
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
