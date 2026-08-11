@@ -22,6 +22,11 @@ class MelodyTracker(srcRate: Int) {
     private val nCand = (12 * ln(fMax / fMin) / ln(2.0) * 2).toInt()
     private val cand = DoubleArray(nCand) { fMin * Math.pow(2.0, it / 24.0) }
     private val weights = doubleArrayOf(1.0, 0.8, 0.6, 0.45, 0.35, 0.25)
+    // 보컬 가이드 음역 프라이어(330Hz 중심, σ=0.8 옥타브)
+    private val prior = DoubleArray(nCand) { c ->
+        val oct = Math.log(cand[c] / 330.0) / Math.log(2.0)
+        Math.exp(-oct * oct / (2 * 0.8 * 0.8))
+    }
     private val binOf = Array(6) { h ->
         IntArray(nCand) { c -> (cand[c] * (h + 1) * nFft / rate).roundToInt().coerceIn(0, nFft / 2) }
     }
@@ -35,7 +40,7 @@ class MelodyTracker(srcRate: Int) {
     private val dp = DoubleArray(nCand)
     private val dpNext = DoubleArray(nCand)
     private var started = false
-    private val jumpPen = 0.275
+    private val jumpPen = 0.5
     private val span = 8
     private val threshRatio = 3.0   // 표시용 신뢰 문턱(압축 스케일 기준, 채점 2.2 보다 엄격)
 

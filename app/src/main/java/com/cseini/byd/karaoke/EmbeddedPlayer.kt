@@ -105,6 +105,7 @@ class EmbeddedPlayer(
     private var melodyTracker: com.cseini.byd.karaoke.scoring.MelodyTracker? = null
     private var accompFeedIndex = 0
     private var prevGuide = 0f   // 표시 일치 판정의 ±1틱 관용용
+    private var voiceTracker: com.cseini.byd.karaoke.scoring.VoicePitchTracker? = null
     private val pitchTicker = object : Runnable {
         override fun run() {
             val rec = recorder
@@ -122,9 +123,10 @@ class EmbeddedPlayer(
                     // 유출 차감: 마이크 스펙트럼 − α×반주 스펙트럼 → 잔차(순수 목소리)에서 음정
                     val (vRaw, sing) = runCatching {
                         val vc = rec.latestVoice(190)
-                        val ac = rec.latestAccomp(190)
+                        val ac = rec.latestAccomp(400)
                         if (vc != null && ac != null) {
-                            com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoiceSub(vc.first, vc.second, ac.first, ac.second)
+                            val vt = voiceTracker ?: com.cseini.byd.karaoke.scoring.VoicePitchTracker().also { voiceTracker = it }
+                            vt.process(vc.first, vc.second, ac.first, ac.second)
                         } else 0f to 0f
                     }.getOrNull() ?: (0f to 0f)
                     ui.post {
@@ -284,7 +286,7 @@ class EmbeddedPlayer(
         }
         if (err != null) statusView.text = "녹음 시작 실패: $err" else {
             recordStarted = true; lastRecording = file
-            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f
+            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f; voiceTracker = null
             pitchLane.clear(); pitchLane.visibility = View.VISIBLE
             ui.removeCallbacks(pitchTicker); ui.post(pitchTicker)
         }

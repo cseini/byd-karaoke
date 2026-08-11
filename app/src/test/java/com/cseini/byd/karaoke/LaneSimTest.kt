@@ -2,6 +2,7 @@ package com.cseini.byd.karaoke
 
 import com.cseini.byd.karaoke.scoring.MelodyScorer
 import com.cseini.byd.karaoke.scoring.MelodyTracker
+import com.cseini.byd.karaoke.scoring.VoicePitchTracker
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
@@ -34,8 +35,10 @@ class LaneSimTest {
             val tickV = vr * 12 / 100
             val winV = vr * 12 / 100       // latestVoice(120)
             var ai = 0
+            val vt = VoicePitchTracker(); val vtFake = VoicePitchTracker()
+            val fp = ArrayList<Float>()
             val gs = ArrayList<Float>(); val ms = ArrayList<Float>()
-            val winA = ar * 19 / 100   // latestAccomp(190)
+            val winA = ar * 40 / 100   // latestAccomp(400)
             val winV2 = vr * 19 / 100
             var t = 0
             while ((t + 1) * tickA < a.size && (t + 1) * tickV + winV < v.size) {
@@ -46,9 +49,15 @@ class LaneSimTest {
                 val vFrom = (vs - winV2).coerceAtLeast(0)
                 val aTo = ((t + 1) * tickA).coerceAtMost(a.size)
                 val aFrom = (aTo - winA).coerceAtLeast(0)
-                val (vRaw, _) = MelodyScorer.realtimeVoiceSub(
-                    v.copyOfRange(vFrom, vs), vr, a.copyOfRange(aFrom, aTo), ar)
+                val (vRaw, _) = vt.process(v.copyOfRange(vFrom, vs), vr, a.copyOfRange(aFrom, aTo), ar)
                 ms.add(vRaw)
+                // 오탐 대조군: 목소리 = 유출만(반주를 늦춰 스케일한 가짜 마이크)
+                val fakeFrom = (vFrom - vr / 20).coerceAtLeast(0)   // 50ms 지연 유출
+                val fake = FloatArray(vs - vFrom)
+                val aAtV = MelodyScorer.resampleTailPublic(a.copyOfRange(0, aTo), ar, vr, fake.size + vr / 20)
+                if (aAtV != null) for (i in fake.indices) fake[i] = aAtV[i] * 0.3f
+                val (fRaw, _) = vtFake.process(fake, vr, a.copyOfRange(aFrom, aTo), ar)
+                fp.add(fRaw)
                 t++
             }
             val name = File(dir).name
@@ -57,7 +66,9 @@ class LaneSimTest {
                 var d = a1 - b1; d -= 1200f * Math.round(d / 1200f)
                 return Math.abs(d) <= tol
             }
-            for (delay in intArrayOf(0, 1, 2, 3)) for (tol in intArrayOf(60, 100)) {
+            val fpRate = if (fp.isNotEmpty()) 100 * fp.count { it > 0f } / fp.size else 0
+            println("LANE[$name] 오탐(유출만 가짜마이크) 표시율 ${fpRate}%")
+            for (delay in intArrayOf(0)) for (tol in intArrayOf(100)) {
                 var both = 0; var hit = 0
                 for (i in gs.indices) {
                     val gi = i - delay

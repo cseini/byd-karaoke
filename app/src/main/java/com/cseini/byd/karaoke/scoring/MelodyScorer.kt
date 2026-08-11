@@ -197,108 +197,10 @@ object MelodyScorer {
         return (1200.0 * ln(med / 55.0) / ln(2.0)).toFloat()
     }
 
-    /**
-     * 최근 목소리 조각에서 (내 음정 cents, 프레임 레벨 dB).
-     * 레벨은 호출측이 유출(스피커) 기저와 비교해 '진짜 가창'만 표시하는 데 쓴다 — 채점의 성량
-     * 게이트와 같은 원리. 무성/저신뢰면 cents=0.
-     */
-    fun realtimeVoice(x: FloatArray, rate: Int): Pair<Float, Float> {
-        val (d, r) = decimate(x, rate)
-        val frameLen = (r * 0.046).toInt()
-        if (d.size < frameLen) return 0f to -80f
-        val det = com.cseini.byd.karaoke.audio.PitchDetector(r)
-        // 청크 안 최대 3개 프레임을 분석해 가장 신뢰 높은 유성 결과 채택(자음·순간 흔들림에 강함)
-        var bestCents = 0f
-        var bestProb = 0f
-        var maxDb = -90f
-        val hopF = frameLen / 2
-        var st = (d.size - frameLen - 2 * hopF).coerceAtLeast(0)
-        var tried = 0
-        while (st + frameLen <= d.size && tried < 3) {
-            val frame = d.copyOfRange(st, st + frameLen)
-            var sum = 0.0
-            for (v in frame) sum += v * v
-            val rmsDb = (20 * Math.log10(Math.sqrt(sum / frame.size) + 1e-9)).toFloat()
-            if (rmsDb > maxDb) maxDb = rmsDb
-            if (rmsDb >= -75f) {
-                var peak = 1e-4f
-                for (v in frame) { val a = abs(v); if (a > peak) peak = a }
-                val g = (0.5f / peak).coerceAtMost(64f)
-                val nf = FloatArray(frame.size) { frame[it] * g }
-                val res = det.detect(nf)
-                if (res.voiced && res.f0 > 0f && res.probability > bestProb) {
-                    bestProb = res.probability
-                    bestCents = (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat()
-                }
-            }
-            st += hopF
-            tried++
-        }
-        return bestCents to maxDb
-    }
-
-    /**
-     * 유출 차감 기반 내 음정(레인용 최종 방식).
-     * 마이크 스펙트럼에서 반주(원본을 알고 있음) 성분을 α-스케일로 차감한 잔차에서
-     * 하모닉 합으로 음정을 뽑는다. 반환: (cents, singingness 0..1 — 잔차 에너지 비율).
-     * 레벨 게이트가 필요 없어, 유출이 크거나 작은 유닛 모두에서 안정적.
-     */
-    fun realtimeVoiceSub(voice: FloatArray, vRate: Int, accomp: FloatArray, aRate: Int): Pair<Float, Float> {
-        val (vdAll, vr) = decimate(voice, vRate)
-        val n = 1024
-        val nFft = 2048
-        if (vdAll.size < n) return 0f to 0f
-        val vd = vdAll.copyOfRange(vdAll.size - n, vdAll.size)
-        val ad = resampleTail(accomp, aRate, vr, n) ?: return 0f to 0f
-        // FFT 두 개(해닝, 제로패딩)
-        val re = DoubleArray(nFft); val im = DoubleArray(nFft)
-        fun magOf(x: FloatArray): DoubleArray {
-            for (i in 0 until n) {
-                val w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))
-                re[i] = x[i] * w; im[i] = 0.0
-            }
-            for (i in n until nFft) { re[i] = 0.0; im[i] = 0.0 }
-            fft(re, im)
-            return DoubleArray(nFft / 2 + 1) { Math.hypot(re[it], im[it]) }
-        }
-        val mV = magOf(vd)
-        val mA = magOf(ad)
-        // 유출 스케일 α 추정(150~3500Hz 최소자승) 후 차감
-        val kLo = (150.0 * nFft / vr).toInt().coerceAtLeast(1)
-        val kHi = (3500.0 * nFft / vr).toInt().coerceAtMost(nFft / 2)
-        var num = 0.0; var den = 0.0; var eV = 0.0
-        for (k in kLo..kHi) { num += mV[k] * mA[k]; den += mA[k] * mA[k]; eV += mV[k] * mV[k] }
-        val alpha = if (den > 0) (num / den).coerceIn(0.0, 8.0) else 0.0
-        var eR = 0.0
-        val res = DoubleArray(nFft / 2 + 1)
-        for (k in kLo..kHi) {
-            val r = mV[k] - 1.15 * alpha * mA[k]
-            res[k] = if (r > 0) r else 0.0
-            eR += res[k] * res[k]
-        }
-        val sing = if (eV > 1e-12) (eR / eV).toFloat() else 0f
-        if (sing < 0.2f) return 0f to sing   // 잔차가 작다 = 마이크 소리가 거의 반주 유출뿐
-        // 잔차에서 하모닉 합 음정(140~800Hz, 1/4반음 격자)
-        val fMin = 140.0; val fMax = 800.0
-        val nCand = (12 * ln(fMax / fMin) / ln(2.0) * 4).toInt()
-        var best = -1; var bestS = 0.0; var sum = 0.0
-        val ws = doubleArrayOf(1.0, 0.7, 0.5, 0.35, 0.25)
-        val sal = DoubleArray(nCand)
-        for (c in 0 until nCand) {
-            val f = fMin * Math.pow(2.0, c / 48.0)
-            var v2 = 0.0
-            for (h in 1..5) {
-                val k = (f * h * nFft / vr).roundToInt()
-                if (k in 1..nFft / 2) v2 += ws[h - 1] * res[k]
-            }
-            sal[c] = v2; sum += v2
-            if (v2 > bestS) { bestS = v2; best = c }
-        }
-        val med = medianOf(sal)
-        if (best < 0 || bestS < 2.5 * med) return 0f to sing
-        val f0 = fMin * Math.pow(2.0, best / 48.0)
-        return (1200.0 * ln(f0 / 55.0) / ln(2.0)).toFloat() to sing
-    }
+    
+    
+    internal fun decimatePublic(x: FloatArray, rate: Int) = decimate(x, rate)
+    internal fun resampleTailPublic(x: FloatArray, from: Int, to: Int, outN: Int) = resampleTail(x, from, to, outN)
 
     /** 끝부분 outN 샘플을 to 레이트로 선형 리샘플(부족하면 null). */
     private fun resampleTail(x: FloatArray, from: Int, to: Int, outN: Int): FloatArray? {
@@ -342,6 +244,11 @@ object MelodyScorer {
         val nCand = (12 * ln(fMax / fMin) / ln(2.0) * 2).toInt()
         val cand = DoubleArray(nCand) { fMin * Math.pow(2.0, it / 24.0) }
         val weights = doubleArrayOf(1.0, 0.8, 0.6, 0.45, 0.35, 0.25)
+        // 보컬 가이드 음역 프라이어(330Hz 중심, σ=0.8 옥타브) — 고음 리프·저음 코드로 새는 것 억제
+        val prior = DoubleArray(nCand) { c ->
+            val oct = Math.log(cand[c] / 330.0) / Math.log(2.0)
+            Math.exp(-oct * oct / (2 * 0.8 * 0.8))
+        }
         val binOf = Array(6) { h ->
             IntArray(nCand) { c ->
                 (cand[c] * (h + 1) * nFft / rate).roundToInt().coerceIn(0, nFft / 2)
@@ -366,6 +273,7 @@ object MelodyScorer {
             for (c in 0 until nCand) {
                 var v = 0.0
                 for (h in 0 until 6) v += weights[h] * mag[binOf[h][c]]
+                v *= prior[c]
                 row[c] = v
                 if (v > bestS) bestS = v
             }
@@ -376,7 +284,7 @@ object MelodyScorer {
         }
         // 2) 비터비: 멜로디답게 '이어지는' 경로 선택 — 프레임 최대값만 잡으면 반주 악기로 튄다.
         //    전이 벌점 = 반음(2칸)당 0.55, 상한 4.0 (점프 억제하되 진짜 노트 전환은 허용)
-        val jumpPen = 0.275
+        val jumpPen = 0.5
         val dp = Array(2) { DoubleArray(nCand) }
         val bp = Array(nFrames) { ByteArray(nCand) }   // 이전 프레임 최적 후보와의 차(칸): -8..8 저장
         val span = 8                                    // 프레임당 최대 이동 ±8칸(=±4반음)
