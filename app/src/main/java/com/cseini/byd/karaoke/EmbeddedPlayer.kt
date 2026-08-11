@@ -126,7 +126,7 @@ class EmbeddedPlayer(
                     }.getOrNull() ?: (0f to -80f)
                     ui.post {
                         // 유출 게이트: 마이크에 늘 깔리는 반주 소리(기저 레벨)는 '내 노트'로 그리지 않는다
-                        if (vDb > -70f) { voiceRmsHist.addLast(vDb); if (voiceRmsHist.size > 160) voiceRmsHist.removeFirst() }
+                        if (vDb > -85f) { voiceRmsHist.addLast(vDb); if (voiceRmsHist.size > 160) voiceRmsHist.removeFirst() }
                         val gate = if (voiceRmsHist.size >= 25) {
                             voiceRmsHist.sorted()[voiceRmsHist.size / 4] + 6f
                         } else -40f

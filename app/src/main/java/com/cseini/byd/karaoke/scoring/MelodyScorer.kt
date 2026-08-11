@@ -162,7 +162,7 @@ object MelodyScorer {
             kotlin.concurrent.thread(name = "score-dump") {
                 runCatching {
                     dumpDebug(dir, vDs, vRate, aDs, aRate,
-                        "lag=$bestLag q=$q qRand=$qRand ratio=$ratio overlap=$overlap gate=$gate base=$base\n$bd")
+                        "lag=$bestLag q=$q qRand=$qRand ratio=$ratio overlap=$overlap gate=$gate base=$base rawLoud=$rawLoudDb\n$bd")
                 }
             }
         }
@@ -210,7 +210,7 @@ object MelodyScorer {
         var sum = 0.0
         for (v in frame) sum += v * v
         val rmsDb = (20 * Math.log10(Math.sqrt(sum / frame.size) + 1e-9)).toFloat()
-        if (rmsDb < -62f) return 0f to rmsDb   // 바닥 소음만 컷 — 작은 차량 마이크는 상대 게이트가 담당
+        if (rmsDb < -75f) return 0f to rmsDb   // 사실상 무음만 컷 — 잡음은 YIN 무성판정+상대 게이트가 담당
         // 작은 차량 마이크 대응: 피크 정규화 후 검출
         var peak = 1e-4f
         for (v in frame) { val a = abs(v); if (a > peak) peak = a }
