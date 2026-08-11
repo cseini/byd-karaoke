@@ -287,7 +287,12 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 }
                 if (!allQuota) continue   // 모델 자체 문제였으면 다음 모델로
             }
-            deliver { onError("오늘 무료 사용량을 다 썼어요.\n설정에서 키를 더 넣거나 내일 다시 시도해 주세요.") }
+            deliver {
+                onError(
+                    if (lastErr.contains("불안정")) lastErr   // 전 모델이 서버 과부하였던 경우
+                    else "오늘 무료 사용량을 다 썼어요.\n설정에서 키를 더 넣거나 내일 다시 시도해 주세요.",
+                )
+            }
         } catch (e: Exception) {
             deliver { onError("음성 인식 오류: ${e.message}") }
         }
@@ -340,9 +345,13 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                         emsg.contains("not found", true) || emsg.contains("not supported", true)
                     // 진단은 로그로만 남기고(영문 원문), 화면엔 한글 안내를 보여준다.
                     android.util.Log.w("KaraokeVoice", "model=$model http=${resp.code} $emsg")
+                    // 5xx/overloaded 는 보통 '그 모델'의 일시 과부하 → 다음 모델로 폴백해야 한다
+                    val overloaded = resp.code in 500..599 ||
+                        emsg.contains("overloaded", true) || emsg.contains("unavailable", true)
                     when {
                         quota -> KeyResult.Quota("한도 초과")
                         badModel -> KeyResult.Fail("모델 사용 불가", retryModel = true)
+                        overloaded -> KeyResult.Fail(friendlyError(resp.code, emsg), retryModel = true)
                         else -> KeyResult.Fail(friendlyError(resp.code, emsg))
                     }
                 } else {
