@@ -174,6 +174,43 @@ object MelodyScorer {
         )
     }
 
+    // ── 실시간 노트 표시용(재생 중 ~8Hz 호출, 채점과 동일한 추출·판정) ──
+
+    /** 최근 반주 조각에서 가이드 멜로디(절대 cents). 없으면 0. */
+    fun realtimeGuideCents(x: FloatArray, rate: Int): Float {
+        val (d, r) = decimate(x, rate)
+        val mel = salienceMelody(d, r)
+        val f = mel.lastOrNull { it > 0f } ?: return 0f
+        return (1200.0 * ln(f / 55.0) / ln(2.0)).toFloat()
+    }
+
+    /** 최근 목소리 조각에서 내 음정(절대 cents). 소리가 작거나 무성이면 0. */
+    fun realtimeVoiceCents(x: FloatArray, rate: Int): Float {
+        val (d, r) = decimate(x, rate)
+        val frameLen = (r * 0.046).toInt()
+        if (d.size < frameLen) return 0f
+        val frame = d.copyOfRange(d.size - frameLen, d.size)
+        var sum = 0.0
+        for (v in frame) sum += v * v
+        if (Math.sqrt(sum / frame.size) < 3.16e-3) return 0f   // < -50dB
+        // 작은 차량 마이크 대응: 피크 정규화 후 검출
+        var peak = 1e-4f
+        for (v in frame) { val a = abs(v); if (a > peak) peak = a }
+        val g = (0.5f / peak).coerceAtMost(32f)
+        val nf = FloatArray(frame.size) { frame[it] * g }
+        val res = com.cseini.byd.karaoke.audio.PitchDetector(r).detect(nf)
+        if (!res.voiced || res.f0 <= 0f) return 0f
+        return (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat()
+    }
+
+    /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */
+    fun centsMatchAbs(a: Float, b: Float): Boolean {
+        if (a <= 0f || b <= 0f) return false
+        val d = (a - b).toDouble()
+        val folded = d - 1200.0 * Math.round(d / 1200.0)
+        return abs(folded) <= MATCH_CENTS
+    }
+
     private fun noSing(msg: String) = ScoringEngine.Score(0, 0, 0, 0, 0, 0, 0, 0f, "총점 0점\n$msg")
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의

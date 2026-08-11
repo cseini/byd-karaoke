@@ -76,6 +76,7 @@ class EmbeddedPlayer(
     private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
     private val scoreDetail: TextView = activity.findViewById(R.id.embed_score_detail)
     private val scoreNextInfo: TextView = activity.findViewById(R.id.embed_score_next_info)
+    private val pitchLane: PitchLaneView = activity.findViewById(R.id.embed_pitch_lane)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
@@ -93,6 +94,31 @@ class EmbeddedPlayer(
     private var speedRate = 1.0f        // 속도 0.7~1.3
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
+
+    // 실시간 노트 레인: 녹음 중 ~8Hz 로 가이드/내 음정을 분석해 그린다(별도 스레드).
+    private val pitchExec = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "pitch-lane").apply { isDaemon = true }
+    }
+    @Volatile private var pitchBusy = false
+    private val pitchTicker = object : Runnable {
+        override fun run() {
+            val rec = recorder
+            if (rec != null && rec.isRecording && !replaying && !pitchBusy) {
+                pitchBusy = true
+                pitchExec.execute {
+                    val g = runCatching {
+                        rec.latestAccomp(250)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeGuideCents(it.first, it.second) }
+                    }.getOrNull() ?: 0f
+                    val v = runCatching {
+                        rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoiceCents(it.first, it.second) }
+                    }.getOrNull() ?: 0f
+                    val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(g, v)
+                    ui.post { pitchLane.push(g, v, hit); pitchBusy = false }
+                }
+            }
+            ui.postDelayed(this, 120)
+        }
+    }
 
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
@@ -231,7 +257,11 @@ class EmbeddedPlayer(
         val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
             activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
-        if (err != null) statusView.text = "녹음 시작 실패: $err" else { recordStarted = true; lastRecording = file }
+        if (err != null) statusView.text = "녹음 시작 실패: $err" else {
+            recordStarted = true; lastRecording = file
+            pitchLane.clear(); pitchLane.visibility = View.VISIBLE
+            ui.removeCallbacks(pitchTicker); ui.post(pitchTicker)
+        }
     }
 
     private fun onEnded() {
@@ -244,6 +274,8 @@ class EmbeddedPlayer(
             return
         }
         scored = true
+        ui.removeCallbacks(pitchTicker)
+        pitchLane.visibility = View.GONE
         val file = recorder?.stop()
         lastRecording = file
         if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
@@ -607,6 +639,8 @@ class EmbeddedPlayer(
         }
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
+        ui.removeCallbacks(pitchTicker)
+        pitchLane.visibility = View.GONE
         stopMediaPlayer()
         recorder?.let { if (it.isRecording) it.stop() }
         recorder = null

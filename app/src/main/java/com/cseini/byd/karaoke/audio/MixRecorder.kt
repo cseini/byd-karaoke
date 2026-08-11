@@ -246,5 +246,23 @@ class MixRecorder(
         return out to rate / factor
     }
 
+    /** 실시간 노트 표시용: 최근 ms 만큼의 반주 스냅샷. 데이터 부족하면 null. */
+    fun latestAccomp(ms: Int): Pair<FloatArray, Int>? {
+        val n = accompRate * ms / 1000
+        val w = accompWrite.get().coerceAtMost(accompBuffer.size)
+        if (n <= 0 || w < n) return null
+        val out = FloatArray(n) { accompBuffer[w - n + it] / 32768f }
+        return out to accompRate
+    }
+
+    /** 실시간 노트 표시용: 최근 ms 만큼의 마이크 스냅샷. */
+    fun latestVoice(ms: Int): Pair<FloatArray, Int>? {
+        val n = rate * ms / 1000
+        val w = voiceWrite.coerceAtMost(voiceBuffer.size)
+        if (n <= 0 || w < n) return null
+        val out = FloatArray(n) { voiceBuffer[w - n + it] / 32768f }
+        return out to rate
+    }
+
     fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
 }
