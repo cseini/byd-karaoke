@@ -246,6 +246,18 @@ class MixRecorder(
         return out to rate / factor
     }
 
+    /** 스트리밍 멜로디 추적용: fromIndex 이후의 새 반주 샘플(float)과 새 인덱스. */
+    fun accompNewFloats(fromIndex: Int): Pair<FloatArray, Int> {
+        val w = accompWrite.get().coerceAtMost(accompBuffer.size)
+        val from = fromIndex.coerceIn(0, w)
+        val n = w - from
+        if (n <= 0) return FloatArray(0) to w
+        val out = FloatArray(n) { accompBuffer[from + it] / 32768f }
+        return out to w
+    }
+
+    val accompSampleRate: Int get() = accompRate
+
     /** 실시간 노트 표시용: 최근 ms 만큼의 반주 스냅샷. 데이터 부족하면 null. */
     fun latestAccomp(ms: Int): Pair<FloatArray, Int>? {
         val n = accompRate * ms / 1000

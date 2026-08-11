@@ -101,14 +101,12 @@ class EmbeddedPlayer(
         Thread(r, "pitch-lane").apply { isDaemon = true }
     }
     @Volatile private var pitchBusy = false
-    private var guideSmooth = 0f      // 표시용 가이드 스무딩 상태
-    private var guideMiss = 0
-    private var guideCandidate = 0f   // 급점프 후보(2연속이면 채택)
+    // 스트리밍 가이드 추적(채점과 같은 비터비) — 곡마다 새로 만든다
+    private var melodyTracker: com.cseini.byd.karaoke.scoring.MelodyTracker? = null
+    private var accompFeedIndex = 0
     // 목소리 성량 게이트: 최근 레벨 분포의 하위 25% = 상시 유출(스피커) 기저 → +6dB 이상만 '가창'
     private val voiceRmsHist = ArrayDeque<Float>()
-    // 반주 분석은 스피커로 나가기 전 신호 기준 → 사람은 '들리는' 소리에 맞춰 부르므로
-    // 가이드를 3틱(≈360ms) 지연시켜 목소리와 같은 시간축으로 표시한다.
-    private val guideDelay = ArrayDeque<Float>()
+    private var prevGuide = 0f   // 표시 일치 판정의 ±1틱 관용용
     private val pitchTicker = object : Runnable {
         override fun run() {
             val rec = recorder
@@ -116,7 +114,12 @@ class EmbeddedPlayer(
                 pitchBusy = true
                 pitchExec.execute {
                     val g = runCatching {
-                        rec.latestAccomp(250)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeGuideCents(it.first, it.second) }
+                        val tr = melodyTracker ?: com.cseini.byd.karaoke.scoring.MelodyTracker(rec.accompSampleRate)
+                            .also { melodyTracker = it; accompFeedIndex = 0 }
+                        val (fresh, newIdx) = rec.accompNewFloats(accompFeedIndex)
+                        accompFeedIndex = newIdx
+                        if (fresh.isNotEmpty()) tr.feed(fresh)
+                        tr.currentCents()
                     }.getOrNull() ?: 0f
                     val (vRaw, vDb) = runCatching {
                         rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoice(it.first, it.second) }
@@ -128,28 +131,12 @@ class EmbeddedPlayer(
                             voiceRmsHist.sorted()[voiceRmsHist.size / 4] + 6f
                         } else -40f
                         val v = if (vDb > gate) vRaw else 0f
-                        // 가이드 연속성: 근접값은 EMA, 급점프는 2연속일 때만 채택, 짧은 결손(≤3틱)은 유지
-                        val shown = when {
-                            g <= 0f -> {
-                                guideMiss++
-                                if (guideMiss > 3) { guideSmooth = 0f }
-                                guideSmooth
-                            }
-                            guideSmooth <= 0f -> { guideMiss = 0; guideSmooth = g; g }
-                            abs(g - guideSmooth) <= 100f -> {
-                                guideMiss = 0; guideSmooth = guideSmooth * 0.5f + g * 0.5f; guideSmooth
-                            }
-                            abs(g - guideCandidate) <= 100f -> {
-                                guideMiss = 0; guideSmooth = g; g   // 2연속 같은 새 노트 → 점프 확정
-                            }
-                            else -> { guideCandidate = g; guideSmooth }   // 1회 점프는 보류
-                        }
-                        // 들리는 시점 보정: 3틱 전 가이드와 지금 목소리를 짝지음
-                        guideDelay.addLast(shown)
-                        if (guideDelay.size > 4) guideDelay.removeFirst()
-                        val shownDelayed = guideDelay.first()
-                        val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(shownDelayed, v)
-                        pitchLane.push(shownDelayed, v, hit)
+                        // 표시 일치: 반음(100c) 관용 + 직전 틱 가이드도 인정(±1틱)
+                        // (실차 덤프 3개 스윕 결과 delay=0 이 최적 — 두 버퍼는 이미 같은 시간축)
+                        val M = com.cseini.byd.karaoke.scoring.MelodyScorer
+                        val hit = M.centsNear(g, v, 100f) || M.centsNear(prevGuide, v, 100f)
+                        pitchLane.push(g, v, hit)
+                        prevGuide = g
                         pitchBusy = false
                     }
                 }
@@ -297,6 +284,7 @@ class EmbeddedPlayer(
         }
         if (err != null) statusView.text = "녹음 시작 실패: $err" else {
             recordStarted = true; lastRecording = file
+            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f; voiceRmsHist.clear()
             pitchLane.clear(); pitchLane.visibility = View.VISIBLE
             ui.removeCallbacks(pitchTicker); ui.post(pitchTicker)
         }

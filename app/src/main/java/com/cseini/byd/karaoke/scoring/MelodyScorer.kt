@@ -222,11 +222,14 @@ object MelodyScorer {
     }
 
     /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */
-    fun centsMatchAbs(a: Float, b: Float): Boolean {
+    fun centsMatchAbs(a: Float, b: Float): Boolean = centsNear(a, b, MATCH_CENTS.toFloat())
+
+    /** 옥타브 무시 근접 판정(허용치 지정). 표시용은 반음(100c)로 채점보다 관대하게 쓴다. */
+    fun centsNear(a: Float, b: Float, tol: Float): Boolean {
         if (a <= 0f || b <= 0f) return false
         val d = (a - b).toDouble()
         val folded = d - 1200.0 * Math.round(d / 1200.0)
-        return abs(folded) <= MATCH_CENTS
+        return abs(folded) <= tol
     }
 
     private fun noSing(msg: String) = ScoringEngine.Score(0, 0, 0, 0, 0, 0, 0, 0f, "총점 0점\n$msg")
@@ -314,7 +317,7 @@ object MelodyScorer {
     }
 
     /** 반복(비재귀) radix-2 FFT, n=2^k. */
-    private fun fft(re: DoubleArray, im: DoubleArray) {
+    internal fun fft(re: DoubleArray, im: DoubleArray) {
         val n = re.size
         var j = 0
         for (i in 1 until n) {
@@ -350,7 +353,7 @@ object MelodyScorer {
         }
     }
 
-    private fun medianOf(a: DoubleArray): Double {
+    internal fun medianOf(a: DoubleArray): Double {
         val c = a.copyOf(); c.sort(); return c[c.size / 2]
     }
 
