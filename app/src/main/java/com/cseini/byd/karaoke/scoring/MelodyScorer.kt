@@ -25,7 +25,7 @@ object MelodyScorer {
     private const val LAG_STEP_MS = 46
     private const val GATE_DB = 6.0            // 기저(유출) 레벨 대비 이만큼 커야 가창으로 인정
     private const val RATIO_FLOOR = 1.05       // 우연 대비 이 이하 = 0점
-    private const val RATIO_CEIL = 2.2         // 우연 대비 이 이상 = 만점(실차 실측 상한)
+    private const val RATIO_CEIL = 2.5         // 우연 대비 이 이상 = 만점(비터비 추출 기준 실차 재보정)
 
     fun score(
         voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int,
@@ -252,24 +252,65 @@ object MelodyScorer {
         val re = DoubleArray(n)
         val im = DoubleArray(n)
         val mag = DoubleArray(n / 2 + 1)
-        val sal = DoubleArray(nCand)
-        val out = FloatArray(nFrames)
+        // 1) 프레임별 salience 행렬 + 신뢰 마스크
+        val salMat = Array(nFrames) { DoubleArray(nCand) }
+        val confident = BooleanArray(nFrames)
         for (fIdx in 0 until nFrames) {
             val st = fIdx * hop
             for (i in 0 until n) { re[i] = x[st + i] * win[i]; im[i] = 0.0 }
             fft(re, im)
             for (k in 0..n / 2) mag[k] = Math.hypot(re[k], im[k])
-            var best = 0; var bestS = 0.0
+            var bestS = 0.0
+            val row = salMat[fIdx]
             for (c in 0 until nCand) {
                 var v = 0.0
                 for (h in 0 until 6) v += weights[h] * mag[binOf[h][c]]
-                sal[c] = v
-                if (v > bestS) { bestS = v; best = c }
+                row[c] = v
+                if (v > bestS) bestS = v
             }
-            val med = medianOf(sal)
-            out[fIdx] = if (bestS > threshRatio * med) cand[best].toFloat() else 0f
+            val med = medianOf(row)
+            confident[fIdx] = bestS > threshRatio * med
+            // 정규화(프레임간 음량 차이가 경로 선택을 좌우하지 않게)
+            if (bestS > 0) for (c in 0 until nCand) row[c] /= bestS
         }
-        return out
+        // 2) 비터비: 멜로디답게 '이어지는' 경로 선택 — 프레임 최대값만 잡으면 반주 악기로 튄다.
+        //    전이 벌점 = 반음(2칸)당 0.55, 상한 4.0 (점프 억제하되 진짜 노트 전환은 허용)
+        val jumpPen = 0.275
+        val dp = Array(2) { DoubleArray(nCand) }
+        val bp = Array(nFrames) { ByteArray(nCand) }   // 이전 프레임 최적 후보와의 차(칸): -8..8 저장
+        val span = 8                                    // 프레임당 최대 이동 ±8칸(=±4반음)
+        for (c in 0 until nCand) dp[0][c] = Math.log(salMat[0][c] + 1e-6)
+        for (fIdx in 1 until nFrames) {
+            val prev = dp[(fIdx + 1) % 2]
+            val cur = dp[fIdx % 2]
+            val row = salMat[fIdx]
+            for (c in 0 until nCand) {
+                var best = -1e18; var bestD = 0
+                val lo = (c - span).coerceAtLeast(0)
+                val hi = (c + span).coerceAtMost(nCand - 1)
+                for (p in lo..hi) {
+                    val v = prev[p] - Math.abs(c - p) * jumpPen
+                    if (v > best) { best = v; bestD = p - c }
+                }
+                cur[c] = best + Math.log(row[c] + 1e-6)
+                bp[fIdx][c] = bestD.toByte()
+            }
+        }
+        // 역추적
+        val path = IntArray(nFrames)
+        var c = 0
+        val last = dp[(nFrames - 1) % 2]
+        for (k in 1 until nCand) if (last[k] > last[c]) c = k
+        path[nFrames - 1] = c
+        for (fIdx in nFrames - 1 downTo 1) {
+            c += bp[fIdx][c].toInt()
+            c = c.coerceIn(0, nCand - 1)
+            path[fIdx - 1] = c
+        }
+        // 3) 신뢰 프레임만 출력(경로는 전체로 이어 추적하되, 흐릿한 구간은 표시/채점서 제외)
+        return FloatArray(nFrames) { fIdx ->
+            if (confident[fIdx]) cand[path[fIdx]].toFloat() else 0f
+        }
     }
 
     /** 반복(비재귀) radix-2 FFT, n=2^k. */
