@@ -56,11 +56,30 @@ class PitchLaneView @JvmOverloads constructor(
             return h - pad - (fold / 1200f) * (h - 2 * pad)
         }
         fun x(t: Long): Float = w * (1f - (now - t).toFloat() / windowMs)
+        fun foldedDiff(a: Float, b: Float): Float {
+            var d = a - b
+            d -= 1200f * Math.round(d / 1200f)
+            return Math.abs(d)
+        }
+        // 라인 렌더링: 시간상 이어지고(≤400ms) 같은 노트 흐름(≤90cents)인 이웃끼리 선으로 연결
+        var prev: P? = null
         for (p in pts) {
             val px = x(p.t)
-            if (px < 0) continue
+            if (px < -10f) { prev = p; continue }
+            val q = prev
+            if (q != null && p.t - q.t <= 400) {
+                val qx = x(q.t)
+                if (p.refCents > 0f && q.refCents > 0f && foldedDiff(p.refCents, q.refCents) <= 90f) {
+                    canvas.drawLine(qx, y(q.refCents), px, y(p.refCents), refPaint)
+                }
+                if (p.micCents > 0f && q.micCents > 0f && foldedDiff(p.micCents, q.micCents) <= 90f) {
+                    canvas.drawLine(qx, y(q.micCents), px, y(p.micCents), if (p.match && q.match) hitPaint else micPaint)
+                }
+            }
+            // 이웃이 없는 짧은 노트는 점으로
             if (p.refCents > 0f) canvas.drawPoint(px, y(p.refCents), refPaint)
             if (p.micCents > 0f) canvas.drawPoint(px, y(p.micCents), if (p.match) hitPaint else micPaint)
+            prev = p
         }
     }
 }

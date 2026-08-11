@@ -31,6 +31,7 @@ import com.cseini.byd.karaoke.player.PlayerCallbacks
 import com.cseini.byd.karaoke.player.StreamPlayer
 import com.cseini.byd.karaoke.scoring.MelodyScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,6 +101,9 @@ class EmbeddedPlayer(
         Thread(r, "pitch-lane").apply { isDaemon = true }
     }
     @Volatile private var pitchBusy = false
+    private var guideSmooth = 0f      // 표시용 가이드 스무딩 상태
+    private var guideMiss = 0
+    private var guideCandidate = 0f   // 급점프 후보(2연속이면 채택)
     private val pitchTicker = object : Runnable {
         override fun run() {
             val rec = recorder
@@ -112,8 +116,27 @@ class EmbeddedPlayer(
                     val v = runCatching {
                         rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoiceCents(it.first, it.second) }
                     }.getOrNull() ?: 0f
-                    val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(g, v)
-                    ui.post { pitchLane.push(g, v, hit); pitchBusy = false }
+                    ui.post {
+                        // 가이드 연속성: 근접값은 EMA, 급점프는 2연속일 때만 채택, 짧은 결손(≤3틱)은 유지
+                        val shown = when {
+                            g <= 0f -> {
+                                guideMiss++
+                                if (guideMiss > 3) { guideSmooth = 0f }
+                                guideSmooth
+                            }
+                            guideSmooth <= 0f -> { guideMiss = 0; guideSmooth = g; g }
+                            abs(g - guideSmooth) <= 100f -> {
+                                guideMiss = 0; guideSmooth = guideSmooth * 0.5f + g * 0.5f; guideSmooth
+                            }
+                            abs(g - guideCandidate) <= 100f -> {
+                                guideMiss = 0; guideSmooth = g; g   // 2연속 같은 새 노트 → 점프 확정
+                            }
+                            else -> { guideCandidate = g; guideSmooth }   // 1회 점프는 보류
+                        }
+                        val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(shown, v)
+                        pitchLane.push(shown, v, hit)
+                        pitchBusy = false
+                    }
                 }
             }
             ui.postDelayed(this, 120)

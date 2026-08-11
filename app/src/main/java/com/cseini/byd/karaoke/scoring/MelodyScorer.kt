@@ -176,12 +176,25 @@ object MelodyScorer {
 
     // ── 실시간 노트 표시용(재생 중 ~8Hz 호출, 채점과 동일한 추출·판정) ──
 
-    /** 최근 반주 조각에서 가이드 멜로디(절대 cents). 없으면 0. */
+    /**
+     * 최근 반주 조각에서 가이드 멜로디(절대 cents). 없으면 0.
+     * 조각 안 프레임들이 같은 노트로 모일 때만 표시(과반이 중앙값 ±60cents) —
+     * 한 프레임 잡음이 "막 튀는 금색 점"으로 나오지 않게.
+     */
     fun realtimeGuideCents(x: FloatArray, rate: Int): Float {
         val (d, r) = decimate(x, rate)
-        val mel = salienceMelody(d, r)
-        val f = mel.lastOrNull { it > 0f } ?: return 0f
-        return (1200.0 * ln(f / 55.0) / ln(2.0)).toFloat()
+        // 실시간 표시는 채점보다 엄격하게 — 확실히 도드라진 멜로디만(반주 악기 잡음 억제)
+        val mel = salienceMelody(d, r, threshRatio = 5.0)
+        val vals = mel.filter { it > 0f }
+        if (vals.size < 3) return 0f
+        val med = vals.sorted()[vals.size / 2].toDouble()
+        var close = 0
+        for (v in vals) {
+            val dev = abs(1200.0 * ln(v / med) / ln(2.0))
+            if (dev <= 60.0) close++
+        }
+        if (close * 2 < vals.size + 1) return 0f
+        return (1200.0 * ln(med / 55.0) / ln(2.0)).toFloat()
     }
 
     /** 최근 목소리 조각에서 내 음정(절대 cents). 소리가 작거나 무성이면 0. */
@@ -215,7 +228,7 @@ object MelodyScorer {
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의
     //    하모닉 스펙트럼 합이 최대인 후보. 중앙값 대비 3배 이상 두드러질 때만 채택. ──
-    private fun salienceMelody(x: FloatArray, rate: Int): FloatArray {
+    private fun salienceMelody(x: FloatArray, rate: Int, threshRatio: Double = 3.0): FloatArray {
         val n = 1024
         val hop = (rate * SignalAnalysis.HOP_MS / 1000).toInt().coerceAtLeast(1)
         val nFrames = ((x.size - n) / hop).coerceAtLeast(0)
@@ -249,7 +262,7 @@ object MelodyScorer {
                 if (v > bestS) { bestS = v; best = c }
             }
             val med = medianOf(sal)
-            out[fIdx] = if (bestS > 3.0 * med) cand[best].toFloat() else 0f
+            out[fIdx] = if (bestS > threshRatio * med) cand[best].toFloat() else 0f
         }
         return out
     }
