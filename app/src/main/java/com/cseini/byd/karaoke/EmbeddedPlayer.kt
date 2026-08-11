@@ -104,8 +104,6 @@ class EmbeddedPlayer(
     // 스트리밍 가이드 추적(채점과 같은 비터비) — 곡마다 새로 만든다
     private var melodyTracker: com.cseini.byd.karaoke.scoring.MelodyTracker? = null
     private var accompFeedIndex = 0
-    // 목소리 성량 게이트: 최근 레벨 분포의 하위 25% = 상시 유출(스피커) 기저 → +6dB 이상만 '가창'
-    private val voiceRmsHist = ArrayDeque<Float>()
     private var prevGuide = 0f   // 표시 일치 판정의 ±1틱 관용용
     private val pitchTicker = object : Runnable {
         override fun run() {
@@ -121,22 +119,22 @@ class EmbeddedPlayer(
                         if (fresh.isNotEmpty()) tr.feed(fresh)
                         tr.currentCents()
                     }.getOrNull() ?: 0f
-                    val (vRaw, vDb) = runCatching {
-                        rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoice(it.first, it.second) }
-                    }.getOrNull() ?: (0f to -80f)
+                    // 유출 차감: 마이크 스펙트럼 − α×반주 스펙트럼 → 잔차(순수 목소리)에서 음정
+                    val (vRaw, sing) = runCatching {
+                        val vc = rec.latestVoice(190)
+                        val ac = rec.latestAccomp(190)
+                        if (vc != null && ac != null) {
+                            com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoiceSub(vc.first, vc.second, ac.first, ac.second)
+                        } else 0f to 0f
+                    }.getOrNull() ?: (0f to 0f)
                     ui.post {
-                        // 유출 게이트: 마이크에 늘 깔리는 반주 소리(기저 레벨)는 '내 노트'로 그리지 않는다
-                        if (vDb > -85f) { voiceRmsHist.addLast(vDb); if (voiceRmsHist.size > 160) voiceRmsHist.removeFirst() }
-                        val gate = if (voiceRmsHist.size >= 25) {
-                            voiceRmsHist.sorted()[voiceRmsHist.size / 4] + 6f
-                        } else -40f
-                        val v = if (vDb > gate) vRaw else 0f
+                        val v = vRaw
                         // 표시 일치: 반음(100c) 관용 + 직전 틱 가이드도 인정(±1틱)
                         // (실차 덤프 3개 스윕 결과 delay=0 이 최적 — 두 버퍼는 이미 같은 시간축)
                         val M = com.cseini.byd.karaoke.scoring.MelodyScorer
                         val hit = M.centsNear(g, v, 100f) || M.centsNear(prevGuide, v, 100f)
-                        // 초소형 진단: 내레벨/게이트/음정검출 여부 — 유닛별 문제를 사진 한 장으로 판별
-                        pitchLane.debugText = "%.0f/%.0f %s".format(vDb, gate, if (vRaw > 0f) "♪" else "·")
+                        // 초소형 진단: 잔차비율(내 목소리가 유출 위로 얼마나 나오는가)/음정검출 여부
+                        pitchLane.debugText = "%d%% %s".format((sing * 100).toInt(), if (vRaw > 0f) "♪" else "·")
                         pitchLane.push(g, v, hit)
                         prevGuide = g
                         pitchBusy = false
@@ -286,7 +284,7 @@ class EmbeddedPlayer(
         }
         if (err != null) statusView.text = "녹음 시작 실패: $err" else {
             recordStarted = true; lastRecording = file
-            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f; voiceRmsHist.clear()
+            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f
             pitchLane.clear(); pitchLane.visibility = View.VISIBLE
             ui.removeCallbacks(pitchTicker); ui.post(pitchTicker)
         }

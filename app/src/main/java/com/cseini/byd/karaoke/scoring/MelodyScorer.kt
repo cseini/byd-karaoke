@@ -237,6 +237,85 @@ object MelodyScorer {
         return bestCents to maxDb
     }
 
+    /**
+     * 유출 차감 기반 내 음정(레인용 최종 방식).
+     * 마이크 스펙트럼에서 반주(원본을 알고 있음) 성분을 α-스케일로 차감한 잔차에서
+     * 하모닉 합으로 음정을 뽑는다. 반환: (cents, singingness 0..1 — 잔차 에너지 비율).
+     * 레벨 게이트가 필요 없어, 유출이 크거나 작은 유닛 모두에서 안정적.
+     */
+    fun realtimeVoiceSub(voice: FloatArray, vRate: Int, accomp: FloatArray, aRate: Int): Pair<Float, Float> {
+        val (vdAll, vr) = decimate(voice, vRate)
+        val n = 1024
+        val nFft = 2048
+        if (vdAll.size < n) return 0f to 0f
+        val vd = vdAll.copyOfRange(vdAll.size - n, vdAll.size)
+        val ad = resampleTail(accomp, aRate, vr, n) ?: return 0f to 0f
+        // FFT 두 개(해닝, 제로패딩)
+        val re = DoubleArray(nFft); val im = DoubleArray(nFft)
+        fun magOf(x: FloatArray): DoubleArray {
+            for (i in 0 until n) {
+                val w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))
+                re[i] = x[i] * w; im[i] = 0.0
+            }
+            for (i in n until nFft) { re[i] = 0.0; im[i] = 0.0 }
+            fft(re, im)
+            return DoubleArray(nFft / 2 + 1) { Math.hypot(re[it], im[it]) }
+        }
+        val mV = magOf(vd)
+        val mA = magOf(ad)
+        // 유출 스케일 α 추정(150~3500Hz 최소자승) 후 차감
+        val kLo = (150.0 * nFft / vr).toInt().coerceAtLeast(1)
+        val kHi = (3500.0 * nFft / vr).toInt().coerceAtMost(nFft / 2)
+        var num = 0.0; var den = 0.0; var eV = 0.0
+        for (k in kLo..kHi) { num += mV[k] * mA[k]; den += mA[k] * mA[k]; eV += mV[k] * mV[k] }
+        val alpha = if (den > 0) (num / den).coerceIn(0.0, 8.0) else 0.0
+        var eR = 0.0
+        val res = DoubleArray(nFft / 2 + 1)
+        for (k in kLo..kHi) {
+            val r = mV[k] - 1.15 * alpha * mA[k]
+            res[k] = if (r > 0) r else 0.0
+            eR += res[k] * res[k]
+        }
+        val sing = if (eV > 1e-12) (eR / eV).toFloat() else 0f
+        if (sing < 0.2f) return 0f to sing   // 잔차가 작다 = 마이크 소리가 거의 반주 유출뿐
+        // 잔차에서 하모닉 합 음정(140~800Hz, 1/4반음 격자)
+        val fMin = 140.0; val fMax = 800.0
+        val nCand = (12 * ln(fMax / fMin) / ln(2.0) * 4).toInt()
+        var best = -1; var bestS = 0.0; var sum = 0.0
+        val ws = doubleArrayOf(1.0, 0.7, 0.5, 0.35, 0.25)
+        val sal = DoubleArray(nCand)
+        for (c in 0 until nCand) {
+            val f = fMin * Math.pow(2.0, c / 48.0)
+            var v2 = 0.0
+            for (h in 1..5) {
+                val k = (f * h * nFft / vr).roundToInt()
+                if (k in 1..nFft / 2) v2 += ws[h - 1] * res[k]
+            }
+            sal[c] = v2; sum += v2
+            if (v2 > bestS) { bestS = v2; best = c }
+        }
+        val med = medianOf(sal)
+        if (best < 0 || bestS < 2.5 * med) return 0f to sing
+        val f0 = fMin * Math.pow(2.0, best / 48.0)
+        return (1200.0 * ln(f0 / 55.0) / ln(2.0)).toFloat() to sing
+    }
+
+    /** 끝부분 outN 샘플을 to 레이트로 선형 리샘플(부족하면 null). */
+    private fun resampleTail(x: FloatArray, from: Int, to: Int, outN: Int): FloatArray? {
+        val needSrc = (outN.toLong() * from / to).toInt() + 2
+        if (x.size < needSrc) return null
+        val base = x.size - needSrc
+        val step = from.toDouble() / to
+        val out = FloatArray(outN)
+        for (i in 0 until outN) {
+            val pos = base + i * step
+            val i0 = pos.toInt().coerceIn(0, x.size - 2)
+            val fr = (pos - i0).toFloat()
+            out[i] = x[i0] * (1 - fr) + x[i0 + 1] * fr
+        }
+        return out
+    }
+
     /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */
     fun centsMatchAbs(a: Float, b: Float): Boolean = centsNear(a, b, MATCH_CENTS.toFloat())
 

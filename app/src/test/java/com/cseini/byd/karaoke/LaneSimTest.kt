@@ -34,18 +34,21 @@ class LaneSimTest {
             val tickV = vr * 12 / 100
             val winV = vr * 12 / 100       // latestVoice(120)
             var ai = 0
-            val rmsHist = ArrayDeque<Float>()
             val gs = ArrayList<Float>(); val ms = ArrayList<Float>()
+            val winA = ar * 19 / 100   // latestAccomp(190)
+            val winV2 = vr * 19 / 100
             var t = 0
             while ((t + 1) * tickA < a.size && (t + 1) * tickV + winV < v.size) {
                 val end = (t + 1) * tickA
                 tracker.feed(a.copyOfRange(ai, end)); ai = end
                 gs.add(tracker.currentCents())
                 val vs = (t + 1) * tickV
-                val (vRaw, vDb) = MelodyScorer.realtimeVoice(v.copyOfRange(vs - winV, vs + winV.coerceAtMost(v.size - vs)), vr)
-                if (vDb > -70f) { rmsHist.addLast(vDb); if (rmsHist.size > 160) rmsHist.removeFirst() }
-                val gate = if (rmsHist.size >= 25) rmsHist.sorted()[rmsHist.size / 4] + 6f else -40f
-                ms.add(if (vDb > gate) vRaw else 0f)
+                val vFrom = (vs - winV2).coerceAtLeast(0)
+                val aTo = ((t + 1) * tickA).coerceAtMost(a.size)
+                val aFrom = (aTo - winA).coerceAtLeast(0)
+                val (vRaw, _) = MelodyScorer.realtimeVoiceSub(
+                    v.copyOfRange(vFrom, vs), vr, a.copyOfRange(aFrom, aTo), ar)
+                ms.add(vRaw)
                 t++
             }
             val name = File(dir).name
