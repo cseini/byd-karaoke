@@ -135,6 +135,8 @@ class EmbeddedPlayer(
                         // (실차 덤프 3개 스윕 결과 delay=0 이 최적 — 두 버퍼는 이미 같은 시간축)
                         val M = com.cseini.byd.karaoke.scoring.MelodyScorer
                         val hit = M.centsNear(g, v, 100f) || M.centsNear(prevGuide, v, 100f)
+                        // 초소형 진단: 내레벨/게이트/음정검출 여부 — 유닛별 문제를 사진 한 장으로 판별
+                        pitchLane.debugText = "%.0f/%.0f %s".format(vDb, gate, if (vRaw > 0f) "♪" else "·")
                         pitchLane.push(g, v, hit)
                         prevGuide = g
                         pitchBusy = false

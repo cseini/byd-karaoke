@@ -206,19 +206,35 @@ object MelodyScorer {
         val (d, r) = decimate(x, rate)
         val frameLen = (r * 0.046).toInt()
         if (d.size < frameLen) return 0f to -80f
-        val frame = d.copyOfRange(d.size - frameLen, d.size)
-        var sum = 0.0
-        for (v in frame) sum += v * v
-        val rmsDb = (20 * Math.log10(Math.sqrt(sum / frame.size) + 1e-9)).toFloat()
-        if (rmsDb < -75f) return 0f to rmsDb   // 사실상 무음만 컷 — 잡음은 YIN 무성판정+상대 게이트가 담당
-        // 작은 차량 마이크 대응: 피크 정규화 후 검출
-        var peak = 1e-4f
-        for (v in frame) { val a = abs(v); if (a > peak) peak = a }
-        val g = (0.5f / peak).coerceAtMost(32f)
-        val nf = FloatArray(frame.size) { frame[it] * g }
-        val res = com.cseini.byd.karaoke.audio.PitchDetector(r).detect(nf)
-        if (!res.voiced || res.f0 <= 0f) return 0f to rmsDb
-        return (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat() to rmsDb
+        val det = com.cseini.byd.karaoke.audio.PitchDetector(r)
+        // 청크 안 최대 3개 프레임을 분석해 가장 신뢰 높은 유성 결과 채택(자음·순간 흔들림에 강함)
+        var bestCents = 0f
+        var bestProb = 0f
+        var maxDb = -90f
+        val hopF = frameLen / 2
+        var st = (d.size - frameLen - 2 * hopF).coerceAtLeast(0)
+        var tried = 0
+        while (st + frameLen <= d.size && tried < 3) {
+            val frame = d.copyOfRange(st, st + frameLen)
+            var sum = 0.0
+            for (v in frame) sum += v * v
+            val rmsDb = (20 * Math.log10(Math.sqrt(sum / frame.size) + 1e-9)).toFloat()
+            if (rmsDb > maxDb) maxDb = rmsDb
+            if (rmsDb >= -75f) {
+                var peak = 1e-4f
+                for (v in frame) { val a = abs(v); if (a > peak) peak = a }
+                val g = (0.5f / peak).coerceAtMost(64f)
+                val nf = FloatArray(frame.size) { frame[it] * g }
+                val res = det.detect(nf)
+                if (res.voiced && res.f0 > 0f && res.probability > bestProb) {
+                    bestProb = res.probability
+                    bestCents = (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat()
+                }
+            }
+            st += hopF
+            tried++
+        }
+        return bestCents to maxDb
     }
 
     /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */

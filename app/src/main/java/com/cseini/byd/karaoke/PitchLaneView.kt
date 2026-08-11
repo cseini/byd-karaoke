@@ -22,15 +22,20 @@ class PitchLaneView @JvmOverloads constructor(
     private val windowMs = 6000L
 
     private val refPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E6C15A"); strokeWidth = 9f; strokeCap = Paint.Cap.ROUND
+        color = Color.parseColor("#E6C15A"); strokeWidth = 14f; strokeCap = Paint.Cap.ROUND
     }
     private val micPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#4DD7E6"); strokeWidth = 6f; strokeCap = Paint.Cap.ROUND
+        color = Color.parseColor("#4DD7E6"); strokeWidth = 10f; strokeCap = Paint.Cap.ROUND
     }
     private val hitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#5CE65C"); strokeWidth = 8f; strokeCap = Paint.Cap.ROUND
+        color = Color.parseColor("#5CE65C"); strokeWidth = 14f; strokeCap = Paint.Cap.ROUND
     }
     private val bgPaint = Paint().apply { color = Color.parseColor("#66050510") }
+    private val dbgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#AAFFFFFF"); textSize = 30f
+        typeface = android.graphics.Typeface.MONOSPACE
+    }
+    @Volatile var debugText: String = ""
     private val linePaint = Paint().apply { color = Color.parseColor("#22FFFFFF"); strokeWidth = 1f }
 
     /** cents 는 절대값(예: 1200*log2(f/55)). 0 이면 없음. */
@@ -47,6 +52,9 @@ class PitchLaneView @JvmOverloads constructor(
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0 || h <= 0) return
         canvas.drawRoundRect(0f, 0f, w, h, 14f, 14f, bgPaint)
+        if (debugText.isNotEmpty()) {
+            canvas.drawText(debugText, w - dbgPaint.measureText(debugText) - 14f, 34f, dbgPaint)
+        }
         // 옥타브 격자(4분할)
         for (k in 1..3) canvas.drawLine(0f, h * k / 4, w, h * k / 4, linePaint)
         val now = System.currentTimeMillis()
