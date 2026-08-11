@@ -531,6 +531,13 @@
                     android:paddingBottom="6dp" />
 
                 <CheckBox
+                    android:id="@+id/chk_pitch_lane"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="🎼 실시간 음정 노트 (실험실 — 유령 노트 있을 수 있음)" />
+
+                <CheckBox
                     android:id="@+id/chk_start_fullscreen"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
