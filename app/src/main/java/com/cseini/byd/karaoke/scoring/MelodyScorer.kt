@@ -54,11 +54,12 @@ object MelodyScorer {
         val base = percentile(rms, 0.25)
         var gate = maxOf(base + GATE_DB, -50.0)
         var sung = BooleanArray(mic.size) { mic[it].voiced && mic[it].f0 > 0f && mic[it].rmsDb > gate }
-        // 깨끗한 환경(유출 없음, 계속 크게 부름)이면 게이트가 전부를 자를 수 있음 → 완화
+        // 게이트 위로 올라오는 프레임이 거의 없다 = 마이크에 '기저(유출)보다 큰 소리'가 없다
+        // = 안 부른 것. (v4.55 까지는 여기서 게이트를 완화했는데, 유출만 있는 녹음도 레벨이
+        // 균일해 예외에 걸려 유출이 정답과 매칭 → 안 불러도 68점이 나오는 구멍이었다.)
         val voicedTotal = mic.count { it.voiced && it.f0 > 0f }
         if (voicedTotal >= 8 && sung.count { it } < voicedTotal / 5) {
-            gate = base
-            sung = BooleanArray(mic.size) { mic[it].voiced && mic[it].f0 > 0f && mic[it].rmsDb >= gate }
+            return noSing("노래가 감지되지 않았어요. 마이크에 대고 불러주세요!")
         }
         if (sung.count { it } < 8) return noSing("노래가 감지되지 않았어요. 마이크에 대고 크게 불러주세요!")
 
@@ -176,32 +177,9 @@ object MelodyScorer {
 
     // ── 실시간 노트 표시용(재생 중 ~8Hz 호출, 채점과 동일한 추출·판정) ──
 
-    /**
-     * 최근 반주 조각에서 가이드 멜로디(절대 cents). 없으면 0.
-     * 조각 안 프레임들이 같은 노트로 모일 때만 표시(과반이 중앙값 ±60cents) —
-     * 한 프레임 잡음이 "막 튀는 금색 점"으로 나오지 않게.
-     */
-    fun realtimeGuideCents(x: FloatArray, rate: Int): Float {
-        val (d, r) = decimate(x, rate)
-        // 실시간 표시는 채점보다 엄격하게 — 확실히 도드라진 멜로디만(반주 악기 잡음 억제)
-        val mel = salienceMelody(d, r, threshRatio = 3.0)
-        val vals = mel.filter { it > 0f }
-        if (vals.size < 3) return 0f
-        val med = vals.sorted()[vals.size / 2].toDouble()
-        var close = 0
-        for (v in vals) {
-            val dev = abs(1200.0 * ln(v / med) / ln(2.0))
-            if (dev <= 60.0) close++
-        }
-        if (close * 2 < vals.size + 1) return 0f
-        return (1200.0 * ln(med / 55.0) / ln(2.0)).toFloat()
-    }
-
     
     
-    internal fun decimatePublic(x: FloatArray, rate: Int) = decimate(x, rate)
-    internal fun resampleTailPublic(x: FloatArray, from: Int, to: Int, outN: Int) = resampleTail(x, from, to, outN)
-
+    
     /** 끝부분 outN 샘플을 to 레이트로 선형 리샘플(부족하면 null). */
     private fun resampleTail(x: FloatArray, from: Int, to: Int, outN: Int): FloatArray? {
         val needSrc = (outN.toLong() * from / to).toInt() + 2
@@ -218,17 +196,7 @@ object MelodyScorer {
         return out
     }
 
-    /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */
-    fun centsMatchAbs(a: Float, b: Float): Boolean = centsNear(a, b, MATCH_CENTS.toFloat())
-
-    /** 옥타브 무시 근접 판정(허용치 지정). 표시용은 반음(100c)로 채점보다 관대하게 쓴다. */
-    fun centsNear(a: Float, b: Float, tol: Float): Boolean {
-        if (a <= 0f || b <= 0f) return false
-        val d = (a - b).toDouble()
-        val folded = d - 1200.0 * Math.round(d / 1200.0)
-        return abs(folded) <= tol
-    }
-
+    
     private fun noSing(msg: String) = ScoringEngine.Score(0, 0, 0, 0, 0, 0, 0, 0f, "총점 0점\n$msg")
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의
@@ -323,7 +291,7 @@ object MelodyScorer {
     }
 
     /** 반복(비재귀) radix-2 FFT, n=2^k. */
-    internal fun fft(re: DoubleArray, im: DoubleArray) {
+    private fun fft(re: DoubleArray, im: DoubleArray) {
         val n = re.size
         var j = 0
         for (i in 1 until n) {
@@ -359,7 +327,7 @@ object MelodyScorer {
         }
     }
 
-    internal fun medianOf(a: DoubleArray): Double {
+    private fun medianOf(a: DoubleArray): Double {
         val c = a.copyOf(); c.sort(); return c[c.size / 2]
     }
 

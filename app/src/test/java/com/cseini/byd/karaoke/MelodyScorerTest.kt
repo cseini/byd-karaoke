@@ -16,11 +16,15 @@ class MelodyScorerTest {
     private val sr = 22050
 
     /** 가이드 멜로디(주파수 열)를 노트당 400ms 로 이어붙인 신호. */
-    private fun synth(freqs: List<Double>, noteMs: Int = 400, gain: Double = 0.5, harmonics: Int = 3): FloatArray {
+    private fun synth(
+        freqs: List<Double>, noteMs: Int = 400, gain: Double = 0.5, harmonics: Int = 3,
+        restEvery: Int = 0,   // n>0 이면 n노트마다 한 노트 길이 무음(현실적 구절 쉼)
+    ): FloatArray {
         val n = freqs.size * noteMs * sr / 1000
         val out = FloatArray(n)
         val noteLen = noteMs * sr / 1000
         for (k in freqs.indices) {
+            if (restEvery > 0 && (k + 1) % restEvery == 0) continue
             val f = freqs[k]
             for (i in 0 until noteLen) {
                 val t = (k * noteLen + i).toDouble() / sr
@@ -58,13 +62,13 @@ class MelodyScorerTest {
 
     // 목소리: 같은 멜로디를 한 옥타브 위로(아이 목소리), 300ms 늦게, 약간의 노이즈
     private fun goodVoice(): FloatArray =
-        addNoise(delay(synth(melody.map { it * 2 }, gain = 0.5, harmonics = 2), 300), 0.02f)
+        addNoise(delay(synth(melody.map { it * 2 }, gain = 0.5, harmonics = 2, restEvery = 3), 300), 0.02f)
 
     // 엉망: 무관한 음 열
     private fun badVoice(): FloatArray {
         val rnd = Random(7)
         val wrong = List(melody.size) { 200.0 + rnd.nextDouble() * 300.0 }
-        return addNoise(delay(synth(wrong, gain = 0.5, harmonics = 2), 300), 0.02f)
+        return addNoise(delay(synth(wrong, gain = 0.5, harmonics = 2, restEvery = 3), 300), 0.02f)
     }
 
     @Test
@@ -88,7 +92,7 @@ class MelodyScorerTest {
     @Test
     fun `녹음 시작 오프셋이 커도(1_5초) 매칭된다`() {
         val s = MelodyScorer.score(
-            addNoise(delay(synth(melody.map { it * 2 }, gain = 0.5, harmonics = 2), 1500), 0.02f),
+            addNoise(delay(synth(melody.map { it * 2 }, gain = 0.5, harmonics = 2, restEvery = 3), 1500), 0.02f),
             sr, accomp(), sr,
         )
         println("OFFSET1500: total=${s.total}\n${s.breakdown}")

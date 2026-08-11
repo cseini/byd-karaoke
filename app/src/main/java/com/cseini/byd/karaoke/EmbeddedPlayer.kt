@@ -31,7 +31,6 @@ import com.cseini.byd.karaoke.player.PlayerCallbacks
 import com.cseini.byd.karaoke.player.StreamPlayer
 import com.cseini.byd.karaoke.scoring.MelodyScorer
 import com.cseini.byd.karaoke.scoring.ScoringEngine
-import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -77,7 +76,6 @@ class EmbeddedPlayer(
     private val scoreGrade: TextView = activity.findViewById(R.id.embed_score_grade)
     private val scoreDetail: TextView = activity.findViewById(R.id.embed_score_detail)
     private val scoreNextInfo: TextView = activity.findViewById(R.id.embed_score_next_info)
-    private val pitchLane: PitchLaneView = activity.findViewById(R.id.embed_pitch_lane)
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
@@ -95,57 +93,6 @@ class EmbeddedPlayer(
     private var speedRate = 1.0f        // 속도 0.7~1.3
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
-
-    // 실시간 노트 레인: 녹음 중 ~8Hz 로 가이드/내 음정을 분석해 그린다(별도 스레드).
-    private val pitchExec = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-        Thread(r, "pitch-lane").apply { isDaemon = true }
-    }
-    @Volatile private var pitchBusy = false
-    // 스트리밍 가이드 추적(채점과 같은 비터비) — 곡마다 새로 만든다
-    private var melodyTracker: com.cseini.byd.karaoke.scoring.MelodyTracker? = null
-    private var accompFeedIndex = 0
-    private var prevGuide = 0f   // 표시 일치 판정의 ±1틱 관용용
-    private var voiceTracker: com.cseini.byd.karaoke.scoring.VoicePitchTracker? = null
-    private val pitchTicker = object : Runnable {
-        override fun run() {
-            val rec = recorder
-            if (rec != null && rec.isRecording && !replaying && !pitchBusy) {
-                pitchBusy = true
-                pitchExec.execute {
-                    val g = runCatching {
-                        val tr = melodyTracker ?: com.cseini.byd.karaoke.scoring.MelodyTracker(rec.accompSampleRate)
-                            .also { melodyTracker = it; accompFeedIndex = 0 }
-                        val (fresh, newIdx) = rec.accompNewFloats(accompFeedIndex)
-                        accompFeedIndex = newIdx
-                        if (fresh.isNotEmpty()) tr.feed(fresh)
-                        tr.currentCents()
-                    }.getOrNull() ?: 0f
-                    // 유출 차감: 마이크 스펙트럼 − α×반주 스펙트럼 → 잔차(순수 목소리)에서 음정
-                    val (vRaw, sing) = runCatching {
-                        val vc = rec.latestVoice(190)
-                        val ac = rec.latestAccomp(400)
-                        if (vc != null && ac != null) {
-                            val vt = voiceTracker ?: com.cseini.byd.karaoke.scoring.VoicePitchTracker().also { voiceTracker = it }
-                            vt.process(vc.first, vc.second, ac.first, ac.second)
-                        } else 0f to 0f
-                    }.getOrNull() ?: (0f to 0f)
-                    ui.post {
-                        val v = vRaw
-                        // 표시 일치: 반음(100c) 관용 + 직전 틱 가이드도 인정(±1틱)
-                        // (실차 덤프 3개 스윕 결과 delay=0 이 최적 — 두 버퍼는 이미 같은 시간축)
-                        val M = com.cseini.byd.karaoke.scoring.MelodyScorer
-                        val hit = M.centsNear(g, v, 100f) || M.centsNear(prevGuide, v, 100f)
-                        // 초소형 진단: 잔차비율(내 목소리가 유출 위로 얼마나 나오는가)/음정검출 여부
-                        pitchLane.debugText = "%d%% %s".format((sing * 100).toInt(), if (vRaw > 0f) "♪" else "·")
-                        pitchLane.push(g, v, hit)
-                        prevGuide = g
-                        pitchBusy = false
-                    }
-                }
-            }
-            ui.postDelayed(this, 120)
-        }
-    }
 
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
@@ -284,12 +231,7 @@ class EmbeddedPlayer(
         val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
             activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
-        if (err != null) statusView.text = "녹음 시작 실패: $err" else {
-            recordStarted = true; lastRecording = file
-            melodyTracker = null; accompFeedIndex = 0; prevGuide = 0f; voiceTracker = null
-            pitchLane.clear(); pitchLane.visibility = View.VISIBLE
-            ui.removeCallbacks(pitchTicker); ui.post(pitchTicker)
-        }
+        if (err != null) statusView.text = "녹음 시작 실패: $err" else { recordStarted = true; lastRecording = file }
     }
 
     private fun onEnded() {
@@ -302,8 +244,6 @@ class EmbeddedPlayer(
             return
         }
         scored = true
-        ui.removeCallbacks(pitchTicker)
-        pitchLane.visibility = View.GONE
         val file = recorder?.stop()
         lastRecording = file
         if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
@@ -667,8 +607,6 @@ class EmbeddedPlayer(
         }
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
-        ui.removeCallbacks(pitchTicker)
-        pitchLane.visibility = View.GONE
         stopMediaPlayer()
         recorder?.let { if (it.isRecording) it.stop() }
         recorder = null

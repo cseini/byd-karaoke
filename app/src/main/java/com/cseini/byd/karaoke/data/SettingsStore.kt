@@ -121,11 +121,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("wheel_button_control", false)
         set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
 
-    /** 실시간 음정 노트 레인(실험실). 유령 노트 문제로 검증 통과 전까지 기본 꺼짐. */
-    var showPitchLane: Boolean
-        get() = prefs.getBoolean("show_pitch_lane", false)
-        set(v) = prefs.edit().putBoolean("show_pitch_lane", v).apply()
-
     /** 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제). 기본 꺼짐. */
     var startFullscreen: Boolean
         get() = prefs.getBoolean("start_fullscreen", false)

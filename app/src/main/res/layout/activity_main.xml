@@ -414,24 +414,10 @@
                 android:orientation="horizontal">
 
                 <FrameLayout
+                    android:id="@+id/embed_container"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
-                    android:layout_weight="1">
-
-                    <FrameLayout
-                        android:id="@+id/embed_container"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
-
-                    <!-- 실시간 음정 노트 레인(가이드=금색, 내 음정=청록/일치=초록) -->
-                    <com.cseini.byd.karaoke.PitchLaneView
-                        android:id="@+id/embed_pitch_lane"
-                        android:layout_width="match_parent"
-                        android:layout_height="140dp"
-                        android:layout_gravity="top"
-                        android:layout_margin="8dp"
-                        android:visibility="gone" />
-                </FrameLayout>
+                    android:layout_weight="1" />
 
                 <!-- 예약된 곡(옆 상시 노출) -->
                 <LinearLayout
