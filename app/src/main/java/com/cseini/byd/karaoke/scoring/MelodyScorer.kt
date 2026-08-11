@@ -25,7 +25,7 @@ object MelodyScorer {
     private const val LAG_STEP_MS = 46
     private const val GATE_DB = 6.0            // 기저(유출) 레벨 대비 이만큼 커야 가창으로 인정
     private const val RATIO_FLOOR = 1.05       // 우연 대비 이 이하 = 0점
-    private const val RATIO_CEIL = 2.5         // 우연 대비 이 이상 = 만점(비터비 추출 기준 실차 재보정)
+    private const val RATIO_CEIL = 2.8         // 우연 대비 이 이상 = 만점(비터비 추출 기준 실차 재보정)
 
     fun score(
         voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int,
@@ -184,7 +184,7 @@ object MelodyScorer {
     fun realtimeGuideCents(x: FloatArray, rate: Int): Float {
         val (d, r) = decimate(x, rate)
         // 실시간 표시는 채점보다 엄격하게 — 확실히 도드라진 멜로디만(반주 악기 잡음 억제)
-        val mel = salienceMelody(d, r, threshRatio = 5.0)
+        val mel = salienceMelody(d, r, threshRatio = 3.0)
         val vals = mel.filter { it > 0f }
         if (vals.size < 3) return 0f
         val med = vals.sorted()[vals.size / 2].toDouble()
@@ -236,8 +236,9 @@ object MelodyScorer {
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의
     //    하모닉 스펙트럼 합이 최대인 후보. 중앙값 대비 3배 이상 두드러질 때만 채택. ──
-    private fun salienceMelody(x: FloatArray, rate: Int, threshRatio: Double = 3.0): FloatArray {
+    private fun salienceMelody(x: FloatArray, rate: Int, threshRatio: Double = 2.2): FloatArray {
         val n = 1024
+        val nFft = 2048              // 제로패딩 — 저음역 반음 분해능 확보
         val hop = (rate * SignalAnalysis.HOP_MS / 1000).toInt().coerceAtLeast(1)
         val nFrames = ((x.size - n) / hop).coerceAtLeast(0)
         if (nFrames == 0) return FloatArray(0)
@@ -248,21 +249,23 @@ object MelodyScorer {
         val weights = doubleArrayOf(1.0, 0.8, 0.6, 0.45, 0.35, 0.25)
         val binOf = Array(6) { h ->
             IntArray(nCand) { c ->
-                (cand[c] * (h + 1) * n / rate).roundToInt().coerceIn(0, n / 2)
+                (cand[c] * (h + 1) * nFft / rate).roundToInt().coerceIn(0, nFft / 2)
             }
         }
         val win = DoubleArray(n) { 0.5 - 0.5 * Math.cos(2 * Math.PI * it / (n - 1)) }
-        val re = DoubleArray(n)
-        val im = DoubleArray(n)
-        val mag = DoubleArray(n / 2 + 1)
+        val re = DoubleArray(nFft)
+        val im = DoubleArray(nFft)
+        val mag = DoubleArray(nFft / 2 + 1)
         // 1) 프레임별 salience 행렬 + 신뢰 마스크
         val salMat = Array(nFrames) { DoubleArray(nCand) }
         val confident = BooleanArray(nFrames)
         for (fIdx in 0 until nFrames) {
             val st = fIdx * hop
             for (i in 0 until n) { re[i] = x[st + i] * win[i]; im[i] = 0.0 }
+            for (i in n until nFft) { re[i] = 0.0; im[i] = 0.0 }
             fft(re, im)
-            for (k in 0..n / 2) mag[k] = Math.hypot(re[k], im[k])
+            // 0.6제곱 압축 — 큰 베이스·타악기가 salience 를 독식하는 것 억제(Melodia 방식)
+            for (k in 0..nFft / 2) mag[k] = Math.pow(Math.hypot(re[k], im[k]), 0.6)
             var bestS = 0.0
             val row = salMat[fIdx]
             for (c in 0 until nCand) {

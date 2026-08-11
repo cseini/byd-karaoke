@@ -14,6 +14,7 @@ class MelodyTracker(srcRate: Int) {
     private val factor = Math.ceil(srcRate / 12000.0).toInt().coerceAtLeast(1)
     private val rate = srcRate / factor
     private val n = 1024
+    private val nFft = 2048          // 제로패딩 — 저음역 반음 분해능 확보
     private val hop = (rate * SignalAnalysis.HOP_MS / 1000).toInt().coerceAtLeast(1)
 
     private val fMin = 180.0
@@ -22,12 +23,12 @@ class MelodyTracker(srcRate: Int) {
     private val cand = DoubleArray(nCand) { fMin * Math.pow(2.0, it / 24.0) }
     private val weights = doubleArrayOf(1.0, 0.8, 0.6, 0.45, 0.35, 0.25)
     private val binOf = Array(6) { h ->
-        IntArray(nCand) { c -> (cand[c] * (h + 1) * n / rate).roundToInt().coerceIn(0, n / 2) }
+        IntArray(nCand) { c -> (cand[c] * (h + 1) * nFft / rate).roundToInt().coerceIn(0, nFft / 2) }
     }
     private val win = DoubleArray(n) { 0.5 - 0.5 * Math.cos(2 * Math.PI * it / (n - 1)) }
-    private val re = DoubleArray(n)
-    private val im = DoubleArray(n)
-    private val mag = DoubleArray(n / 2 + 1)
+    private val re = DoubleArray(nFft)
+    private val im = DoubleArray(nFft)
+    private val mag = DoubleArray(nFft / 2 + 1)
     private val sal = DoubleArray(nCand)
 
     // 비터비 전방 누적(직전 프레임 dp 만 유지, 매 프레임 최대값으로 재정규화)
@@ -36,7 +37,7 @@ class MelodyTracker(srcRate: Int) {
     private var started = false
     private val jumpPen = 0.275
     private val span = 8
-    private val threshRatio = 5.0   // 표시용 신뢰 문턱(채점 3.0 보다 엄격)
+    private val threshRatio = 3.0   // 표시용 신뢰 문턱(압축 스케일 기준, 채점 2.2 보다 엄격)
 
     // 데시메이션 캐리 + 프레임 조립 버퍼
     private var carrySum = 0f
@@ -71,8 +72,10 @@ class MelodyTracker(srcRate: Int) {
 
     private fun process(x: FloatArray, off: Int) {
         for (i in 0 until n) { re[i] = x[off + i] * win[i]; im[i] = 0.0 }
+        for (i in n until nFft) { re[i] = 0.0; im[i] = 0.0 }
         MelodyScorer.fft(re, im)
-        for (k in 0..n / 2) mag[k] = Math.hypot(re[k], im[k])
+        // 0.6제곱 압축 — 큰 베이스·타악기가 salience 를 독식하는 것 억제(Melodia 방식)
+        for (k in 0..nFft / 2) mag[k] = Math.pow(Math.hypot(re[k], im[k]), 0.6)
         var bestS = 0.0
         for (c in 0 until nCand) {
             var v = 0.0
