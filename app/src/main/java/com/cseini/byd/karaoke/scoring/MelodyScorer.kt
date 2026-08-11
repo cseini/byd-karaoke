@@ -197,23 +197,28 @@ object MelodyScorer {
         return (1200.0 * ln(med / 55.0) / ln(2.0)).toFloat()
     }
 
-    /** 최근 목소리 조각에서 내 음정(절대 cents). 소리가 작거나 무성이면 0. */
-    fun realtimeVoiceCents(x: FloatArray, rate: Int): Float {
+    /**
+     * 최근 목소리 조각에서 (내 음정 cents, 프레임 레벨 dB).
+     * 레벨은 호출측이 유출(스피커) 기저와 비교해 '진짜 가창'만 표시하는 데 쓴다 — 채점의 성량
+     * 게이트와 같은 원리. 무성/저신뢰면 cents=0.
+     */
+    fun realtimeVoice(x: FloatArray, rate: Int): Pair<Float, Float> {
         val (d, r) = decimate(x, rate)
         val frameLen = (r * 0.046).toInt()
-        if (d.size < frameLen) return 0f
+        if (d.size < frameLen) return 0f to -80f
         val frame = d.copyOfRange(d.size - frameLen, d.size)
         var sum = 0.0
         for (v in frame) sum += v * v
-        if (Math.sqrt(sum / frame.size) < 3.16e-3) return 0f   // < -50dB
+        val rmsDb = (20 * Math.log10(Math.sqrt(sum / frame.size) + 1e-9)).toFloat()
+        if (rmsDb < -50f) return 0f to rmsDb
         // 작은 차량 마이크 대응: 피크 정규화 후 검출
         var peak = 1e-4f
         for (v in frame) { val a = abs(v); if (a > peak) peak = a }
         val g = (0.5f / peak).coerceAtMost(32f)
         val nf = FloatArray(frame.size) { frame[it] * g }
         val res = com.cseini.byd.karaoke.audio.PitchDetector(r).detect(nf)
-        if (!res.voiced || res.f0 <= 0f) return 0f
-        return (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat()
+        if (!res.voiced || res.f0 <= 0f) return 0f to rmsDb
+        return (1200.0 * ln(res.f0.toDouble() / 55.0) / ln(2.0)).toFloat() to rmsDb
     }
 
     /** 옥타브 무시 일치(표시용) — 채점과 같은 60cents 기준. */

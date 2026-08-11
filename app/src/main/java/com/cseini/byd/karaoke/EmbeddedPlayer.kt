@@ -104,6 +104,8 @@ class EmbeddedPlayer(
     private var guideSmooth = 0f      // 표시용 가이드 스무딩 상태
     private var guideMiss = 0
     private var guideCandidate = 0f   // 급점프 후보(2연속이면 채택)
+    // 목소리 성량 게이트: 최근 레벨 분포의 하위 25% = 상시 유출(스피커) 기저 → +6dB 이상만 '가창'
+    private val voiceRmsHist = ArrayDeque<Float>()
     private val pitchTicker = object : Runnable {
         override fun run() {
             val rec = recorder
@@ -113,10 +115,16 @@ class EmbeddedPlayer(
                     val g = runCatching {
                         rec.latestAccomp(250)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeGuideCents(it.first, it.second) }
                     }.getOrNull() ?: 0f
-                    val v = runCatching {
-                        rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoiceCents(it.first, it.second) }
-                    }.getOrNull() ?: 0f
+                    val (vRaw, vDb) = runCatching {
+                        rec.latestVoice(120)?.let { com.cseini.byd.karaoke.scoring.MelodyScorer.realtimeVoice(it.first, it.second) }
+                    }.getOrNull() ?: (0f to -80f)
                     ui.post {
+                        // 유출 게이트: 마이크에 늘 깔리는 반주 소리(기저 레벨)는 '내 노트'로 그리지 않는다
+                        if (vDb > -70f) { voiceRmsHist.addLast(vDb); if (voiceRmsHist.size > 160) voiceRmsHist.removeFirst() }
+                        val gate = if (voiceRmsHist.size >= 25) {
+                            voiceRmsHist.sorted()[voiceRmsHist.size / 4] + 6f
+                        } else -40f
+                        val v = if (vDb > gate) vRaw else 0f
                         // 가이드 연속성: 근접값은 EMA, 급점프는 2연속일 때만 채택, 짧은 결손(≤3틱)은 유지
                         val shown = when {
                             g <= 0f -> {
