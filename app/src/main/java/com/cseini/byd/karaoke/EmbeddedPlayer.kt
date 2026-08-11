@@ -106,6 +106,9 @@ class EmbeddedPlayer(
     private var guideCandidate = 0f   // 급점프 후보(2연속이면 채택)
     // 목소리 성량 게이트: 최근 레벨 분포의 하위 25% = 상시 유출(스피커) 기저 → +6dB 이상만 '가창'
     private val voiceRmsHist = ArrayDeque<Float>()
+    // 반주 분석은 스피커로 나가기 전 신호 기준 → 사람은 '들리는' 소리에 맞춰 부르므로
+    // 가이드를 3틱(≈360ms) 지연시켜 목소리와 같은 시간축으로 표시한다.
+    private val guideDelay = ArrayDeque<Float>()
     private val pitchTicker = object : Runnable {
         override fun run() {
             val rec = recorder
@@ -141,8 +144,12 @@ class EmbeddedPlayer(
                             }
                             else -> { guideCandidate = g; guideSmooth }   // 1회 점프는 보류
                         }
-                        val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(shown, v)
-                        pitchLane.push(shown, v, hit)
+                        // 들리는 시점 보정: 3틱 전 가이드와 지금 목소리를 짝지음
+                        guideDelay.addLast(shown)
+                        if (guideDelay.size > 4) guideDelay.removeFirst()
+                        val shownDelayed = guideDelay.first()
+                        val hit = com.cseini.byd.karaoke.scoring.MelodyScorer.centsMatchAbs(shownDelayed, v)
+                        pitchLane.push(shownDelayed, v, hit)
                         pitchBusy = false
                     }
                 }
