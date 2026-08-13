@@ -47,6 +47,7 @@ class EmbeddedPlayer(
     private val recordings: RecordingStore,
     private val playHistory: PlayHistoryStore,
     private val onClose: () -> Unit = {},
+    private val onRepeatedFailure: () -> Unit = {},
 ) {
     private val queue = QueueStore(activity)
     private val ui = Handler(Looper.getMainLooper())
@@ -93,6 +94,7 @@ class EmbeddedPlayer(
     private var speedRate = 1.0f        // 속도 0.7~1.3
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
+    private var extractFails = 0   // 연속 스트림 추출 실패 수(재생 성공 시 0)
 
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
@@ -186,7 +188,12 @@ class EmbeddedPlayer(
         val cb = PlayerCallbacks(
             onPlaying = { onPlaying() }, onEnded = { onEnded() }, onTime = { },
             onEmbedBlocked = { statusView.text = "재생 불가 영상입니다. 다른 곡으로 시도하세요." },
-            onError = { msg -> if (rec.isRecording) rec.stop(); statusView.text = msg },
+            onError = { msg ->
+                if (rec.isRecording) rec.stop()
+                statusView.text = msg
+                // 스트림 추출 연속 실패 = 유튜브 방식 변경 의심 → 2곡째부터 호스트에 알림
+                if (++extractFails >= 2) { extractFails = 0; onRepeatedFailure() }
+            },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec.accompProcessor)
         // 키·속도는 '지금 부르는 곡'에만 적용 — 곡이 바뀌면 원래대로 초기화한다.
@@ -217,6 +224,7 @@ class EmbeddedPlayer(
         PackageManager.PERMISSION_GRANTED
 
     private fun onPlaying() {
+        extractFails = 0   // 재생 성공 → 연속 실패 카운터 초기화
         if (recordStarted || scored) return
         if (!playLogged) {
             playLogged = true

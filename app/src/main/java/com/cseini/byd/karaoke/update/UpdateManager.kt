@@ -37,6 +37,27 @@ object UpdateManager {
         val version: String get() = tag_name.orEmpty().removePrefix("v")
     }
 
+    /**
+     * 긴급 업데이트 신호(랜딩의 min.json). 유튜브 재생이 깨져 필수 업데이트가 필요할 때,
+     * 맥미니 자동배포가 이 값을 올린다. 현재 버전이 minVersion 보다 낮으면 강제 안내.
+     */
+    data class MinInfo(val minVersion: String?, val message: String?)
+
+    suspend fun fetchMinVersion(): MinInfo? = withContext(Dispatchers.IO) {
+        runCatching {
+            val conn = (URL("https://karaoke.usenu.kr/min.json").openConnection() as HttpURLConnection).apply {
+                setRequestProperty("User-Agent", "byd-karaoke")
+                connectTimeout = 5_000; readTimeout = 5_000
+            }
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            Gson().fromJson(body, MinInfo::class.java)
+        }.getOrNull()
+    }
+
+    /** 현재 버전이 min 보다 낮은가(=긴급 업데이트 필요). */
+    fun isBelow(minVersion: String?): Boolean =
+        !minVersion.isNullOrBlank() && isNewer(minVersion, BuildConfig.VERSION_NAME)
+
     /** 새 버전이 있으면 Release, 없거나 확인 실패면 null. */
     suspend fun checkForUpdate(): Release? = withContext(Dispatchers.IO) {
         runCatching {

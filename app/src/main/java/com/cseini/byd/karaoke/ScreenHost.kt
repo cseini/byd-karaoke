@@ -26,4 +26,7 @@ interface ScreenHost {
     /** 마이크 버튼 학습 — 눌렀다 뗀 버튼의 (바이트인덱스, 값, hex)를 전달. */
     fun onMicLearnStart(onCapture: (Int, Int, String) -> Unit) {}
     fun onMicLearnStop() {}
+
+    /** 유튜브 스트림 추출이 연속 실패(방식 변경 의심)했을 때 호스트에 알림. */
+    fun onRepeatedPlayFailure() {}
 }

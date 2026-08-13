@@ -272,7 +272,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         )
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
-        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(this, settings, recordings, playHistory) { resetToSearchHome() }
+        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(
+            this, settings, recordings, playHistory,
+            onClose = { resetToSearchHome() },
+            onRepeatedFailure = { onRepeatedPlayFailure() },
+        )
 
         searchInput = findViewById(R.id.search_input)
         status = findViewById(R.id.status)
@@ -412,11 +416,41 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private fun checkOtaUpdate() {
         lifecycleScope.launch {
             val release = UpdateManager.checkForUpdate() ?: return@launch
-            androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                .setTitle("🔔 새 버전 v${release.version}")
-                .setMessage("지금 업데이트할까요? (다운로드 후 설치 확인만 누르면 됩니다)")
+            // 긴급(유튜브 재생 깨짐 등) 여부 확인 — 랜딩 min.json 기준
+            val min = UpdateManager.fetchMinVersion()
+            val urgent = UpdateManager.isBelow(min?.minVersion)
+            val b = androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle(if (urgent) "⚠ 필수 업데이트 v${release.version}" else "🔔 새 버전 v${release.version}")
+                .setMessage(
+                    if (urgent) (min?.message?.takeIf { it.isNotBlank() }
+                        ?: "유튜브 재생 문제로 지금 업데이트해야 정상 작동합니다.")
+                    else "지금 업데이트할까요? (다운로드 후 설치 확인만 누르면 됩니다)",
+                )
                 .setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
-                .setNegativeButton("나중에", null)
+            if (!urgent) b.setNegativeButton("나중에", null) else b.setCancelable(false)
+            b.show()
+        }
+    }
+
+    /** 재생 추출이 연속 실패(유튜브 방식 변경 의심) → 즉시 업데이트 확인·안내. */
+    private var ytFailNotified = false
+    override fun onRepeatedPlayFailure() {
+        if (ytFailNotified) return
+        ytFailNotified = true
+        lifecycleScope.launch {
+            val release = UpdateManager.checkForUpdate()
+            androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                .setTitle("재생에 반복 실패했어요")
+                .setMessage(
+                    if (release != null)
+                        "유튜브 재생 방식이 바뀐 것 같아요. 업데이트하면 해결될 수 있어요."
+                    else "유튜브 재생 방식이 바뀐 것 같아요. 잠시 후 자동으로 고쳐진 버전이 올라옵니다.",
+                )
+                .apply {
+                    if (release != null) setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
+                        .setNegativeButton("닫기", null)
+                    else setPositiveButton("확인", null)
+                }
                 .show()
         }
     }
