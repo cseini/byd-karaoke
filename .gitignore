@@ -13,3 +13,4 @@
 
 # 서명키(비공개, 절대 커밋 금지)
 /keystore/ota.keystore
+scripts/autodeploy.log
