@@ -45,7 +45,7 @@ do_release(){
   CODE=$(grep -oE 'versionCode = [0-9]+' app/build.gradle.kts | grep -oE '[0-9]+')
   NAME=$(grep -oE 'versionName = "[0-9.]+"' app/build.gradle.kts | grep -oE '[0-9.]+')
   NEWCODE=$((CODE+1))
-  NEWNAME=$(python3 -c "print(f'{float('$NAME')+0.01:.2f}')")
+  NEWNAME=$(python3 -c "n=$NAME; print(f'{n+0.01:.2f}')")
   sed -i '' "s/versionCode = $CODE/versionCode = $NEWCODE/; s/versionName = \"$NAME\"/versionName = \"$NEWNAME\"/" app/build.gradle.kts
   log "빌드 v$NAME→v$NEWNAME ($npnote, urgent=$urgent)"
   if $GRADLE :app:assembleProdRelease :app:assembleLabRelease -q 2>&1 | grep -qiE "error:|FAILURE"; then
