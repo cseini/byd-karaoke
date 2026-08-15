@@ -473,6 +473,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             searchInput.post { startVoice() }
             return
         }
+        // USB 마이크가 연결됨(앱 실행 중) → 권한이 부여됐으니 즉시 버튼 제어 시작.
+        if (intent.action == "android.hardware.usb.action.USB_DEVICE_ATTACHED") {
+            syncPhysicalButtons()
+            return
+        }
         resetToSearchHome()
     }
 
