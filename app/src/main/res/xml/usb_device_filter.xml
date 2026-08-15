@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB 마이크 연결 시 노래방이 담당하도록 등록. vid/pid 를 특정할 수 없어(BYD 마이크 식별이
+     SDK 내부에 숨어 있음) 빈 usb-device 로 모든 기기 매칭 — 헤드유닛엔 마이크 정도만 꽂힌다.
+     사용자가 "항상"을 한 번 체크하면 재부팅 후에도 권한이 자동 부여돼 팝업이 사라진다. -->
+<resources>
+    <usb-device />
+</resources>
