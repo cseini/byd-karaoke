@@ -483,6 +483,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     override fun onResume() {
         super.onResume()
+        // 설치 권한을 켜고 설정에서 돌아온 경우, 미뤄둔 업데이트 설치를 자동 재개
+        UpdateManager.retryPendingInstall(this)
         refreshHistory()
         searchDebounce.removeCallbacks(queuePoll)
         searchDebounce.post(queuePoll)   // 폰 예약이 바로 보이도록 주기 갱신

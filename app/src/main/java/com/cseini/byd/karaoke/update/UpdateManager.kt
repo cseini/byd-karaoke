@@ -123,22 +123,54 @@ object UpdateManager {
             }.getOrNull()
         }
 
+    // 권한이 없어 미룬 설치. 설정에서 허용하고 돌아오면 onResume 에서 자동 재개.
+    @Volatile private var pendingApk: File? = null
+
     fun install(context: Context, apk: File) {
         // Android 8+: 이 앱에 "이 출처의 앱 설치 허용" 권한이 없으면 업데이트 설치가 막힌다.
-        // (다운로드는 되는데 설치가 안 되는 가장 흔한 원인) → 설정 화면으로 안내하고 켠 뒤 다시 시도하게 한다.
+        // (다운로드는 되는데 설치가 안 되는 가장 흔한 원인) → 다이얼로그로 안내하고, 권한을 켜고
+        // 돌아오면 자동으로 이어서 설치한다(Sealion7 등 Android 12 에서 흔함).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-            Toast.makeText(
-                context, "업데이트 설치 권한이 필요합니다. '이 출처 허용'을 켠 뒤 업데이트를 다시 확인하세요.",
-                Toast.LENGTH_LONG
-            ).show()
-            runCatching {
-                context.startActivity(
-                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
+            pendingApk = apk
+            val act = context as? android.app.Activity
+            if (act != null) {
+                androidx.appcompat.app.AlertDialog.Builder(act)
+                    .setTitle("설치 권한 한 번만 켜주세요")
+                    .setMessage("업데이트를 설치하려면 '알 수 없는 앱 설치'를 허용해야 합니다.\n" +
+                        "설정에서 노래방을 켠 뒤 돌아오면 자동으로 이어서 설치됩니다. (처음 한 번만)")
+                    .setPositiveButton("설정 열기") { _, _ -> openUnknownSources(act) }
+                    .setNegativeButton("나중에", null)
+                    .setCancelable(false)
+                    .show()
+            } else {
+                Toast.makeText(context, "업데이트 설치 권한이 필요합니다. '이 출처 허용'을 켜주세요.", Toast.LENGTH_LONG).show()
+                openUnknownSources(context)
             }
             return
         }
+        pendingApk = null
+        installNow(context, apk)
+    }
+
+    /** 설정에서 권한을 켜고 돌아왔을 때(onResume) 미룬 설치를 자동 재개. */
+    fun retryPendingInstall(context: Context) {
+        val apk = pendingApk ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()) {
+            pendingApk = null
+            if (apk.exists()) installNow(context, apk)
+        }
+    }
+
+    private fun openUnknownSources(context: Context) {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
+    private fun installNow(context: Context, apk: File) {
         val uri = FileProvider.getUriForFile(
             context, "${BuildConfig.APPLICATION_ID}.fileprovider", apk
         )
