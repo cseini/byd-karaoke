@@ -132,20 +132,12 @@ object UpdateManager {
         // 돌아오면 자동으로 이어서 설치한다(Sealion7 등 Android 12 에서 흔함).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
             pendingApk = apk
-            val act = context as? android.app.Activity
-            if (act != null) {
-                androidx.appcompat.app.AlertDialog.Builder(act)
-                    .setTitle("설치 권한 한 번만 켜주세요")
-                    .setMessage("업데이트를 설치하려면 '알 수 없는 앱 설치'를 허용해야 합니다.\n" +
-                        "설정에서 노래방을 켠 뒤 돌아오면 자동으로 이어서 설치됩니다. (처음 한 번만)")
-                    .setPositiveButton("설정 열기") { _, _ -> openUnknownSources(act) }
-                    .setNegativeButton("나중에", null)
-                    .setCancelable(false)
-                    .show()
-            } else {
-                Toast.makeText(context, "업데이트 설치 권한이 필요합니다. '이 출처 허용'을 켜주세요.", Toast.LENGTH_LONG).show()
-                openUnknownSources(context)
-            }
+            // 다이얼로그로 한 단계 거치지 않고 권한 화면을 바로 연다. 켜고 돌아오면 자동 설치.
+            Toast.makeText(
+                context, "설치하려면 '노래방'을 켜고(허용) 뒤로 돌아오세요 — 자동으로 이어서 설치됩니다.",
+                Toast.LENGTH_LONG,
+            ).show()
+            openUnknownSources(context)
             return
         }
         pendingApk = null
