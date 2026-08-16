@@ -129,7 +129,13 @@ class StreamPlayer(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) cb.onEnded()
+                if (state != Player.STATE_ENDED) return
+                // 실제로 곡 끝까지 재생됐을 때만 종료 처리. 어라운드뷰(후진·컨시그널)나 외부
+                // 오디오 개입으로 재생이 중간에 끊겨 ENDED 로 와도, 위치가 끝이 아니면 무시한다.
+                val dur = exo.duration
+                val pos = exo.currentPosition
+                if (dur <= 0 || pos >= dur - 3000) cb.onEnded()
+                else android.util.Log.i("karaoke-play", "가짜 종료 무시 pos=$pos/$dur")
             }
 
             override fun onPlayerError(error: PlaybackException) {
