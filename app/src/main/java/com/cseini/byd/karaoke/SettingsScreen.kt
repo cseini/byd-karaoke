@@ -123,10 +123,13 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         // 고급 설정 접기/펼치기 — 자주 안 쓰는 항목은 숨겨 화면을 단순하게
         val advanced = root.findViewById<View>(R.id.advanced_section)
         val advBtn = root.findViewById<Button>(R.id.btn_advanced)
+        val scroll = root.findViewById<android.widget.ScrollView>(R.id.settings_scroll)
         advBtn.setOnClickListener {
             val show = advanced.visibility != View.VISIBLE
             advanced.visibility = if (show) View.VISIBLE else View.GONE
             advBtn.text = if (show) "⚙ 고급 설정 접기 ▾" else "⚙ 고급 설정 펼치기 ▸"
+            // 펼칠 때 새로 나타난 내용이 보이도록 버튼 위치로 스크롤(반응 없어 보이는 문제 해결)
+            if (show) scroll.post { scroll.smoothScrollTo(0, advBtn.top) }
         }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
