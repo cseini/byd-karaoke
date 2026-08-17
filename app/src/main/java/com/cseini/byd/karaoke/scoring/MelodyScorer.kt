@@ -96,10 +96,10 @@ object MelodyScorer {
         }
         val qRand = (if (rands.isNotEmpty()) rands.average() else 0.15).coerceIn(0.05, 0.5)
 
-        // ── 멜로디 40: 우연 대비 배율 ──
+        // ── 멜로디 45: 우연 대비 배율 (비브라토 항목 제거분 +5 흡수) ──
         val ratio = q / qRand
         val skill = ((ratio - RATIO_FLOOR) / (RATIO_CEIL - RATIO_FLOOR)).coerceIn(0.0, 1.0)
-        val pitch = (40 * skill).roundToInt()
+        val pitch = (45 * skill).roundToInt()
 
         // ── 박자 25: 8구간 국소 최적 시차의 흔들림(전역 지연은 무죄) ──
         val segLags = ArrayList<Int>()
@@ -136,25 +136,23 @@ object MelodyScorer {
         // 참여 점수지만, 음정이 우연 수준이면(멜로디와 무관한 소리) 절반만 인정
         val cover = (15 * ((coverage - 0.03) / 0.45).coerceIn(0.0, 1.0) * (0.5 + 0.5 * skill)).roundToInt()
 
-        // ── 음량 10: 원음 성량(크게 부르면 보상) + 강약 ──
+        // ── 음량 15: 원음 성량(크게 부르면 보상) + 강약 (비브라토 제거분 +5 흡수) ──
         val loudness = ((rawLoudDb + 42.0) / 24.0).coerceIn(0.0, 1.0)
-        val volume = (10 * (0.6 * loudness + 0.4 * ScoringEngine.volumeDynamicsFraction(mic)))
-            .roundToInt().coerceIn(0, 10)
-        val vibrato = (10 * ScoringEngine.vibratoReachFraction(mic.filter { it.voiced && it.f0 > 0f }))
-            .roundToInt().coerceIn(0, 10)
+        val volume = (15 * (0.6 * loudness + 0.4 * ScoringEngine.volumeDynamicsFraction(mic)))
+            .roundToInt().coerceIn(0, 15)
 
-        val raw = pitch + timing + cover + volume + vibrato
+        // 배점: 멜로디 45 / 박자 25 / 완창 15 / 음량 15 (비브라토 항목 제외)
+        val raw = pitch + timing + cover + volume
         // 실차 캘리브레이션: 웬만큼(ratio 2.0) ≈ 90대 초반, 아주 잘(ratio 2.2+) → 100, 엉망 ≈ 60대 초반
         val total = (35 + raw * 0.7).roundToInt().coerceIn(35, 100)
 
         val bd = buildString {
             append("총점 ${total}점 — 🎼 멜로디 대조 채점\n")
-            append("· 멜로디 일치 $pitch/40 — 우연 대비 ${"%.1f".format(ratio)}배 정확\n")
+            append("· 멜로디 일치 $pitch/45 — 우연 대비 ${"%.1f".format(ratio)}배 정확\n")
             if (timingShort) append("· 박자 타이밍 $timing/25 — 가창이 짧아 대략 추정\n")
             else append("· 박자 타이밍 $timing/25\n")
             append("· 완창률 $cover/15 — 멜로디 구간의 ${(coverage * 100).roundToInt()}% 가창\n")
-            append("· 음량 표현 $volume/10\n")
-            append("· 고음·비브라토 $vibrato/10\n")
+            append("· 음량 표현 $volume/15\n")
             append("(반주 멜로디와 직접 비교 · 옥타브 차이 허용)")
         }
 
@@ -170,7 +168,7 @@ object MelodyScorer {
         return ScoringEngine.Score(
             total = total,
             pitchAccuracy = pitch, pitchStability = cover,
-            beatConsistency = timing, volumeDynamics = volume, vibratoReach = vibrato,
+            beatConsistency = timing, volumeDynamics = volume, vibratoReach = 0,
             voicedPct = (coverage * 100).roundToInt(), medianF0 = 0f, breakdown = bd,
         )
     }
