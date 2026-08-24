@@ -106,6 +106,7 @@ android {
 }
 
 dependencies {
+    implementation("dev.mobile:dadb:1.2.10")   // ★무음 업데이트(pm install)용
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.core:core-ktx:1.13.1")

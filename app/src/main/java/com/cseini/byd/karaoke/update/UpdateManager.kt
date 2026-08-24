@@ -127,6 +127,14 @@ object UpdateManager {
     @Volatile private var pendingApk: File? = null
 
     fun install(context: Context, apk: File) {
+        // ★무음 설치 우선(dadb/adb, 블로킹이라 백그라운드) — 되면 진행률→자동설치→자동재시작 원스톱. 실패 시 시스템 설치창 폴백.
+        Thread {
+            if (silentInstall(context, apk)) return@Thread
+            android.os.Handler(context.mainLooper).post { installViaSystem(context, apk) }
+        }.start()
+    }
+
+    private fun installViaSystem(context: Context, apk: File) {
         // Android 8+: 이 앱에 "이 출처의 앱 설치 허용" 권한이 없으면 업데이트 설치가 막힌다.
         // (다운로드는 되는데 설치가 안 되는 가장 흔한 원인) → 다이얼로그로 안내하고, 권한을 켜고
         // 돌아오면 자동으로 이어서 설치한다(Sealion7 등 Android 12 에서 흔함).
@@ -170,5 +178,29 @@ object UpdateManager {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
         })
+    }
+
+    // ★무음 설치 — dadb(로컬 ADB 5555)로 pm install -r + am start(자동실행). adb 미인증/미개방이면 false → 시스템 설치창 폴백.
+    //   최초 1회 헤드유닛에 'USB 디버깅 허용?' 팝업 뜨면 허용해야 함(키 인증). 이후 무음.
+    private fun silentInstall(context: Context, apk: File): Boolean {
+        return try {
+            val priv = java.io.File(context.filesDir, "adbkey")
+            val pub = java.io.File(context.filesDir, "adbkey.pub")
+            if (!priv.exists() || !pub.exists()) dadb.AdbKeyPair.generate(priv, pub)
+            val kp = dadb.AdbKeyPair.read(priv, pub)
+            val d = dadb.Dadb.create("127.0.0.1", 5555, kp, 10_000, 120_000)
+            val remote = "/data/local/tmp/karaoke_update.apk"
+            d.push(apk, remote, 420, System.currentTimeMillis())
+            val pkg = context.packageName
+            val script = "#!/system/bin/sh\nsleep 2\n" +
+                "pm install -r " + remote + "\nsleep 2\n" +
+                "am start -n " + pkg + "/com.cseini.byd.karaoke.MainActivity -f 0x10000000\n" +
+                "rm -f " + remote + "\n"
+            val b64 = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+            d.shell("echo " + b64 + " | base64 -d > /data/local/tmp/karaoke_upd.sh && chmod 755 /data/local/tmp/karaoke_upd.sh")
+            d.shell("setsid nohup sh /data/local/tmp/karaoke_upd.sh </dev/null >/dev/null 2>&1 &")
+            d.close()
+            true
+        } catch (t: Throwable) { android.util.Log.w("Karaoke", "silentInstall 실패", t); false }
     }
 }
