@@ -387,7 +387,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 updateStatus.text = "다운로드 실패 — 네트워크를 확인하세요"
                 return@launch
             }
-            updateStatus.text = "v${release.version} 설치를 진행하세요"
+            updateStatus.text = "v${release.version} 설치 중… 끝나면 앱이 자동으로 다시 시작됩니다"
             UpdateManager.install(activity, apk)
         }
     }

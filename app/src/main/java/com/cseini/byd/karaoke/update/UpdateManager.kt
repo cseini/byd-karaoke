@@ -128,9 +128,21 @@ object UpdateManager {
 
     fun install(context: Context, apk: File) {
         // ★무음 설치 우선(dadb/adb, 블로킹이라 백그라운드) — 되면 진행률→자동설치→자동재시작 원스톱. 실패 시 시스템 설치창 폴백.
+        // 무음이라 아무 안내가 없으면 사용자는 앱이 갑자기 꺼졌다 켜지는 걸로만 본다 → 단계마다 토스트로 알린다.
+        val ui = android.os.Handler(context.mainLooper)
+        ui.post { Toast.makeText(context, "✅ 다운로드 완료 — 설치를 시작합니다", Toast.LENGTH_SHORT).show() }
         Thread {
-            if (silentInstall(context, apk)) return@Thread
-            android.os.Handler(context.mainLooper).post { installViaSystem(context, apk) }
+            if (silentInstall(context, apk)) {
+                ui.post {
+                    Toast.makeText(
+                        context,
+                        "⚙ 설치 중입니다. 끝나면 앱이 자동으로 다시 시작돼요 — 잠시만 기다려 주세요.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                return@Thread
+            }
+            ui.post { installViaSystem(context, apk) }
         }.start()
     }
 
@@ -192,7 +204,7 @@ object UpdateManager {
             val remote = "/data/local/tmp/karaoke_update.apk"
             d.push(apk, remote, 420, System.currentTimeMillis())
             val pkg = context.packageName
-            val script = "#!/system/bin/sh\nsleep 2\n" +
+            val script = "#!/system/bin/sh\nsleep 4\n" +
                 "pm install -r " + remote + "\nsleep 2\n" +
                 "am start -n " + pkg + "/com.cseini.byd.karaoke.MainActivity -f 0x10000000\n" +
                 "rm -f " + remote + "\n"
