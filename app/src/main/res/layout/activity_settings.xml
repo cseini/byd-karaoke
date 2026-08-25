@@ -196,6 +196,14 @@
                 android:textColor="@color/tj_bg_deep"
                 android:text="🔄 업데이트 확인" />
 
+            <Button
+                android:id="@+id/btn_event_log"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="🐞 이벤트 로그 보기" />
+
             <!-- ═══════════ 고급: 접어둠 ═══════════ -->
 
             <Button

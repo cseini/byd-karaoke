@@ -134,11 +134,17 @@ class StreamPlayer(
                 // 오디오 개입으로 재생이 중간에 끊겨 ENDED 로 와도, 위치가 끝이 아니면 무시한다.
                 val dur = exo.duration
                 val pos = exo.currentPosition
-                if (dur <= 0 || pos >= dur - 3000) cb.onEnded()
-                else android.util.Log.i("karaoke-play", "가짜 종료 무시 pos=$pos/$dur")
+                // logcat 은 헤드유닛에서 볼 수 없으므로 파일 로그(설정>이벤트 로그)에 남긴다.
+                if (dur <= 0 || pos >= dur - 3000) {
+                    com.cseini.byd.karaoke.CrashLog.event(context, "ENDED 처리 pos=$pos/$dur")
+                    cb.onEnded()
+                } else {
+                    com.cseini.byd.karaoke.CrashLog.event(context, "가짜 ENDED 무시 pos=$pos/$dur")
+                }
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                com.cseini.byd.karaoke.CrashLog.event(context, "재생오류 ${error.errorCodeName} pos=${exo.currentPosition}")
                 cb.onError("재생 오류: ${error.errorCodeName}")
             }
         })

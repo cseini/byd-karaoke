@@ -243,6 +243,7 @@ class EmbeddedPlayer(
     }
 
     private fun onEnded() {
+        CrashLog.event(activity, "onEnded scored=$scored recStarted=$recordStarted")
         if (scored) return
         if (!recordStarted) {
             if (!settings.recordingEnabled) {

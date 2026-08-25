@@ -132,6 +132,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             if (show) scroll.post { scroll.smoothScrollTo(0, advBtn.top) }
         }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
+        root.findViewById<Button>(R.id.btn_event_log).setOnClickListener { showEventLog() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
@@ -368,6 +369,29 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             .setView(view)
             .setPositiveButton("닫기", null)
             .setOnDismissListener { com.cseini.byd.karaoke.share.KeyEntryServer.stop() }
+            .show()
+    }
+
+    /** 노래 중 튕김처럼 재현이 어려운 문제를 그 자리에서 확인·복사해 제보하기 위한 로그 뷰어. */
+    private fun showEventLog() {
+        val body = CrashLog.recent(activity) ?: "기록된 이벤트가 없습니다."
+        val tv = TextView(activity).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 11f
+            setTextIsSelectable(true)
+            setPadding(24, 16, 24, 16)
+            text = body
+        }
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("이벤트 로그 — 복사해 제보해주세요")
+            .setView(android.widget.ScrollView(activity).apply { addView(tv) })
+            .setPositiveButton("복사") { _, _ ->
+                val cm = activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("events", body))
+                android.widget.Toast.makeText(activity, "복사되었습니다", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("닫기", null)
             .show()
     }
 

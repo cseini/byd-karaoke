@@ -53,6 +53,13 @@ object CrashLog {
         return if (lastMeaningful.contains("onDestroy fin=false")) s.takeLast(3000) else null
     }
 
+    /** 설정>이벤트 로그 뷰어용 — 지우지 않고 최근 기록만 돌려준다. */
+    fun recent(ctx: Context): String? {
+        val f = File(ctx.applicationContext.filesDir, "events.log")
+        if (!f.exists()) return null
+        return runCatching { f.readText().takeLast(6000) }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
     private fun now(): String =
         java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.KOREA)
             .format(java.util.Date())

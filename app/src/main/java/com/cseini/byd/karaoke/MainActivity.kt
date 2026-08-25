@@ -791,6 +791,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        // 후진·컨시그널 카메라 화면이 덮이는 시점을 로그에 남긴다(튕김 원인 대조용).
+        CrashLog.event(this, "focus=$hasFocus")
         if (hasFocus) syncPhysicalButtons()
     }
 
@@ -832,13 +834,15 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     override fun onDestroy() {
-        CrashLog.event(this, "onDestroy fin=$isFinishing")
         cancelAutoPlay()
         voice.stop()
         usbMic?.stop()
         // 액티비티가 재생성(구성 변경·메모리 회수)될 때 플레이어가 유출되면
         // 화면은 초기화됐는데 소리만 계속 나고, 재시작 시 노래가 겹친다.
         runCatching { embeddedPlayer?.close() }
+        // close() 가 이벤트를 한 줄 더 남기므로, 이 줄이 마지막이 되도록 close 뒤에 기록한다.
+        // (앞에 두면 takeAbnormalEnd 의 '마지막 줄' 검사가 항상 빗나가 비정상 종료가 보고되지 않는다)
+        CrashLog.event(this, "onDestroy fin=$isFinishing")
         super.onDestroy()
     }
 
