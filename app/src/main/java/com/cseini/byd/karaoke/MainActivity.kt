@@ -259,7 +259,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             ?: CrashLog.takeAbnormalEnd(this)?.let {
                 showIncidentDialog("ℹ 이전 화면이 시스템에 의해 재시작됐었어요", it)
             }
-        CrashLog.event(this, "onCreate saved=${savedInstanceState != null} cfg=${resources.configuration.uiMode}/${resources.configuration.orientation}")
+        CrashLog.event(this, "onCreate saved=${savedInstanceState != null} ${cfgSnapshot()}")
 
         settings = SettingsStore(this)
         queue = QueueStore(this)
@@ -792,8 +792,25 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // 후진·컨시그널 카메라 화면이 덮이는 시점을 로그에 남긴다(튕김 원인 대조용).
-        CrashLog.event(this, "focus=$hasFocus")
+        CrashLog.event(this, "focus=$hasFocus ${cfgSnapshot()}")
         if (hasFocus) syncPhysicalButtons()
+    }
+
+    /**
+     * 구성 스냅샷. 카메라 화면 전후로 이 값이 달라졌다면 '구성 변경에 의한 화면 재생성'이 튕김의
+     * 원인이고, 달라진 항목을 매니페스트 configChanges 에 추가하면 된다. 값이 같은데 죽었다면
+     * 시스템이 메모리 때문에 프로세스를 죽인 것이다.
+     */
+    private fun cfgSnapshot(): String = resources.configuration.let {
+        "cfg ui=${it.uiMode} ori=${it.orientation} dpi=${it.densityDpi} " +
+            "w=${it.screenWidthDp} h=${it.screenHeightDp} layout=${it.screenLayout} " +
+            "nav=${it.navigation} touch=${it.touchscreen} kbd=${it.keyboard} loc=${it.locales[0]}"
+    }
+
+    /** configChanges 로 직접 처리한 구성 변경(재생성 없이 넘어간 것) — 어떤 게 오는지 확인용. */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        CrashLog.event(this, "cfgChanged ${cfgSnapshot()}")
     }
 
     /**
