@@ -407,16 +407,8 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 updateStatus.text = "최신 버전입니다 (v${BuildConfig.VERSION_NAME})"
                 return@launch
             }
-            updateStatus.text = "새 버전 v${release.version} 다운로드 중…"
-            val apk = UpdateManager.download(activity, release) { p ->
-                activity.runOnUiThread { updateStatus.text = "다운로드 중… $p%" }
-            }
-            if (apk == null) {
-                updateStatus.text = "다운로드 실패 — 네트워크를 확인하세요"
-                return@launch
-            }
-            updateStatus.text = "v${release.version} 설치 중… 끝나면 앱이 자동으로 다시 시작됩니다"
-            UpdateManager.install(activity, apk)
+            updateStatus.text = "새 버전 v${release.version}"
+            com.cseini.byd.karaoke.update.UpdateFlow.start(activity, release)
         }
     }
 }

@@ -419,7 +419,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
                 .setMessage(
                     if (urgent) (min?.message?.takeIf { it.isNotBlank() }
                         ?: "유튜브 재생 문제로 지금 업데이트해야 정상 작동합니다.")
-                    else "지금 업데이트할까요? (다운로드 후 설치 확인만 누르면 됩니다)",
+                    else "지금 업데이트할까요? (다운로드부터 재시작까지 자동으로 진행됩니다)",
                 )
                 .setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
             if (!urgent) b.setNegativeButton("나중에", null) else b.setCancelable(false)
@@ -451,12 +451,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     private fun startOtaDownload(release: UpdateManager.Release) {
-        lifecycleScope.launch {
-            toast("⬇ v${release.version} 다운로드 중…")
-            val apk = UpdateManager.download(this@MainActivity, release) { }
-            if (apk != null) UpdateManager.install(this@MainActivity, apk)
-            else toast("다운로드 실패 — 네트워크 확인 후 앱을 다시 실행해주세요")
-        }
+        com.cseini.byd.karaoke.update.UpdateFlow.start(this, release)
     }
 
     // 재생 화면에서 점수 탭 → 검색 홈으로 돌아오면 히스토리 화면을 보여준다.

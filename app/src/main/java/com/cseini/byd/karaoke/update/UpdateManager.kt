@@ -105,12 +105,16 @@ object UpdateManager {
                     out.outputStream().use { output ->
                         val buf = ByteArray(64 * 1024)
                         var done = 0L
+                        var lastPct = -1
                         while (true) {
                             val n = input.read(buf)
                             if (n < 0) break
                             output.write(buf, 0, n)
                             done += n
-                            if (total > 0) onProgress((done * 100 / total).toInt())
+                            if (total > 0) {
+                                val pct = (done * 100 / total).toInt()
+                                if (pct != lastPct) { lastPct = pct; onProgress(pct) }
+                            }
                         }
                     }
                 }
@@ -128,27 +132,26 @@ object UpdateManager {
     // 권한이 없어 미룬 설치. 설정에서 허용하고 돌아오면 onResume 에서 자동 재개.
     @Volatile private var pendingApk: File? = null
 
-    fun install(context: Context, apk: File) {
-        // ★무음 설치 우선(dadb/adb, 블로킹이라 백그라운드) — 되면 진행률→자동설치→자동재시작 원스톱. 실패 시 시스템 설치창 폴백.
-        // 무음이라 아무 안내가 없으면 사용자는 앱이 갑자기 꺼졌다 켜지는 걸로만 본다 → 단계마다 토스트로 알린다.
-        val ui = android.os.Handler(context.mainLooper)
-        ui.post { Toast.makeText(context, "✅ 다운로드 완료 — 설치를 시작합니다", Toast.LENGTH_SHORT).show() }
-        Thread {
-            if (silentInstall(context, apk)) {
-                ui.post {
-                    Toast.makeText(
-                        context,
-                        "⚙ 설치 중입니다. 끝나면 앱이 자동으로 다시 시작돼요 — 잠시만 기다려 주세요.",
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-                return@Thread
+    /**
+     * 무음 설치 디스패치(dadb/adb). true=설치 명령이 유닛에 전달됨 — 설치가 실제로 성공하면
+     * 이 앱 프로세스가 죽고 새 버전이 자동 재시작되므로, 호출한 쪽 코드는 더 진행되지 않는다.
+     * 일정 시간 뒤에도 앱이 살아 있으면 pm install 이 실패한 것 — [readSilentInstallResult] 로
+     * 원인을 읽을 수 있다. false=ADB 연결/전송 자체가 실패(미개방·미인증 유닛) → 설치창 폴백.
+     */
+    suspend fun startSilentInstall(context: Context, apk: File): Boolean =
+        withContext(Dispatchers.IO) { silentInstall(context, apk) }
+
+    /** 무음 설치 결과(pm install 출력)를 ADB 로 읽는다 — 실패 원인 표시·제보용. */
+    suspend fun readSilentInstallResult(context: Context): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val kp = dadb.AdbKeyPair.read(File(context.filesDir, "adbkey"), File(context.filesDir, "adbkey.pub"))
+            dadb.Dadb.create("127.0.0.1", 5555, kp, 5_000, 10_000).use { d ->
+                d.shell("cat $RESULT_FILE 2>/dev/null").allOutput.trim()
             }
-            ui.post { installViaSystem(context, apk) }
-        }.start()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
-    private fun installViaSystem(context: Context, apk: File) {
+    fun installViaSystem(context: Context, apk: File) {
         // Android 8+: 이 앱에 "이 출처의 앱 설치 허용" 권한이 없으면 업데이트 설치가 막힌다.
         // (다운로드는 되는데 설치가 안 되는 가장 흔한 원인) → 다이얼로그로 안내하고, 권한을 켜고
         // 돌아오면 자동으로 이어서 설치한다(Sealion7 등 Android 12 에서 흔함).
@@ -194,6 +197,9 @@ object UpdateManager {
         })
     }
 
+    // 무음 설치 결과 파일 — 스크립트가 pm install 출력을 남기고, 실패 시 앱이 읽어 원인을 보여준다.
+    private const val RESULT_FILE = "/data/local/tmp/karaoke_install_result.txt"
+
     // ★무음 설치 — dadb(로컬 ADB 5555)로 pm install -r + am start(자동실행). adb 미인증/미개방이면 false → 시스템 설치창 폴백.
     //   최초 1회 헤드유닛에 'USB 디버깅 허용?' 팝업 뜨면 허용해야 함(키 인증). 이후 무음.
     private fun silentInstall(context: Context, apk: File): Boolean {
@@ -207,11 +213,11 @@ object UpdateManager {
             d.push(apk, remote, 420, System.currentTimeMillis())
             val pkg = context.packageName
             val script = "#!/system/bin/sh\nsleep 4\n" +
-                "pm install -r " + remote + "\nsleep 2\n" +
+                "pm install -r " + remote + " > " + RESULT_FILE + " 2>&1\nsleep 2\n" +
                 "am start -n " + pkg + "/com.cseini.byd.karaoke.MainActivity -f 0x10000000\n" +
                 "rm -f " + remote + "\n"
             val b64 = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-            d.shell("echo " + b64 + " | base64 -d > /data/local/tmp/karaoke_upd.sh && chmod 755 /data/local/tmp/karaoke_upd.sh")
+            d.shell("rm -f " + RESULT_FILE + "; echo " + b64 + " | base64 -d > /data/local/tmp/karaoke_upd.sh && chmod 755 /data/local/tmp/karaoke_upd.sh")
             d.shell("setsid nohup sh /data/local/tmp/karaoke_upd.sh </dev/null >/dev/null 2>&1 &")
             d.close()
             true
