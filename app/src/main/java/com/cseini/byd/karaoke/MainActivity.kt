@@ -220,7 +220,19 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     )
     private val historyAdapter = HistoryAdapter(
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
+        onScore = { showScoreReview(it) },
     )
+
+    /** 최근곡 카드의 점수 배지 탭 → 그 곡의 채점 심사평(항목별)을 보여준다. */
+    private fun showScoreReview(item: com.cseini.byd.karaoke.data.PlayHistoryItem) {
+        val body = item.breakdown?.takeIf { it.isNotBlank() }
+            ?: "이 곡의 심사평이 없어요.\n(이 버전으로 업데이트한 뒤 새로 부른 곡부터 심사평이 남습니다.)"
+        AlertDialog.Builder(this)
+            .setTitle("🎯 ${item.score}점 심사평")
+            .setMessage(body)
+            .setPositiveButton("닫기", null)
+            .show()
+    }
 
     // 홈 화면 예약 목록(폰 리모컨으로 넣은 곡이 바로 보이게)
     private lateinit var homeQueueSection: View

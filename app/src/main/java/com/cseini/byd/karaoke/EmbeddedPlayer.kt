@@ -324,7 +324,7 @@ class EmbeddedPlayer(
             }
             ui.removeCallbacks(scoringTicker)
             saveRecording(file, result?.total ?: -1)
-            result?.let { playHistory.setScore(currentVideoId, it.total) }
+            result?.let { playHistory.setScore(currentVideoId, it.total, it.breakdown) }
             if (result == null) {
                 statusView.text = "채점 실패 — 녹음은 저장됨"
             } else {

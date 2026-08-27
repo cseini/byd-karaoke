@@ -10,8 +10,10 @@ import coil.load
 import com.cseini.byd.karaoke.data.PlayHistoryItem
 
 /** 최근 부른 노래 앨범 카드(썸네일·곡명·가수·점수·날짜). 누르면 바로 부르기. */
-class HistoryAdapter(val onPlay: (PlayHistoryItem) -> Unit) :
-    RecyclerView.Adapter<HistoryAdapter.VH>() {
+class HistoryAdapter(
+    val onPlay: (PlayHistoryItem) -> Unit,
+    val onScore: (PlayHistoryItem) -> Unit,
+) : RecyclerView.Adapter<HistoryAdapter.VH>() {
 
     private val items = ArrayList<PlayHistoryItem>()
 
@@ -46,7 +48,8 @@ class HistoryAdapter(val onPlay: (PlayHistoryItem) -> Unit) :
         holder.thumb.load("https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg")
         if (item.score >= 0) {
             holder.score.visibility = View.VISIBLE
-            holder.score.text = "👍 ${item.score}"
+            holder.score.text = "👍 ${item.score}점"
+            holder.score.setOnClickListener { onScore(item) }
         } else {
             holder.score.visibility = View.GONE
         }

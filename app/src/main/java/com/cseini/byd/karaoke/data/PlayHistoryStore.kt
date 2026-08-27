@@ -10,6 +10,7 @@ data class PlayHistoryItem(
     val title: String,
     val at: Long = 0L,
     val score: Int = -1, // -1 = 채점 없음
+    val breakdown: String? = null, // 채점 심사평(항목별) — 점수 탭 시 표시
 )
 
 /**
@@ -44,12 +45,12 @@ class PlayHistoryStore(context: Context) {
         persist()
     }
 
-    /** 채점 완료 시 해당 곡의 최근 기록에 점수 반영. */
-    fun setScore(videoId: String, score: Int) {
+    /** 채점 완료 시 해당 곡의 최근 기록에 점수·심사평 반영. */
+    fun setScore(videoId: String, score: Int, breakdown: String? = null) {
         reload()
         val idx = items.indexOfFirst { it.videoId == videoId }
         if (idx >= 0) {
-            items[idx] = items[idx].copy(score = score)
+            items[idx] = items[idx].copy(score = score, breakdown = breakdown)
             persist()
         }
     }
