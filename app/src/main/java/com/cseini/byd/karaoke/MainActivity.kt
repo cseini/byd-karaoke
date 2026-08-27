@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity(), ScreenHost {
 
     companion object {
-        private const val DEFAULT_HINT = "검색어를 입력하거나 음성 버튼을 누르세요."
+        private const val DEFAULT_HINT = ""
     }
 
     // 재생·녹음함/랭킹/설정을 모두 이 화면 안에서(임베드) 처리해 차량 런처의 분할화면을 유지한다.
@@ -120,6 +120,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onSettingsSaved() {
         if (::autoplayCheck.isInitialized) refreshVoiceUi()
         syncPhysicalButtons()
+        applyHomeStyle()
     }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
         embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
@@ -305,10 +306,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
-        findViewById<RecyclerView>(R.id.history).apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 4)
-            adapter = this@MainActivity.historyAdapter
-        }
+        findViewById<RecyclerView>(R.id.history).adapter = historyAdapter
+        applyHomeStyle()
         homeQueueSection = findViewById(R.id.home_queue_section)
         homeQueueTitle = findViewById(R.id.home_queue_title)
         findViewById<RecyclerView>(R.id.home_queue).apply {
@@ -495,6 +494,30 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
+    /** 홈 테마 적용 — 헤더 부제·최근곡 배치를 설정값(homeStyle)에 따라 바꾼다. */
+    private fun applyHomeStyle() {
+        val rv = findViewById<RecyclerView>(R.id.history)
+        val subtitle = findViewById<View>(R.id.header_subtitle)
+        when (settings.homeStyle) {
+            1 -> {   // 뮤직앱: 부제 + 최근곡 가로 캐러셀
+                subtitle.visibility = View.VISIBLE
+                historyAdapter.fixedWidthDp = 172
+                rv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+            }
+            2 -> {   // 미니멀: 큰 2열, 부제 없음
+                subtitle.visibility = View.GONE
+                historyAdapter.fixedWidthDp = 0
+                rv.layoutManager = GridLayoutManager(this, 2)
+            }
+            else -> { // 기본: 4열 그리드
+                subtitle.visibility = View.GONE
+                historyAdapter.fixedWidthDp = 0
+                rv.layoutManager = GridLayoutManager(this, 4)
+            }
+        }
+        historyAdapter.notifyDataSetChanged()
+    }
+
     private fun refreshHistory() {
         playHistory.reload()
         val recent = playHistory.all()

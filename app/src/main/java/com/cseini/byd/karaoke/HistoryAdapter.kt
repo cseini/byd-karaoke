@@ -15,6 +15,9 @@ class HistoryAdapter(val onPlay: (PlayHistoryItem) -> Unit) :
 
     private val items = ArrayList<PlayHistoryItem>()
 
+    // 뮤직앱 테마의 가로 캐러셀에서는 타일 폭을 고정한다(그 외엔 그리드/리스트 셀 폭을 따름).
+    var fixedWidthDp: Int = 0
+
     fun submit(list: List<PlayHistoryItem>) {
         items.clear()
         items.addAll(list)
@@ -43,5 +46,10 @@ class HistoryAdapter(val onPlay: (PlayHistoryItem) -> Unit) :
             holder.score.visibility = View.GONE
         }
         holder.itemView.setOnClickListener { onPlay(item) }
+        val lp = holder.itemView.layoutParams
+        lp.width = if (fixedWidthDp > 0)
+            (fixedWidthDp * holder.itemView.resources.displayMetrics.density).toInt()
+        else ViewGroup.LayoutParams.MATCH_PARENT
+        holder.itemView.layoutParams = lp
     }
 }
