@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 205
-        versionName = "4.74"
+        versionCode = 206
+        versionName = "4.75"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -61,10 +61,12 @@ android {
 
     buildTypes {
         release {
-            // R8 축소는 lab 채널로 실차 검증 전까지 보류 — prodRelease 로 R8 빌드를 한 번도
-            // 실행해 본 적이 없어, 무음 업데이트로 바로 올리기엔 위험하다(규칙은 proguard-rules.pro 에 준비됨).
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 축소는 -PenableR8=true 를 준 빌드에서만 켠다 — lab(노래방테스트) 채널로
+            // 실차 검증(리플렉션 라이브러리 파손 여부)을 통과하면 기본값을 켜는 것으로 바꾼다.
+            // prod 무음 업데이트에 무검증 R8 빌드가 나가는 것을 막기 위한 명시적 게이트.
+            val r8 = (findProperty("enableR8") as String?) == "true"
+            isMinifyEnabled = r8
+            isShrinkResources = r8
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (otaKeystore.exists()) signingConfig = signingConfigs.getByName("ota")
         }
