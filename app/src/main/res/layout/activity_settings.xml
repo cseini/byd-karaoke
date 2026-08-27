@@ -195,24 +195,8 @@
                             android:text="목소리가 작으면 목소리↑ 또는 반주↓ · 새 녹음부터 적용" />
                     </LinearLayout>
 
-                    <Button
-                        android:id="@+id/btn_event_log"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="🐞 이벤트 로그 보기" />
                 </LinearLayout>
             </LinearLayout>
-
-            <!-- ═══════ 고급: 접어둠 ═══════ -->
-            <Button
-                android:id="@+id/btn_advanced"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="⚙ 고급 설정 펼치기 ▸" />
 
             <LinearLayout
                 android:id="@+id/advanced_section"
@@ -220,8 +204,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:baselineAligned="false"
-                android:paddingTop="12dp"
-                android:visibility="gone">
+                android:paddingTop="12dp">
 
                 <!-- 왼쪽 컬럼 -->
                 <LinearLayout
@@ -756,13 +739,21 @@
                             android:textColor="@color/tj_text_primary"
                             android:text="🧪 채점 디버그 파일 저장 (제보용)" />
 
-                        <CheckBox
-                            android:id="@+id/chk_log_upload"
+                        <Button
+                            android:id="@+id/btn_log_send"
+                            style="?attr/materialButtonOutlinedStyle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:textColor="@color/tj_text_primary"
-                            android:text="📡 이벤트 로그 자동 전송 (제보용 · 검색어 포함될 수 있음)" />
+                            android:text="🐞 로그 보내기" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="2dp"
+                            android:textSize="11sp"
+                            android:textColor="@color/tj_text_hint"
+                            android:text="문제가 있을 때 눌러주세요 — 최근 이벤트 로그를 운영자에게 보냅니다(검색어 포함될 수 있음)." />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

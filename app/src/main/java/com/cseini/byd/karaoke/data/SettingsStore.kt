@@ -149,13 +149,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("score_debug_dump", false)
         set(v) = prefs.edit().putBoolean("score_debug_dump", v).apply()
 
-    /**
-     * 이벤트 로그 자동 전송(제보용). 로그에 검색어 등이 섞이므로 기본 꺼짐 —
-     * 문제를 제보하려는 기기에서만 켠다. 켜면 앱 시작·재생화면 닫을 때 서버(D1)로 보낸다.
-     */
-    var logUpload: Boolean
-        get() = prefs.getBoolean("log_upload", false)
-        set(v) = prefs.edit().putBoolean("log_upload", v).apply()
 
 
     /** 목소리 명료도(0~100). 고음 강조로 먹먹함을 줄인다. */

@@ -691,7 +691,6 @@ class EmbeddedPlayer(
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
         com.cseini.byd.karaoke.media.KeepAliveService.stop(activity)
-        LogUploader.maybeUpload(activity)   // 방금 부른 곡의 이벤트를 서버로(옵트인)
         onClose()
     }
 }

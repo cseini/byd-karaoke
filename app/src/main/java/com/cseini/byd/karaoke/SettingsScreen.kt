@@ -45,7 +45,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val rateGroup: RadioGroup = root.findViewById(R.id.rate_group)
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
     private val scoreDebugCheck: CheckBox = root.findViewById(R.id.chk_score_debug_dump)
-    private val logUploadCheck: CheckBox = root.findViewById(R.id.chk_log_upload)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
@@ -84,7 +83,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         )
         scoringCheck.isChecked = settings.scoringEnabled
         scoreDebugCheck.isChecked = settings.scoreDebugDump
-        logUploadCheck.isChecked = settings.logUpload
         recordingCheck.isChecked = settings.recordingEnabled
 
         micSourceGroup.check(
@@ -123,19 +121,8 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
         root.findViewById<Button>(R.id.btn_score_debug).setOnClickListener { shareScoreDebug() }
 
-        // 고급 설정 접기/펼치기 — 자주 안 쓰는 항목은 숨겨 화면을 단순하게
-        val advanced = root.findViewById<View>(R.id.advanced_section)
-        val advBtn = root.findViewById<Button>(R.id.btn_advanced)
-        val scroll = root.findViewById<android.widget.ScrollView>(R.id.settings_scroll)
-        advBtn.setOnClickListener {
-            val show = advanced.visibility != View.VISIBLE
-            advanced.visibility = if (show) View.VISIBLE else View.GONE
-            advBtn.text = if (show) "⚙ 고급 설정 접기 ▾" else "⚙ 고급 설정 펼치기 ▸"
-            // 펼칠 때 새로 나타난 내용이 보이도록 버튼 위치로 스크롤(반응 없어 보이는 문제 해결)
-            if (show) scroll.post { scroll.smoothScrollTo(0, advBtn.top) }
-        }
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
-        root.findViewById<Button>(R.id.btn_event_log).setOnClickListener { showEventLog() }
+        root.findViewById<Button>(R.id.btn_log_send).setOnClickListener { sendLog(it as Button) }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
@@ -164,7 +151,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         }
         settings.scoringEnabled = scoringCheck.isChecked
         settings.scoreDebugDump = scoreDebugCheck.isChecked
-        settings.logUpload = logUploadCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"
@@ -379,27 +365,19 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             .show()
     }
 
-    /** 노래 중 튕김처럼 재현이 어려운 문제를 그 자리에서 확인·복사해 제보하기 위한 로그 뷰어. */
-    private fun showEventLog() {
-        val body = CrashLog.recent(activity) ?: "기록된 이벤트가 없습니다."
-        val tv = TextView(activity).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 11f
-            setTextIsSelectable(true)
-            setPadding(24, 16, 24, 16)
-            text = body
+    /** 노래 중 튕김처럼 재현이 어려운 문제의 이벤트 로그를 지금 서버로 보낸다(운영자 제보용). */
+    private fun sendLog(btn: Button) {
+        btn.isEnabled = false
+        btn.text = "보내는 중…"
+        LogUploader.uploadNow(activity) { ok ->
+            btn.isEnabled = true
+            btn.text = "🐞 로그 보내기"
+            android.widget.Toast.makeText(
+                activity,
+                if (ok) "로그를 보냈어요. 감사합니다!" else "보낼 로그가 없거나 네트워크 오류예요.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
         }
-        androidx.appcompat.app.AlertDialog.Builder(activity)
-            .setTitle("이벤트 로그 — 복사해 제보해주세요")
-            .setView(android.widget.ScrollView(activity).apply { addView(tv) })
-            .setPositiveButton("복사") { _, _ ->
-                val cm = activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                    as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("events", body))
-                android.widget.Toast.makeText(activity, "복사되었습니다", android.widget.Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("닫기", null)
-            .show()
     }
 
     private fun checkUpdate() {

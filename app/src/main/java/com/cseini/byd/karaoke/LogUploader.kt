@@ -1,35 +1,27 @@
 package com.cseini.byd.karaoke
 
 import android.content.Context
-import com.cseini.byd.karaoke.data.SettingsStore
 import com.google.gson.Gson
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 이벤트 로그 원격 전송(설정 옵트인) — 차에서 생긴 문제를 사진 대신 서버(D1)로 받아 보기 위한 장치.
- * 항상 events.log 꼬리 전체를 보내고 중복 제거는 서버(INSERT OR IGNORE)가 한다 —
- * events.log 가 상한 초과 시 잘려나가 클라이언트 오프셋 관리가 불가능하기 때문.
- * 실패는 조용히 무시(다음 기회에 같은 꼬리를 다시 보내면 된다).
+ * 이벤트 로그 원격 전송(사용자가 버튼을 누를 때만) — 차에서 생긴 문제를 사진 대신 서버(D1)로 받아
+ * 보기 위한 장치. events.log 꼬리 전체를 보내고 중복 제거는 서버(INSERT OR IGNORE)가 한다.
  */
 object LogUploader {
 
     private const val ENDPOINT = "https://karaoke.usenu.kr/api/log"
-    @Volatile private var lastTry = 0L
 
-    fun maybeUpload(ctx: Context) {
+    /** 설정의 '로그 보내기' 버튼에서 호출 — 지금 즉시 1회 전송. onDone(성공여부)로 결과 회신. */
+    fun uploadNow(ctx: Context, onDone: (Boolean) -> Unit) {
         val app = ctx.applicationContext
-        if (!SettingsStore(app).logUpload) return
-        val now = System.currentTimeMillis()
-        if (now - lastTry < 60_000) return
-        lastTry = now
-        // 파일 읽기는 호출 스레드에서 — crash.txt 는 직후 takeCrash 가 지우므로 여기서 먼저 집는다.
         val events = runCatching { File(app.filesDir, "events.log").readText().takeLast(8000) }.getOrNull().orEmpty()
         val crash = runCatching { File(app.filesDir, "crash.txt").readText().take(6000) }.getOrNull()
         val lines = events.lines().filter { it.isNotBlank() }.toMutableList()
         if (crash != null) lines += "CRASH " + crash.replace("\n", " ⏎ ")
-        if (lines.isEmpty()) return
+        if (lines.isEmpty()) { onDone(false); return }
         val device = runCatching {
             android.provider.Settings.Secure.getString(
                 app.contentResolver, android.provider.Settings.Secure.ANDROID_ID
@@ -38,8 +30,9 @@ object LogUploader {
         val body = Gson().toJson(
             mapOf("device" to device, "ver" to BuildConfig.VERSION_NAME, "lines" to lines)
         )
+        val handler = android.os.Handler(app.mainLooper)
         Thread {
-            runCatching {
+            val ok = runCatching {
                 val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     doOutput = true
@@ -50,7 +43,9 @@ object LogUploader {
                 }
                 conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                 conn.inputStream.use { it.readBytes() }
-            }
+                conn.responseCode in 200..299
+            }.getOrDefault(false)
+            handler.post { onDone(ok) }
         }.start()
     }
 }

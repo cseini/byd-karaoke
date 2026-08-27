@@ -253,7 +253,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
         // 튕김(크래시/재생성) 추적: 이전 실행의 비정상 종료 증거가 있으면 표시
         CrashLog.install(this)
-        LogUploader.maybeUpload(this)   // takeCrash 가 crash.txt 를 지우기 전에 먼저 전송(옵트인)
         CrashLog.takeCrash(this)?.let { showIncidentDialog("⚠ 이전 실행이 크래시로 종료됐어요", it) }
             ?: CrashLog.takeAbnormalEnd(this)?.let {
                 showIncidentDialog("ℹ 이전 화면이 시스템에 의해 재시작됐었어요", it)
@@ -306,7 +305,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             adapter = this@MainActivity.adapter
         }
         findViewById<RecyclerView>(R.id.history).apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 3)
+            layoutManager = GridLayoutManager(this@MainActivity, 5)
             adapter = this@MainActivity.historyAdapter
         }
         homeQueueSection = findViewById(R.id.home_queue_section)
