@@ -50,669 +50,759 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- ═══════════ 기본: 자주 쓰는 것만 ═══════════ -->
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎤 음성 검색 (Gemini 키)"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="6dp" />
-
-            <Button
-                android:id="@+id/btn_key_qr"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="📱 폰으로 키 입력 (QR) — 권장" />
-
-            <EditText
-                android:id="@+id/openai_key_input"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="6dp"
-                android:hint="또는 직접 입력: Gemini API 키 1"
-                android:inputType="text"
-                android:importantForAutofill="no" />
-
-            <EditText
-                android:id="@+id/openai_key_input2"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="4dp"
-                android:hint="키 2 (선택 · 한도 초과 시 자동 전환)"
-                android:inputType="text"
-                android:importantForAutofill="no" />
-
-            <EditText
-                android:id="@+id/openai_key_input3"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="4dp"
-                android:hint="키 3 (선택)"
-                android:inputType="text"
-                android:importantForAutofill="no" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="11sp"
-                android:textColor="@color/tj_text_hint"
-                android:paddingTop="2dp"
-                android:text="aistudio.google.com 에서 무료 발급" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🔊 녹음 음량 (다시듣기)"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_cyan"
-                android:paddingBottom="6dp" />
-
+            <!-- ═══════ 기본: 2열 ═══════ -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:baselineAligned="false">
 
-                <TextView
-                    android:id="@+id/voice_gain_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="110dp"
-                    android:textSize="13sp"
-                    android:textColor="@color/tj_cyan"
-                    android:text="목소리 100%" />
-
-                <SeekBar
-                    android:id="@+id/voice_gain_seek"
+                <!-- 카드: 음성 검색 -->
+                <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:max="450" />
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/settings_card"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎤 음성 검색 (Gemini 키)"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/tj_cyan"
+                        android:paddingBottom="10dp" />
+
+                    <Button
+                        android:id="@+id/btn_key_qr"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="📱 폰으로 키 입력 (QR) — 권장" />
+
+                    <EditText
+                        android:id="@+id/openai_key_input"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="6dp"
+                        android:hint="또는 직접 입력: Gemini API 키 1"
+                        android:inputType="text"
+                        android:importantForAutofill="no" />
+
+                    <EditText
+                        android:id="@+id/openai_key_input2"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="4dp"
+                        android:hint="키 2 (선택 · 한도 초과 시 자동 전환)"
+                        android:inputType="text"
+                        android:importantForAutofill="no" />
+
+                    <EditText
+                        android:id="@+id/openai_key_input3"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="4dp"
+                        android:hint="키 3 (선택)"
+                        android:inputType="text"
+                        android:importantForAutofill="no" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/tj_text_hint"
+                        android:paddingTop="4dp"
+                        android:text="aistudio.google.com 에서 무료 발급" />
+                </LinearLayout>
+
+                <!-- 오른쪽 컬럼: 녹음 음량 + 이벤트 로그 -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔊 녹음 음량 (다시듣기)"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="10dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/voice_gain_label"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:minWidth="100dp"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_cyan"
+                                android:text="목소리 100%" />
+
+                            <SeekBar
+                                android:id="@+id/voice_gain_seek"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:max="450" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/accomp_gain_label"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:minWidth="100dp"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_cyan"
+                                android:text="반주 60%" />
+
+                            <SeekBar
+                                android:id="@+id/accomp_gain_seek"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:max="150" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="@color/tj_text_hint"
+                            android:paddingTop="4dp"
+                            android:text="목소리가 작으면 목소리↑ 또는 반주↓ · 새 녹음부터 적용" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btn_event_log"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="🐞 이벤트 로그 보기" />
+                </LinearLayout>
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/accomp_gain_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="110dp"
-                    android:textSize="13sp"
-                    android:textColor="@color/tj_cyan"
-                    android:text="반주 60%" />
-
-                <SeekBar
-                    android:id="@+id/accomp_gain_seek"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="150" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="11sp"
-                android:textColor="@color/tj_text_hint"
-                android:text="내 목소리가 작으면 목소리↑ 또는 반주↓ · 새로 녹음할 때 적용" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="18dp"
-                android:layout_marginBottom="18dp"
-                android:background="@color/tj_divider" />
-
-            <TextView
-                android:id="@+id/update_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="@color/tj_text_secondary"
-                android:paddingBottom="8dp"
-                android:text="현재 버전 확인 중…" />
-
-            <Button
-                android:id="@+id/btn_check_update"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:backgroundTint="@color/tj_green"
-                android:textColor="@color/tj_bg_deep"
-                android:text="🔄 업데이트 확인" />
-
-            <Button
-                android:id="@+id/btn_event_log"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="🐞 이벤트 로그 보기" />
-
-            <!-- ═══════════ 고급: 접어둠 ═══════════ -->
-
+            <!-- ═══════ 고급: 접어둠 ═══════ -->
             <Button
                 android:id="@+id/btn_advanced"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="12dp"
                 android:text="⚙ 고급 설정 펼치기 ▸" />
 
             <LinearLayout
                 android:id="@+id/advanced_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:orientation="horizontal"
+                android:baselineAligned="false"
+                android:paddingTop="12dp"
                 android:visibility="gone">
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="음성인식 모델"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="2dp" />
-
-                <RadioGroup
-                    android:id="@+id/gemini_model_group"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/gm_flash"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="정확 (flash 계열)" />
-
-                    <RadioButton
-                        android:id="@+id/gm_lite"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="한도↑ (flash-lite 계열)" />
-                </RadioGroup>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="녹음 싱크 보정"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="2dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="@color/tj_text_secondary"
-                    android:paddingBottom="6dp"
-                    android:text="다시듣기에서 목소리가 느리면 왼쪽(−), 빠르면 오른쪽(+)" />
-
+                <!-- 왼쪽 컬럼 -->
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:id="@+id/sync_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="90dp"
-                        android:textSize="13sp"
-                        android:textColor="@color/tj_cyan"
-                        android:text="0 ms" />
-
-                    <SeekBar
-                        android:id="@+id/sync_seek"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="600" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="마이크 입력 방식"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="2dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="@color/tj_text_secondary"
-                    android:paddingBottom="6dp"
-                    android:text="녹음에 소리가 안 들어가면 '일반 MIC'로 바꿔보세요" />
-
-                <RadioGroup
-                    android:id="@+id/mic_source_group"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/ms_auto"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="자동" />
-
-                    <RadioButton
-                        android:id="@+id/ms_mic"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="일반\nMIC" />
-
-                    <RadioButton
-                        android:id="@+id/ms_recognition"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="음성\n인식" />
-
-                    <RadioButton
-                        android:id="@+id/ms_comm"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="통화\n마이크" />
-                </RadioGroup>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <CheckBox
-                    android:id="@+id/chk_mic_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="🎙 USB 마이크 버튼으로 제어" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="11sp"
-                    android:textColor="@color/tj_text_hint"
-                    android:paddingStart="8dp"
-                    android:text="한 번 누르기는 원래 기능(패널·마이크 볼륨) 그대로. 아래 제스처에 원하는 기능을 매핑하세요.\n⚠️ 기종에 따라 안 될 수 있어요 — 기본 버튼이 이상해지면 끄세요" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="8dp">
-
-                    <TextView
-                        android:layout_width="140dp"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="🎙 마이크 길게" />
-
-                    <Spinner
-                        android:id="@+id/map_mic_long"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="140dp"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="🎙 마이크 두 번" />
-
-                    <Spinner
-                        android:id="@+id/map_mic_double"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="140dp"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="🔊 볼륨▲ 두 번" />
-
-                    <Spinner
-                        android:id="@+id/map_vol_up2"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="140dp"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="🔉 볼륨▼ 두 번" />
-
-                    <Spinner
-                        android:id="@+id/map_vol_down2"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="6dp">
-
-                    <Button
-                        android:id="@+id/btn_mic_learn"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textSize="13sp"
-                        android:text="🎯 버튼 학습 (내 마이크에 맞추기)" />
-
-                    <Button
-                        android:id="@+id/btn_mic_diag"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textSize="13sp"
-                        android:text="🔍 진단" />
-
-                    <Button
-                        android:id="@+id/btn_score_debug"
-                        style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textSize="13sp"
-                        android:text="🧪 채점 디버그" />
-                </LinearLayout>
-
-                <CheckBox
-                    android:id="@+id/chk_score_debug_dump"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="🧪 채점 디버그 파일 저장 (제보용 · 곡마다 몇 MB 씀)" />
-
-                <CheckBox
-                    android:id="@+id/chk_wheel_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@color/tj_text_primary"
-                    android:visibility="gone"
-                    android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
-
-                <!-- 휠 버튼: 접근성 활성에 adb 가 필요해 UI 숨김. 기능·설정값은 유지. -->
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="재생"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="6dp" />
-
-                <CheckBox
-                    android:id="@+id/chk_start_fullscreen"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="▶ 영상을 전체화면으로 시작 (화면을 탭하면 해제)" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="녹음"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="6dp" />
-
-                <CheckBox
-                    android:id="@+id/chk_recording"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="노래 녹음 사용 (끄면 녹음·채점 없이 재생만)" />
-
-                <CheckBox
-                    android:id="@+id/chk_scoring"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textColor="@color/tj_text_primary"
-                    android:text="노래 채점 사용 (끄면 즉시 저장 · 완곡도 빠름)" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingTop="10dp"
-                    android:textSize="13sp"
-                    android:textColor="@color/tj_text_secondary"
-                    android:text="녹음 품질 — 낮을수록 용량↓·채점 빠름" />
-
-                <RadioGroup
-                    android:id="@+id/rate_group"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <RadioButton
-                        android:id="@+id/rate_standard"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="표준\n22kHz" />
-
-                    <RadioButton
-                        android:id="@+id/rate_save"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="절약\n16kHz" />
-
-                    <RadioButton
-                        android:id="@+id/rate_min"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="최소\n11kHz" />
-                </RadioGroup>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="18dp"
-                    android:layout_marginBottom="18dp"
-                    android:background="@color/tj_divider" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="녹음 저장 위치"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_cyan"
-                    android:paddingBottom="6dp" />
-
-                <RadioGroup
-                    android:id="@+id/storage_group"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <RadioButton
-                        android:id="@+id/st_internal"
+                    <!-- 카드: 음성인식 모델 -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="차 내부 저장소" />
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
 
-                    <RadioButton
-                        android:id="@+id/st_sd"
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="음성인식 모델"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="6dp" />
+
+                        <RadioGroup
+                            android:id="@+id/gemini_model_group"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/gm_flash"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="정확 (flash 계열)" />
+
+                            <RadioButton
+                                android:id="@+id/gm_lite"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="한도↑ (flash-lite 계열)" />
+                        </RadioGroup>
+                    </LinearLayout>
+
+                    <!-- 카드: 마이크 입력 방식 -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="SD카드" />
-                </RadioGroup>
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
 
-                <TextView
-                    android:id="@+id/storage_info"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingTop="6dp"
-                    android:textSize="12sp"
-                    android:textColor="@color/tj_text_secondary"
-                    android:fontFamily="monospace"
-                    android:text="용량 확인 중…" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="마이크 입력 방식"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="2dp" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="8dp">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textColor="@color/tj_text_secondary"
+                            android:paddingBottom="6dp"
+                            android:text="녹음에 소리가 안 들어가면 '일반 MIC'로 바꿔보세요" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                        <RadioGroup
+                            android:id="@+id/mic_source_group"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <RadioButton
+                                android:id="@+id/ms_auto"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="자동" />
+
+                            <RadioButton
+                                android:id="@+id/ms_mic"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="일반\nMIC" />
+
+                            <RadioButton
+                                android:id="@+id/ms_recognition"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="음성\n인식" />
+
+                            <RadioButton
+                                android:id="@+id/ms_comm"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="통화\n마이크" />
+                        </RadioGroup>
+                    </LinearLayout>
+
+                    <!-- 카드: USB 마이크 버튼 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/tj_text_primary"
-                        android:text="최대 사용 용량(MB):" />
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
 
-                    <EditText
-                        android:id="@+id/max_storage_input"
-                        android:layout_width="100dp"
-                        android:layout_height="48dp"
-                        android:layout_marginStart="8dp"
-                        android:inputType="number"
-                        android:importantForAutofill="no" />
+                        <CheckBox
+                            android:id="@+id/chk_mic_button"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="🎙 USB 마이크 버튼으로 제어" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="@color/tj_text_hint"
+                            android:paddingStart="8dp"
+                            android:text="한 번 누르기는 원래 기능 그대로. 아래 제스처에 기능을 매핑하세요.\n⚠️ 기종에 따라 안 될 수 있어요 — 기본 버튼이 이상해지면 끄세요" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="8dp">
+
+                            <TextView
+                                android:layout_width="120dp"
+                                android:layout_height="wrap_content"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="🎙 마이크 길게" />
+
+                            <Spinner
+                                android:id="@+id/map_mic_long"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="120dp"
+                                android:layout_height="wrap_content"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="🎙 마이크 두 번" />
+
+                            <Spinner
+                                android:id="@+id/map_mic_double"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="120dp"
+                                android:layout_height="wrap_content"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="🔊 볼륨▲ 두 번" />
+
+                            <Spinner
+                                android:id="@+id/map_vol_up2"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="120dp"
+                                android:layout_height="wrap_content"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="🔉 볼륨▼ 두 번" />
+
+                            <Spinner
+                                android:id="@+id/map_vol_down2"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="8dp">
+
+                            <Button
+                                android:id="@+id/btn_mic_learn"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:textSize="13sp"
+                                android:text="🎯 버튼 학습" />
+
+                            <Button
+                                android:id="@+id/btn_mic_diag"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:textSize="13sp"
+                                android:text="🔍 진단" />
+                        </LinearLayout>
+
+                        <CheckBox
+                            android:id="@+id/chk_wheel_button"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/tj_text_primary"
+                            android:visibility="gone"
+                            android:text="🎚 휠 무음 버튼 더블클릭으로 음성검색" />
+                    </LinearLayout>
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
+                <!-- 오른쪽 컬럼 -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:paddingTop="2dp"
-                    android:textSize="11sp"
-                    android:textColor="@color/tj_text_hint"
-                    android:text="이 용량을 넘으면 오래된 녹음부터 자동으로 지웁니다." />
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <!-- 카드: 녹음 싱크 보정 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="녹음 싱크 보정"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="2dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textColor="@color/tj_text_secondary"
+                            android:paddingBottom="6dp"
+                            android:text="다시듣기에서 목소리가 느리면 왼쪽(−), 빠르면 오른쪽(+)" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/sync_label"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:minWidth="80dp"
+                                android:textSize="13sp"
+                                android:textColor="@color/tj_cyan"
+                                android:text="0 ms" />
+
+                            <SeekBar
+                                android:id="@+id/sync_seek"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:max="600" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 카드: 재생 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="재생"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="6dp" />
+
+                        <CheckBox
+                            android:id="@+id/chk_start_fullscreen"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="▶ 영상을 전체화면으로 시작 (탭하면 해제)" />
+                    </LinearLayout>
+
+                    <!-- 카드: 녹음 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="녹음"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="6dp" />
+
+                        <CheckBox
+                            android:id="@+id/chk_recording"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="노래 녹음 사용 (끄면 재생만)" />
+
+                        <CheckBox
+                            android:id="@+id/chk_scoring"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="노래 채점 사용 (끄면 즉시 저장)" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="10dp"
+                            android:textSize="13sp"
+                            android:textColor="@color/tj_text_secondary"
+                            android:text="녹음 품질 — 낮을수록 용량↓·채점 빠름" />
+
+                        <RadioGroup
+                            android:id="@+id/rate_group"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <RadioButton
+                                android:id="@+id/rate_standard"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="표준\n22kHz" />
+
+                            <RadioButton
+                                android:id="@+id/rate_save"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="절약\n16kHz" />
+
+                            <RadioButton
+                                android:id="@+id/rate_min"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/tj_text_primary"
+                                android:textSize="13sp"
+                                android:text="최소\n11kHz" />
+                        </RadioGroup>
+                    </LinearLayout>
+
+                    <!-- 카드: 녹음 저장 위치 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="녹음 저장 위치"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="6dp" />
+
+                        <RadioGroup
+                            android:id="@+id/storage_group"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <RadioButton
+                                android:id="@+id/st_internal"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="차 내부 저장소" />
+
+                            <RadioButton
+                                android:id="@+id/st_sd"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="SD카드" />
+                        </RadioGroup>
+
+                        <TextView
+                            android:id="@+id/storage_info"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="6dp"
+                            android:textSize="12sp"
+                            android:textColor="@color/tj_text_secondary"
+                            android:fontFamily="monospace"
+                            android:text="용량 확인 중…" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingTop="8dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/tj_text_primary"
+                                android:text="최대 용량(MB):" />
+
+                            <EditText
+                                android:id="@+id/max_storage_input"
+                                android:layout_width="90dp"
+                                android:layout_height="48dp"
+                                android:layout_marginStart="8dp"
+                                android:inputType="number"
+                                android:importantForAutofill="no" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="2dp"
+                            android:textSize="11sp"
+                            android:textColor="@color/tj_text_hint"
+                            android:text="이 용량을 넘으면 오래된 녹음부터 자동으로 지웁니다." />
+                    </LinearLayout>
+
+                    <!-- 카드: 제보·디버그 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/settings_card"
+                        android:padding="14dp"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="제보·디버그"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/tj_cyan"
+                            android:paddingBottom="6dp" />
+
+                        <Button
+                            android:id="@+id/btn_score_debug"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="13sp"
+                            android:text="🧪 채점 디버그" />
+
+                        <CheckBox
+                            android:id="@+id/chk_score_debug_dump"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="🧪 채점 디버그 파일 저장 (제보용)" />
+
+                        <CheckBox
+                            android:id="@+id/chk_log_upload"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/tj_text_primary"
+                            android:text="📡 이벤트 로그 자동 전송 (제보용 · 검색어 포함될 수 있음)" />
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
-    <Button
-        android:id="@+id/btn_save"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="저장" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="8dp">
+
+        <TextView
+            android:id="@+id/update_status"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="@color/tj_text_secondary"
+            android:text="현재 버전 확인 중…" />
+
+        <Button
+            android:id="@+id/btn_check_update"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            app:backgroundTint="@color/tj_green"
+            android:textColor="@color/tj_bg_deep"
+            android:text="🔄 업데이트 확인" />
+
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="저장" />
+    </LinearLayout>
 
     <include android:id="@+id/navbar" layout="@layout/include_navbar" />
 </LinearLayout>

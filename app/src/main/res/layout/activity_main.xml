@@ -81,26 +81,16 @@
             app:backgroundTint="@color/tj_blue"
             android:text="🎙 음성" />
 
-        <Button
-            android:id="@+id/btn_search"
+        <CheckBox
+            android:id="@+id/chk_autoplay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            app:backgroundTint="@color/tj_cyan"
-            android:textColor="@color/tj_bg_deep"
-            android:text="검색" />
+            android:layout_marginStart="12dp"
+            android:textSize="13sp"
+            android:textColor="@color/tj_text_secondary"
+            android:visibility="gone"
+            android:text="첫 곡 자동" />
     </LinearLayout>
-
-    <CheckBox
-        android:id="@+id/chk_autoplay"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:paddingTop="6dp"
-        android:textSize="13sp"
-        android:textColor="@color/tj_text_secondary"
-        android:visibility="gone"
-        android:text="🎤 음성 검색 후 첫 곡 자동 재생" />
 
     <TextView
         android:id="@+id/status"

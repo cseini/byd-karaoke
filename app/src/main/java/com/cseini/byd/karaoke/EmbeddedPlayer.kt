@@ -64,6 +64,7 @@ class EmbeddedPlayer(
     private val replaySeek: SeekBar = activity.findViewById(R.id.embed_replay_seek)
     private val replayPlay: Button = activity.findViewById(R.id.embed_replay_play)
     private val stopBtn: Button = activity.findViewById(R.id.embed_stop)
+    private val tuneRow: View = activity.findViewById(R.id.embed_tune_row)
     private val retryBtn: Button = activity.findViewById(R.id.embed_retry)
     private val replayBtn: Button = activity.findViewById(R.id.embed_replay)
     private val nextBtn: Button = activity.findViewById(R.id.embed_next)
@@ -192,6 +193,8 @@ class EmbeddedPlayer(
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         seekRow.visibility = View.VISIBLE
+        tuneRow.visibility = View.VISIBLE
+        stopBtn.visibility = View.VISIBLE
         val rec = MixRecorder(activity, settings)
         recorder = rec
         val cb = PlayerCallbacks(
@@ -238,8 +241,16 @@ class EmbeddedPlayer(
             playLogged = true
             playHistory.add(currentVideoId, titleView.text.toString(), System.currentTimeMillis())
         }
-        if (!settings.recordingEnabled) { statusView.text = "🎵 재생 중 (녹음 꺼짐)"; return }
-        if (!hasMic()) { statusView.text = "마이크 권한이 없어 재생만 합니다."; return }
+        if (!settings.recordingEnabled) {
+            statusView.text = "🎵 재생 중 (녹음 꺼짐)"
+            CrashLog.event(activity, "rec skip: 설정 꺼짐")
+            return
+        }
+        if (!hasMic()) {
+            statusView.text = "마이크 권한이 없어 재생만 합니다."
+            CrashLog.event(activity, "rec skip: 마이크 권한 없음")
+            return
+        }
         val dir = Storage.recordingsDir(activity, settings.storageMode)
         val safe = titleView.text.toString().replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
@@ -247,7 +258,13 @@ class EmbeddedPlayer(
         val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
             activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
         }
-        if (err != null) statusView.text = "녹음 시작 실패: $err" else { recordStarted = true; lastRecording = file }
+        if (err != null) {
+            statusView.text = "녹음 시작 실패: $err"
+            CrashLog.event(activity, "rec fail: $err")
+        } else {
+            recordStarted = true; lastRecording = file
+            CrashLog.event(activity, "rec start")
+        }
     }
 
     private fun onEnded() {
@@ -349,6 +366,7 @@ class EmbeddedPlayer(
     }
 
     private fun stopSong() {
+        CrashLog.event(activity, "stopSong recStarted=$recordStarted scored=$scored replaying=$replaying")
         cancelCountdown()
         if (replaying) { endReplay(); return }
         player?.pause()
@@ -454,7 +472,21 @@ class EmbeddedPlayer(
         bottom.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenBtn.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenTap.visibility = if (fullscreen) View.VISIBLE else View.GONE
+        applySystemBars()
         refreshQueueSide()
+    }
+
+    /**
+     * 전체화면일 땐 시스템 하단바(내비게이션)·상태바도 함께 내린다(immersive sticky —
+     * 화면 가장자리 스와이프로 잠깐 다시 나온다). 유닛의 하단바가 안드로이드 내비바가
+     * 아니라 차량 런처 자체 독이면 효과가 없을 수 있다.
+     */
+    private fun applySystemBars() {
+        activity.window.decorView.systemUiVisibility = if (fullscreen)
+            (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+        else 0
     }
 
     // ── 다시듣기: 영상은 음소거로 처음부터(화면), 소리는 녹음 믹스(MediaPlayer) ──
@@ -466,6 +498,13 @@ class EmbeddedPlayer(
         replaying = true
         replayVideoAligned = false; replaySeekCooldown = 0
         seekRow.visibility = View.GONE          // 노래 seek 바 숨김(진행바 2개 방지)
+        // 다시듣기엔 키·속도·종료·다시·다음곡이 의미 없다 — 재생/정지·닫기만 남긴다.
+        tuneRow.visibility = View.GONE
+        stopBtn.visibility = View.GONE
+        retryBtn.visibility = View.GONE
+        replayBtn.visibility = View.GONE
+        nextBtn.visibility = View.GONE
+        scoreOverlay.visibility = View.GONE
         player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
         player?.seekTo(0)
         player?.play()
@@ -491,6 +530,8 @@ class EmbeddedPlayer(
         replayRow.visibility = View.GONE
         replayPlay.text = "▶ 재생"
         seekRow.visibility = View.VISIBLE
+        tuneRow.visibility = View.VISIBLE
+        stopBtn.visibility = View.VISIBLE
     }
 
     private val replayTicker = object : Runnable {
@@ -590,12 +631,15 @@ class EmbeddedPlayer(
         currentVideoId = item.videoId
         titleView.text = item.title
         recordStarted = false; scored = true; playLogged = true; replaying = false; fullscreen = false
+        applySystemBars()   // 전체화면 상태에서 넘어와도 시스템 바 복원
         lastRecording = File(item.path)
         scoreOverlay.visibility = View.GONE
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
         seekRow.visibility = View.GONE
+        tuneRow.visibility = View.GONE   // 다시듣기 — 키·속도·종료 숨김
+        stopBtn.visibility = View.GONE
         bottom.visibility = View.VISIBLE
         fullscreenBtn.visibility = View.VISIBLE
         fullscreenTap.visibility = View.GONE
@@ -647,6 +691,7 @@ class EmbeddedPlayer(
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
         com.cseini.byd.karaoke.media.KeepAliveService.stop(activity)
+        LogUploader.maybeUpload(activity)   // 방금 부른 곡의 이벤트를 서버로(옵트인)
         onClose()
     }
 }

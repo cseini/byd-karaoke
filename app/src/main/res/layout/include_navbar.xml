@@ -3,9 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="@color/tj_panel"
+    android:background="@drawable/nav_bar_bg"
     android:layout_marginTop="8dp"
-    android:paddingVertical="4dp">
+    android:paddingVertical="7dp"
+    android:paddingHorizontal="4dp">
 
     <Button
         android:id="@+id/nav_search"
