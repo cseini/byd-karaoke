@@ -5,7 +5,7 @@
     android:orientation="horizontal"
     android:background="@drawable/nav_bar_bg"
     android:layout_marginTop="8dp"
-    android:paddingVertical="7dp"
+    android:paddingVertical="2dp"
     android:paddingHorizontal="4dp">
 
     <Button
@@ -14,9 +14,12 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:minHeight="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textSize="12sp"
         android:textColor="@color/tj_text_secondary"
-        android:text="🔍\n검색" />
+        android:text="🔍 검색" />
 
     <Button
         android:id="@+id/nav_recordings"
@@ -24,9 +27,12 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:minHeight="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textSize="12sp"
         android:textColor="@color/tj_text_secondary"
-        android:text="🎵\n녹음함" />
+        android:text="🎵 녹음함" />
 
     <Button
         android:id="@+id/nav_ranking"
@@ -34,9 +40,12 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:minHeight="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textSize="12sp"
         android:textColor="@color/tj_text_secondary"
-        android:text="🏆\n랭킹" />
+        android:text="🏆 랭킹" />
 
     <Button
         android:id="@+id/nav_settings"
@@ -44,7 +53,10 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:minHeight="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textSize="12sp"
         android:textColor="@color/tj_text_secondary"
-        android:text="⚙️\n설정" />
+        android:text="⚙️ 설정" />
 </LinearLayout>

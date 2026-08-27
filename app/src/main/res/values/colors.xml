@@ -1,35 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 심플 모던 다크 팔레트 — 중성 차콜 배경 + 절제된 바이올렛/블루 액센트 -->
-    <color name="tj_bg">#0E0F13</color>
-    <color name="tj_bg_deep">#08090B</color>
-    <color name="tj_panel">#17181D</color>
-    <color name="tj_panel_light">#212229</color>
-    <color name="tj_divider">#2C2E37</color>
+    <!-- 가을 다크 팔레트 — 웜 차콜 배경 + 테라코타·머스타드·앰버 액센트 -->
+    <color name="tj_bg">#17120E</color>
+    <color name="tj_bg_deep">#0E0A07</color>
+    <color name="tj_panel">#221A14</color>
+    <color name="tj_panel_light">#2E241B</color>
+    <color name="tj_divider">#3A2E24</color>
 
-    <color name="tj_pink">#A78BFA</color>
-    <color name="tj_pink_dark">#7C5CE0</color>
-    <color name="tj_cyan">#7DA2FF</color>
-    <color name="tj_gold">#E5C558</color>
-    <color name="tj_gold_deep">#D99A3C</color>
-    <color name="tj_silver">#B9BDC9</color>
-    <color name="tj_bronze">#C08A5A</color>
+    <color name="tj_pink">#D9824E</color>
+    <color name="tj_pink_dark">#A85F32</color>
+    <color name="tj_cyan">#E0B45A</color>
+    <color name="tj_gold">#E8C468</color>
+    <color name="tj_gold_deep">#C8912F</color>
+    <color name="tj_silver">#C7BBA8</color>
+    <color name="tj_bronze">#B47A44</color>
 
-    <color name="tj_red">#F26D6D</color>
-    <color name="tj_orange">#F0A45C</color>
-    <color name="tj_blue">#5B8DEF</color>
-    <color name="tj_green">#34D399</color>
+    <color name="tj_red">#D9645A</color>
+    <color name="tj_orange">#E08A4B</color>
+    <color name="tj_blue">#B5703C</color>
+    <color name="tj_green">#8FA05A</color>
 
-    <!-- 네온 스테이지 테마 전용(선택형) -->
-    <color name="neon_pink">#FF2E92</color>
-    <color name="neon_cyan">#00E5FF</color>
-
-    <!-- 러블리 테마 전용(선택형) -->
-    <color name="lovely_pink">#FF9EC4</color>
-    <color name="lovely_deep">#FF6FA5</color>
-    <color name="lovely_lav">#C6A8FF</color>
-
-    <color name="tj_text_primary">#EEF0F3</color>
-    <color name="tj_text_secondary">#9A9FAB</color>
-    <color name="tj_text_hint">#666B77</color>
+    <color name="tj_text_primary">#F2EBE3</color>
+    <color name="tj_text_secondary">#B0A392</color>
+    <color name="tj_text_hint">#7A6E60</color>
 </resources>
