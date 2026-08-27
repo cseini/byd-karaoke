@@ -70,34 +70,63 @@
                     android:id="@+id/home_style_group"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="vertical">
 
                     <RadioButton
                         android:id="@+id/hs_music"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="뮤직앱\n(가로 캐러셀)" />
+                        android:textSize="14sp"
+                        android:text="🎧 뮤직앱 · 가로 캐러셀" />
+
+                    <RadioButton
+                        android:id="@+id/hs_neon"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="14sp"
+                        android:text="✦ 네온 스테이지 · 화려한 무대" />
+
+                    <RadioButton
+                        android:id="@+id/hs_lovely"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="14sp"
+                        android:text="♡ 러블리 · 하트·별·분홍분홍" />
+
+                    <RadioButton
+                        android:id="@+id/hs_glass"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="14sp"
+                        android:text="🧊 글래스 · 투명 유리" />
+
+                    <RadioButton
+                        android:id="@+id/hs_paper"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tj_text_primary"
+                        android:textSize="14sp"
+                        android:text="📖 종이책 · 흑백 세리프" />
 
                     <RadioButton
                         android:id="@+id/hs_minimal"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="미니멀\n(큰 2열)" />
+                        android:textSize="14sp"
+                        android:text="◻ 미니멀 · 큰 2열" />
 
                     <RadioButton
                         android:id="@+id/hs_default"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:textColor="@color/tj_text_primary"
-                        android:textSize="13sp"
-                        android:text="기본\n(4열 격자)" />
+                        android:textSize="14sp"
+                        android:text="▦ 기본 · 4열 격자" />
                 </RadioGroup>
             </LinearLayout>
 

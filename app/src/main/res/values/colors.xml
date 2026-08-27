@@ -20,6 +20,15 @@
     <color name="tj_blue">#5B8DEF</color>
     <color name="tj_green">#34D399</color>
 
+    <!-- 네온 스테이지 테마 전용(선택형) -->
+    <color name="neon_pink">#FF2E92</color>
+    <color name="neon_cyan">#00E5FF</color>
+
+    <!-- 러블리 테마 전용(선택형) -->
+    <color name="lovely_pink">#FF9EC4</color>
+    <color name="lovely_deep">#FF6FA5</color>
+    <color name="lovely_lav">#C6A8FF</color>
+
     <color name="tj_text_primary">#EEF0F3</color>
     <color name="tj_text_secondary">#9A9FAB</color>
     <color name="tj_text_hint">#666B77</color>

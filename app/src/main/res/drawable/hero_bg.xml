@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:bottomLeftRadius="24dp" android:bottomRightRadius="24dp" />
+    <gradient
+        android:startColor="@color/tj_pink_dark"
+        android:endColor="@color/tj_panel"
+        android:angle="135" />
+</shape>

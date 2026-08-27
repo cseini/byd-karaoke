@@ -157,7 +157,7 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("log_upload", false)
         set(v) = prefs.edit().putBoolean("log_upload", v).apply()
 
-    /** 홈(검색) 화면 테마: 0=기본(그리드), 1=뮤직앱(가로 캐러셀), 2=미니멀(세로 리스트). */
+    /** 홈 테마: 0=기본(4열) 1=뮤직앱(캐러셀) 2=미니멀(2열) 3=네온 4=러블리 5=글래스 6=종이책. */
     var homeStyle: Int
         get() = prefs.getInt("home_style", 1)
         set(v) = prefs.edit().putInt("home_style", v).apply()

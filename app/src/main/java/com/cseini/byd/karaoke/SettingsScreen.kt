@@ -90,6 +90,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
         homeStyleGroup.check(
             when (settings.homeStyle) {
+                3 -> R.id.hs_neon
+                4 -> R.id.hs_lovely
+                5 -> R.id.hs_glass
+                6 -> R.id.hs_paper
                 2 -> R.id.hs_minimal
                 0 -> R.id.hs_default
                 else -> R.id.hs_music
@@ -175,6 +179,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.logUpload = logUploadCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
         settings.homeStyle = when (homeStyleGroup.checkedRadioButtonId) {
+            R.id.hs_neon -> 3
+            R.id.hs_lovely -> 4
+            R.id.hs_glass -> 5
+            R.id.hs_paper -> 6
             R.id.hs_minimal -> 2
             R.id.hs_default -> 0
             else -> 1
