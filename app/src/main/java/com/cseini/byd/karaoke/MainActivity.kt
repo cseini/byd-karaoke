@@ -120,7 +120,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onSettingsSaved() {
         if (::autoplayCheck.isInitialized) refreshVoiceUi()
         syncPhysicalButtons()
-        applyHomeStyle()
     }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
         embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
@@ -306,8 +305,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
-        findViewById<RecyclerView>(R.id.history).adapter = historyAdapter
-        applyHomeStyle()
+        findViewById<RecyclerView>(R.id.history).apply {
+            layoutManager = GridLayoutManager(this@MainActivity, 3)
+            adapter = this@MainActivity.historyAdapter
+        }
         homeQueueSection = findViewById(R.id.home_queue_section)
         homeQueueTitle = findViewById(R.id.home_queue_title)
         findViewById<RecyclerView>(R.id.home_queue).apply {
@@ -494,116 +495,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
-    /** 홈 테마 적용 — 헤더 부제·최근곡 배치를 설정값(homeStyle)에 따라 바꾼다. */
-    private fun applyHomeStyle() {
-        val d = resources.displayMetrics.density
-        fun dp(v: Int) = (v * d).toInt()
-        val rv = findViewById<RecyclerView>(R.id.history)
-        val subtitle = findViewById<TextView>(R.id.header_subtitle)
-        val title = findViewById<TextView>(R.id.header_title)
-        val headerRow = findViewById<View>(R.id.header_row)
-        val searchBar = findViewById<View>(R.id.search_bar)
-        val divider = findViewById<View>(R.id.header_divider)
-        fun glow(color: Int) = title.setShadowLayer(if (color == 0) 0f else 22f, 0f, 0f, color)
-        title.text = "노래방"
-        subtitle.text = "오늘도 한 곡 어때요?"
-        title.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-        glow(0)
-        when (settings.homeStyle) {
-            1 -> {   // 뮤직앱: 히어로 헤더 + pill 검색바 + 가로 캐러셀
-                headerRow.setBackgroundResource(R.drawable.hero_bg)
-                headerRow.setPadding(dp(18), dp(18), dp(18), dp(18))
-                title.textSize = 30f
-                glow(0)
-                subtitle.visibility = View.VISIBLE
-                divider.visibility = View.GONE
-                searchBar.setBackgroundResource(R.drawable.search_pill)
-                searchBar.setPadding(dp(10), dp(6), dp(10), dp(6))
-                historyAdapter.fixedWidthDp = 172
-                rv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            }
-            3 -> {   // 네온 스테이지: 화려한 무대 히어로 + 네온 검색바 + 캐러셀
-                headerRow.setBackgroundResource(R.drawable.neon_hero_bg)
-                headerRow.setPadding(dp(20), dp(22), dp(20), dp(22))
-                title.text = "✦ 노래방 ✦"
-                title.textSize = 32f
-                glow(androidx.core.content.ContextCompat.getColor(this, R.color.neon_pink))
-                subtitle.text = "🎤 오늘의 무대를 밝혀요"
-                subtitle.visibility = View.VISIBLE
-                divider.visibility = View.GONE
-                searchBar.setBackgroundResource(R.drawable.search_neon)
-                searchBar.setPadding(dp(12), dp(8), dp(12), dp(8))
-                historyAdapter.fixedWidthDp = 172
-                rv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            }
-            4 -> {   // 러블리: 하트·별·분홍분홍 무대 + 러블리 검색바 + 큰 2열
-                headerRow.setBackgroundResource(R.drawable.lovely_hero_bg)
-                headerRow.setPadding(dp(20), dp(20), dp(20), dp(20))
-                title.text = "♡ 노래방 ♡"
-                title.textSize = 30f
-                glow(androidx.core.content.ContextCompat.getColor(this, R.color.lovely_deep))
-                subtitle.text = "✧･ﾟ 반짝반짝 나의 무대 ･ﾟ✧"
-                subtitle.visibility = View.VISIBLE
-                divider.visibility = View.GONE
-                searchBar.setBackgroundResource(R.drawable.search_lovely)
-                searchBar.setPadding(dp(12), dp(8), dp(12), dp(8))
-                historyAdapter.fixedWidthDp = 0
-                rv.layoutManager = GridLayoutManager(this, 2)
-            }
-            5 -> {   // 글래스: 반투명 유리 히어로 + 유리 검색바 + 캐러셀
-                headerRow.setBackgroundResource(R.drawable.glass_hero_bg)
-                headerRow.setPadding(dp(18), dp(18), dp(18), dp(18))
-                title.textSize = 28f
-                glow(0)
-                subtitle.text = "투명하게, 심플하게"
-                subtitle.visibility = View.VISIBLE
-                divider.visibility = View.GONE
-                searchBar.setBackgroundResource(R.drawable.search_glass)
-                searchBar.setPadding(dp(12), dp(8), dp(12), dp(8))
-                historyAdapter.fixedWidthDp = 172
-                rv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            }
-            6 -> {   // 종이책: 흑백 세리프 + 얇은 라인 + 세로 목록
-                headerRow.background = null
-                headerRow.setPadding(0, dp(16), 0, dp(4))
-                title.text = "노 래 방"
-                title.textSize = 26f
-                title.setTypeface(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
-                glow(0)
-                subtitle.visibility = View.GONE
-                divider.visibility = View.VISIBLE
-                searchBar.background = null
-                searchBar.setPadding(0, dp(12), 0, dp(4))
-                historyAdapter.fixedWidthDp = 0
-                rv.layoutManager = LinearLayoutManager(this)
-            }
-            2 -> {   // 미니멀: 배경 없는 큰 헤더 + 넓은 여백 + 큰 2열
-                headerRow.background = null
-                headerRow.setPadding(0, dp(20), 0, dp(8))
-                title.textSize = 28f
-                glow(0)
-                subtitle.visibility = View.GONE
-                divider.visibility = View.GONE
-                searchBar.background = null
-                searchBar.setPadding(0, dp(16), 0, dp(8))
-                historyAdapter.fixedWidthDp = 0
-                rv.layoutManager = GridLayoutManager(this, 2)
-            }
-            else -> { // 기본: 좌측 헤더 + 4열 격자
-                headerRow.background = null
-                headerRow.setPadding(0, 0, 0, 0)
-                title.textSize = 24f
-                subtitle.visibility = View.GONE
-                divider.visibility = View.VISIBLE
-                searchBar.background = null
-                searchBar.setPadding(0, dp(12), 0, 0)
-                historyAdapter.fixedWidthDp = 0
-                rv.layoutManager = GridLayoutManager(this, 4)
-            }
-        }
-        historyAdapter.notifyDataSetChanged()
-    }
-
     private fun refreshHistory() {
         playHistory.reload()
         val recent = playHistory.all()

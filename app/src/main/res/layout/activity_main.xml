@@ -40,8 +40,7 @@
                 android:layout_height="wrap_content"
                 android:text="오늘도 한 곡 어때요?"
                 android:textSize="13sp"
-                android:textColor="@color/tj_text_secondary"
-                android:visibility="gone" />
+                android:textColor="@color/tj_text_secondary" />
         </LinearLayout>
 
         <Button

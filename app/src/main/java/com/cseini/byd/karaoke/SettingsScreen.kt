@@ -48,7 +48,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val logUploadCheck: CheckBox = root.findViewById(R.id.chk_log_upload)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
-    private val homeStyleGroup: RadioGroup = root.findViewById(R.id.home_style_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
     private val voiceGainLabel: TextView = root.findViewById(R.id.voice_gain_label)
     private val accompGainSeek: SeekBar = root.findViewById(R.id.accomp_gain_seek)
@@ -88,17 +87,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         logUploadCheck.isChecked = settings.logUpload
         recordingCheck.isChecked = settings.recordingEnabled
 
-        homeStyleGroup.check(
-            when (settings.homeStyle) {
-                3 -> R.id.hs_neon
-                4 -> R.id.hs_lovely
-                5 -> R.id.hs_glass
-                6 -> R.id.hs_paper
-                2 -> R.id.hs_minimal
-                0 -> R.id.hs_default
-                else -> R.id.hs_music
-            }
-        )
         micSourceGroup.check(
             when (settings.micSourceName) {
                 "MIC" -> R.id.ms_mic
@@ -178,15 +166,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.scoreDebugDump = scoreDebugCheck.isChecked
         settings.logUpload = logUploadCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
-        settings.homeStyle = when (homeStyleGroup.checkedRadioButtonId) {
-            R.id.hs_neon -> 3
-            R.id.hs_lovely -> 4
-            R.id.hs_glass -> 5
-            R.id.hs_paper -> 6
-            R.id.hs_minimal -> 2
-            R.id.hs_default -> 0
-            else -> 1
-        }
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"
             R.id.ms_recognition -> "VOICE_RECOGNITION"
