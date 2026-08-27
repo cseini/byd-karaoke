@@ -141,13 +141,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("scoring", true)
         set(v) = prefs.edit().putBoolean("scoring", v).apply()
 
-    /**
-     * 채점 디버그 덤프(설정>채점 디버그 공유용 zip) 생성. 곡마다 목소리·반주 WAV 를 압축해 쓰므로
-     * 채점 직후 CPU·플래시·힙을 몇 MB 씩 더 쓴다. 제보할 일이 있을 때만 켠다.
-     */
-    var scoreDebugDump: Boolean
-        get() = prefs.getBoolean("score_debug_dump", false)
-        set(v) = prefs.edit().putBoolean("score_debug_dump", v).apply()
 
 
 

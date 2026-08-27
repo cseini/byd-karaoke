@@ -430,29 +430,13 @@
                                 android:layout_weight="1" />
                         </LinearLayout>
 
-                        <LinearLayout
+                        <Button
+                            android:id="@+id/btn_mic_learn"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="8dp">
-
-                            <Button
-                                android:id="@+id/btn_mic_learn"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:textSize="13sp"
-                                android:text="🎯 버튼 학습" />
-
-                            <Button
-                                android:id="@+id/btn_mic_diag"
-                                style="?attr/materialButtonOutlinedStyle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:textSize="13sp"
-                                android:text="🔍 진단" />
-                        </LinearLayout>
+                            android:layout_marginTop="8dp"
+                            android:textSize="13sp"
+                            android:text="🎯 버튼 학습" />
 
                         <CheckBox
                             android:id="@+id/chk_wheel_button"
@@ -717,34 +701,17 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="제보·디버그"
+                            android:text="제보"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@color/tj_cyan"
                             android:paddingBottom="6dp" />
 
                         <Button
-                            android:id="@+id/btn_score_debug"
-                            style="?attr/materialButtonOutlinedStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textSize="13sp"
-                            android:text="🧪 채점 디버그" />
-
-                        <CheckBox
-                            android:id="@+id/chk_score_debug_dump"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:textColor="@color/tj_text_primary"
-                            android:text="🧪 채점 디버그 파일 저장 (제보용)" />
-
-                        <Button
                             android:id="@+id/btn_log_send"
                             style="?attr/materialButtonOutlinedStyle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
                             android:text="🐞 로그 보내기" />
 
                         <TextView

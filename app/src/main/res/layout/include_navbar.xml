@@ -5,7 +5,7 @@
     android:orientation="horizontal"
     android:background="@drawable/nav_bar_bg"
     android:layout_marginTop="8dp"
-    android:paddingVertical="2dp"
+    android:paddingVertical="9dp"
     android:paddingHorizontal="4dp">
 
     <Button
@@ -15,9 +15,9 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:minHeight="0dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:textSize="12sp"
+        android:insetTop="4dp"
+        android:insetBottom="4dp"
+        android:textSize="15sp"
         android:textColor="@color/tj_text_secondary"
         android:text="🔍 검색" />
 
@@ -28,9 +28,9 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:minHeight="0dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:textSize="12sp"
+        android:insetTop="4dp"
+        android:insetBottom="4dp"
+        android:textSize="15sp"
         android:textColor="@color/tj_text_secondary"
         android:text="🎵 녹음함" />
 
@@ -41,9 +41,9 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:minHeight="0dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:textSize="12sp"
+        android:insetTop="4dp"
+        android:insetBottom="4dp"
+        android:textSize="15sp"
         android:textColor="@color/tj_text_secondary"
         android:text="🏆 랭킹" />
 
@@ -54,9 +54,9 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:minHeight="0dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:textSize="12sp"
+        android:insetTop="4dp"
+        android:insetBottom="4dp"
+        android:textSize="15sp"
         android:textColor="@color/tj_text_secondary"
         android:text="⚙️ 설정" />
 </LinearLayout>

@@ -316,9 +316,6 @@ class EmbeddedPlayer(
                     if (accomp != null) {
                         MelodyScorer.score(
                             voicePair!!.first, voicePair.second, accomp!!.first, accomp!!.second,
-                            // 덤프는 제보용 옵션(기본 꺼짐) — 켜면 곡마다 WAV 2개를 zip 으로 쓴다.
-                            debugDir = if (settings.scoreDebugDump)
-                                java.io.File(activity.filesDir, "scoredebug") else null,
                         )
                     } else {
                         ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)

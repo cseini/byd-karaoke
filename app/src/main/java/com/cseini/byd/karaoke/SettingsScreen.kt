@@ -44,7 +44,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val syncLabel: TextView = root.findViewById(R.id.sync_label)
     private val rateGroup: RadioGroup = root.findViewById(R.id.rate_group)
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
-    private val scoreDebugCheck: CheckBox = root.findViewById(R.id.chk_score_debug_dump)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
@@ -82,7 +81,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             }
         )
         scoringCheck.isChecked = settings.scoringEnabled
-        scoreDebugCheck.isChecked = settings.scoreDebugDump
         recordingCheck.isChecked = settings.recordingEnabled
 
         micSourceGroup.check(
@@ -117,9 +115,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
-        root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
-        root.findViewById<Button>(R.id.btn_score_debug).setOnClickListener { shareScoreDebug() }
 
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_log_send).setOnClickListener { sendLog(it as Button) }
@@ -150,7 +146,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
-        settings.scoreDebugDump = scoreDebugCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"
@@ -246,76 +241,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         }
     }
 
-    /**
-     * 마이크 버튼 진단: 버튼 신호(HID hex)를 화면에 그대로 보여주고 복사하게 한다.
-     * adb 없이도 사용자가 채보 결과를 카페에 붙여넣을 수 있게 하는 용도(기종별 지원 확대).
-     */
-    private fun showMicDiag() {
-        val tv = TextView(activity).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 12f
-            setTextIsSelectable(true)
-            setPadding(28, 20, 28, 20)
-        }
-        val scroll = android.widget.ScrollView(activity).apply { addView(tv) }
-        val lines = StringBuilder()
-            .append("앱 v${BuildConfig.VERSION_NAME} 마이크 버튼 진단\n")
-            .append("마이크 버튼을 하나씩 눌러보세요.\n")
-            .append("(볼륨▲ 2초 꾹 → 볼륨▼ 2초 꾹 → 마이크 2초 꾹, 사이에 1초 쉬고)\n\n")
-        tv.text = lines
-        val dlg = androidx.appcompat.app.AlertDialog.Builder(activity)
-            .setTitle("🔍 마이크 버튼 진단")
-            .setView(scroll)
-            .setPositiveButton("결과 복사", null)
-            .setNegativeButton("닫기", null)
-            .create()
-        dlg.setOnShowListener {
-            // 기본 리스너는 자동으로 닫히므로 복사 버튼만 직접 연결(닫지 않고 계속 채보 가능)
-            dlg.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val cm = activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("mic-diag", lines.toString()))
-                Toast.makeText(activity, "복사되었습니다 — 카페 댓글에 붙여넣어 주세요", Toast.LENGTH_LONG).show()
-            }
-        }
-        dlg.setOnDismissListener { host.onMicDiagStop() }
-        dlg.show()
-        host.onMicDiagStart { line ->
-            lines.append(line).append('\n')
-            tv.text = lines
-            scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
-        }
-    }
-
-    /** 마지막 채점의 디버그 zip(목소리·반주 11kHz + 지표)을 폰으로 — 채점 문제 제보용. */
-    private var debugShare: com.cseini.byd.karaoke.share.FileShareServer? = null
-    private fun shareScoreDebug() {
-        val zip = java.io.File(activity.filesDir, "scoredebug/score-debug.zip")
-        if (!zip.exists()) {
-            val msg = if (settings.scoreDebugDump)
-                "아직 채점 기록이 없습니다. 한 곡 부른 뒤 다시 시도하세요."
-            else
-                "'채점 디버그 파일 저장'을 켜고 저장한 뒤, 한 곡 부르고 다시 시도하세요."
-            Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
-            return
-        }
-        runCatching { debugShare?.stop() }
-        val server = com.cseini.byd.karaoke.share.FileShareServer(zip)
-        server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
-        debugShare = server
-        val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_share, null)
-        com.cseini.byd.karaoke.share.QrSwitcher.bind(
-            view.findViewById(R.id.share_qr),
-            view.findViewById(R.id.share_url),
-            view.findViewById(R.id.share_hint),
-            server.listeningPort,
-        )
-        androidx.appcompat.app.AlertDialog.Builder(activity)
-            .setTitle("🧪 채점 디버그 공유")
-            .setView(view)
-            .setPositiveButton("닫기", null)
-            .setOnDismissListener { runCatching { debugShare?.stop() }; debugShare = null }
-            .show()
-    }
 
     private fun refreshStorageInfo() {
         val mode = if (storageGroup.checkedRadioButtonId == R.id.st_sd) "sd" else "internal"
