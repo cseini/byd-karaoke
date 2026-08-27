@@ -20,6 +20,10 @@
     <color name="tj_blue">#B5703C</color>
     <color name="tj_green">#8FA05A</color>
 
+    <!-- 반투명 글라스 카드(홈 최근곡) — 배경 그라데이션이 살짝 비친다 -->
+    <color name="glass_card">#7A140F16</color>
+    <color name="glass_stroke">#33FFFFFF</color>
+
     <color name="tj_text_primary">#F2EBE3</color>
     <color name="tj_text_secondary">#B0A392</color>
     <color name="tj_text_hint">#7A6E60</color>

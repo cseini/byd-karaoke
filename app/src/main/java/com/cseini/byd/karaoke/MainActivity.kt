@@ -305,9 +305,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             adapter = this@MainActivity.adapter
         }
         findViewById<RecyclerView>(R.id.history).apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 5)
+            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
             adapter = this@MainActivity.historyAdapter
         }
+        historyAdapter.fixedWidthDp = 190
         homeQueueSection = findViewById(R.id.home_queue_section)
         homeQueueTitle = findViewById(R.id.home_queue_title)
         findViewById<RecyclerView>(R.id.home_queue).apply {
