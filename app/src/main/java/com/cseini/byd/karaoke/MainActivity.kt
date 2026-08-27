@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     /** 설정 저장 즉시 반영 — 화면을 닫지 않아도 음성 버튼·물리버튼이 바로 적용된다. */
     override fun onSettingsSaved() {
-        if (::autoplayCheck.isInitialized) refreshVoiceUi()
+        if (::settings.isInitialized) refreshVoiceUi()
         syncPhysicalButtons()
     }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         }
         // 설정에서 바꾼 값(물리버튼·API 키 등)을 닫는 즉시 화면에 반영한다.
         syncPhysicalButtons()
-        if (::autoplayCheck.isInitialized) refreshVoiceUi()
+        if (::settings.isInitialized) refreshVoiceUi()
     }
 
     private lateinit var settings: SettingsStore
@@ -205,7 +205,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private lateinit var voiceSub: TextView
     private lateinit var voiceLevel: android.widget.ProgressBar
     private lateinit var voiceLevelHint: TextView
-    private lateinit var autoplayCheck: CheckBox
     private lateinit var autoplayOverlay: View
     private lateinit var autoplayTitle: TextView
     private lateinit var autoplayCount: TextView
@@ -222,6 +221,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
         onScore = { showScoreReview(it) },
     )
+    // 랭킹(홈 하단): 채점된 녹음을 점수순으로. 카드 탭=부르기.
+    private val rankingAdapter = HistoryAdapter(
+        onPlay = { playNow(QueueItem(it.videoId, it.title)) },
+        onScore = { showScoreReview(it) },
+    )
+    private lateinit var rankingEmpty: TextView
 
     /** 최근곡 카드의 점수 배지 탭 → 그 곡의 채점 심사평(항목별)을 보여준다. */
     private fun showScoreReview(item: com.cseini.byd.karaoke.data.PlayHistoryItem) {
@@ -263,12 +268,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 튕김(크래시/재생성) 추적: 이전 실행의 비정상 종료 증거가 있으면 표시
+        // 튕김 추적: 진짜 크래시(crash.txt)만 팝업으로 표시. '비정상 종료(재시작)' 팝업은
+        // BYD 분할화면 리사이즈가 매번 Activity 를 재생성해 오탐이 잦아 제거(이벤트 로그엔 계속 남김).
         CrashLog.install(this)
         CrashLog.takeCrash(this)?.let { showIncidentDialog("⚠ 이전 실행이 크래시로 종료됐어요", it) }
-            ?: CrashLog.takeAbnormalEnd(this)?.let {
-                showIncidentDialog("ℹ 이전 화면이 시스템에 의해 재시작됐었어요", it)
-            }
         CrashLog.event(this, "onCreate saved=${savedInstanceState != null} ${cfgSnapshot()}")
 
         settings = SettingsStore(this)
@@ -298,9 +301,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         voiceSub = findViewById(R.id.voice_sub)
         voiceLevel = findViewById(R.id.voice_level)
         voiceLevelHint = findViewById(R.id.voice_level_hint)
-        autoplayCheck = findViewById(R.id.chk_autoplay)
-        autoplayCheck.isChecked = settings.autoPlayVoiceFirst
-        autoplayCheck.setOnCheckedChangeListener { _, checked -> settings.autoPlayVoiceFirst = checked }
         autoplayOverlay = findViewById(R.id.autoplay_overlay)
         autoplayTitle = findViewById(R.id.autoplay_title)
         autoplayCount = findViewById(R.id.autoplay_count)
@@ -321,6 +321,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             adapter = this@MainActivity.historyAdapter
         }
         historyAdapter.fixedWidthDp = 190
+        rankingEmpty = findViewById(R.id.ranking_empty)
+        findViewById<RecyclerView>(R.id.ranking).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+            adapter = this@MainActivity.rankingAdapter
+        }
+        rankingAdapter.fixedWidthDp = 190
         homeQueueSection = findViewById(R.id.home_queue_section)
         homeQueueTitle = findViewById(R.id.home_queue_title)
         findViewById<RecyclerView>(R.id.home_queue).apply {
@@ -503,7 +509,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private fun refreshVoiceUi() {
         val voiceOn = settings.geminiApiKeys().isNotEmpty()
         findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
-        autoplayCheck.visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
 
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
@@ -512,6 +517,14 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         val recent = playHistory.all()
         historyAdapter.submit(recent)
         historyEmpty.visibility = if (recent.isEmpty()) View.VISIBLE else View.GONE
+
+        // 랭킹: 채점된 녹음을 점수 내림차순으로(홈 하단 캐러셀). 카드 형식은 최근곡과 공용.
+        val ranked = recordings.all()
+            .filter { it.score >= 0 }
+            .sortedWith(compareByDescending<com.cseini.byd.karaoke.data.RecordingItem> { it.score }.thenByDescending { it.at })
+            .map { com.cseini.byd.karaoke.data.PlayHistoryItem(it.videoId, it.title, it.at, it.score) }
+        rankingAdapter.submit(ranked)
+        rankingEmpty.visibility = if (ranked.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun showHistory() {

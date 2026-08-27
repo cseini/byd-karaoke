@@ -19,7 +19,6 @@ object NavBar {
         }
         bindOne(R.id.nav_search, "search")
         bindOne(R.id.nav_recordings, "recordings")
-        bindOne(R.id.nav_ranking, "ranking")
         bindOne(R.id.nav_settings, "settings")
     }
 }

@@ -23,7 +23,7 @@
             <ImageView
                 android:id="@+id/tile_thumb"
                 android:layout_width="match_parent"
-                android:layout_height="120dp"
+                android:layout_height="88dp"
                 android:scaleType="centerCrop"
                 android:background="@color/tj_panel_light"
                 android:contentDescription="앨범" />
