@@ -299,7 +299,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         btn.text = "보내는 중…"
         LogUploader.uploadNow(activity) { ok ->
             btn.isEnabled = true
-            btn.text = "🐞 로그 보내기"
+            btn.text = "🐞 로그 전송"
             android.widget.Toast.makeText(
                 activity,
                 if (ok) "로그를 보냈어요. 감사합니다!" else "보낼 로그가 없거나 네트워크 오류예요.",

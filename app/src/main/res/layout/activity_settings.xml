@@ -695,11 +695,12 @@
 
         <Button
             android:id="@+id/btn_log_send"
-            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="🐞 로그" />
+            app:backgroundTint="@color/tj_panel_light"
+            android:textColor="@color/tj_text_primary"
+            android:text="🐞 로그 전송" />
 
         <Button
             android:id="@+id/btn_check_update"

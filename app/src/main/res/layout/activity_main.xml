@@ -156,7 +156,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/history"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -182,7 +183,8 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/ranking"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <!-- 예약 목록(폰 리모컨) — 홈에선 숨김, 코드에서 참조 유지 -->
             <LinearLayout

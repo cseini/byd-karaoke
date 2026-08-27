@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="7dp"
+    android:layout_margin="6dp"
     app:cardCornerRadius="20dp"
     app:cardElevation="0dp"
     app:cardBackgroundColor="@color/glass_card"
@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="8dp">
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -23,7 +23,7 @@
             <ImageView
                 android:id="@+id/tile_thumb"
                 android:layout_width="match_parent"
-                android:layout_height="88dp"
+                android:layout_height="60dp"
                 android:scaleType="centerCrop"
                 android:background="@color/tj_panel_light"
                 android:contentDescription="앨범" />
@@ -46,8 +46,8 @@
             android:id="@+id/tile_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="10dp"
-            android:textSize="15sp"
+            android:paddingTop="6dp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="@color/tj_text_primary"
             android:maxLines="1"
@@ -68,7 +68,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingTop="10dp">
+            android:paddingTop="6dp">
 
             <TextView
                 android:id="@+id/tile_date"
@@ -83,7 +83,7 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_sing_pill"
                 android:paddingHorizontal="14dp"
-                android:paddingVertical="5dp"
+                android:paddingVertical="4dp"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@color/tj_text_primary"
