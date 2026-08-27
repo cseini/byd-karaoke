@@ -404,6 +404,24 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
+            <!-- 다음곡 배너(상단, 예약 있을 때 흐름) -->
+            <TextView
+                android:id="@+id/embed_next_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#4D000000"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="7dp"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_gold"
+                android:singleLine="true"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
@@ -449,28 +467,37 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@color/tj_bg"
-                android:padding="12dp">
+                android:padding="8dp">
 
-                <TextView
-                    android:id="@+id/embed_title"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_text_primary"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:text="재생 중" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:id="@+id/embed_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_red"
-                    android:paddingTop="4dp"
-                    android:text="대기 중" />
+                    <TextView
+                        android:id="@+id/embed_title"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/tj_text_primary"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:text="재생 중" />
+
+                    <TextView
+                        android:id="@+id/embed_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/tj_red"
+                        android:maxLines="1"
+                        android:text="대기 중" />
+                </LinearLayout>
 
                 <!-- 재생 위치 seek 바 -->
                 <LinearLayout
@@ -479,7 +506,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingTop="4dp">
+                    android:paddingTop="2dp">
 
                     <SeekBar
                         android:id="@+id/embed_seek"
@@ -532,7 +559,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingTop="8dp">
+                    android:paddingTop="4dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -629,7 +656,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:paddingTop="10dp">
+                    android:paddingTop="6dp">
 
                     <Button
                         android:id="@+id/embed_stop"

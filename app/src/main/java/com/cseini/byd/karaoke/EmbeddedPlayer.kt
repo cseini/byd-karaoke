@@ -71,6 +71,7 @@ class EmbeddedPlayer(
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val queueSide: View = activity.findViewById(R.id.embed_queue_side)
+    private val nextBanner: TextView = activity.findViewById(R.id.embed_next_banner)
     private val keyVal: TextView = activity.findViewById(R.id.embed_key_val)
     private val speedVal: TextView = activity.findViewById(R.id.embed_speed_val)
     private val scoreOverlay: View = activity.findViewById(R.id.embed_score)
@@ -452,15 +453,18 @@ class EmbeddedPlayer(
     private var queueSideBound = false
 
     private fun refreshQueueSide() {
-        if (fullscreen) { queueSide.visibility = View.GONE; return }
-        // 폰 리모컨 예약은 대부분 그대로라, 바뀌었을 때만 목록을 다시 그린다(노래 중 메인 스레드 절약).
-        val changed = queue.reload()
+        // 재생 화면 예약은 상단 '다음곡' 배너로 흐르게 한다(옆 목록은 안 쓴다).
+        queueSide.visibility = View.GONE
+        if (fullscreen) { nextBanner.visibility = View.GONE; return }
+        queue.reload()
         val items = queue.all()
-        if (changed || !queueSideBound) {
-            queueAdapter.submit(items)
-            queueSideBound = true
+        if (items.isEmpty()) {
+            nextBanner.visibility = View.GONE
+        } else {
+            nextBanner.text = "🎵 다음곡     " + items.joinToString("        ") { it.title }
+            nextBanner.visibility = View.VISIBLE
+            nextBanner.isSelected = true   // marquee 시작
         }
-        queueSide.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
     }
 
     // ── 전체화면(패널·예약목록 숨겨 영상만) ──
