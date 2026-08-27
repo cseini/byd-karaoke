@@ -12,58 +12,24 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- 검색바 + 예약서버 한 줄(헤더 없이) -->
     <LinearLayout
-        android:id="@+id/header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <LinearLayout
+            android:id="@+id/search_bar"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/header_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎤 노래방"
-                android:textSize="13sp"
-                android:letterSpacing="0.06"
-                android:textColor="@color/tj_pink" />
-
-            <TextView
-                android:id="@+id/header_subtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="무엇을 부를까요?"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_text_primary" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btn_reserve_server"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📱 예약서버" />
-    </LinearLayout>
-
-    <!-- 대형 pill 검색바 -->
-    <LinearLayout
-        android:id="@+id/search_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/search_glass_bar"
-        android:paddingStart="20dp"
-        android:paddingEnd="8dp"
-        android:paddingVertical="3dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/search_glass_bar"
+            android:paddingStart="20dp"
+            android:paddingEnd="8dp"
+            android:paddingVertical="3dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -104,6 +70,15 @@
             android:paddingHorizontal="16dp"
             app:backgroundTint="@color/tj_pink"
             android:text="🎙" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_reserve_server"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="📱 예약" />
     </LinearLayout>
 
     <TextView
@@ -185,29 +160,33 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1" />
+        </LinearLayout>
 
-            <!-- 예약 목록(폰 리모컨) — 홈에선 숨김, 코드에서 참조 유지 -->
-            <LinearLayout
-                android:id="@+id/home_queue_section"
-                android:layout_width="match_parent"
+        <!-- 예약 목록 — 우측 하단 반투명 글라스 플로팅(예약 있을 때만) -->
+        <LinearLayout
+            android:id="@+id/home_queue_section"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:orientation="vertical"
+            android:background="@drawable/glass_panel"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/home_queue_title"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
+                android:paddingBottom="6dp"
+                android:text="🎫 예약된 곡"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_gold" />
 
-                <TextView
-                    android:id="@+id/home_queue_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🎫 예약된 곡"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/tj_gold" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/home_queue"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/home_queue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </FrameLayout>
 

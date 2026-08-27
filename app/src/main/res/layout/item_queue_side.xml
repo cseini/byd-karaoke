@@ -1,52 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/bg_panel"
-    android:layout_marginBottom="8dp"
-    android:padding="10dp">
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="7dp">
 
     <TextView
         android:id="@+id/q_title"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
+        android:layout_weight="1"
         android:layout_height="wrap_content"
-        android:textSize="15sp"
+        android:textSize="14sp"
         android:textColor="@color/tj_text_primary"
-        android:maxLines="2"
-        android:ellipsize="end" />
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:background="?attr/selectableItemBackground" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <TextView
+        android:id="@+id/q_delete"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingTop="6dp">
-
-        <Button
-            android:id="@+id/q_play"
-            android:layout_width="0dp"
-            android:layout_height="46dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:paddingHorizontal="0dp"
-            android:textSize="15sp"
-            app:backgroundTint="@color/tj_blue"
-            android:text="▶ 부르기" />
-
-        <Button
-            android:id="@+id/q_delete"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="46dp"
-            android:layout_marginStart="6dp"
-            android:minWidth="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:paddingHorizontal="14dp"
-            android:textSize="15sp"
-            android:text="✕" />
-    </LinearLayout>
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="2dp"
+        android:textSize="15sp"
+        android:textColor="@color/tj_text_hint"
+        android:text="✕" />
 </LinearLayout>

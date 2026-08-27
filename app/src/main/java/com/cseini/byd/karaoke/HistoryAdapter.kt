@@ -28,9 +28,6 @@ class HistoryAdapter(
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val thumb: ImageView = v.findViewById(R.id.tile_thumb)
-        val title: TextView = v.findViewById(R.id.tile_title)
-        val artist: TextView = v.findViewById(R.id.tile_artist)
-        val date: TextView = v.findViewById(R.id.tile_date)
         val score: TextView = v.findViewById(R.id.tile_score)
     }
 
@@ -41,10 +38,6 @@ class HistoryAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
-        val (song, artist) = splitTitle(item.title)
-        holder.title.text = song
-        holder.artist.text = artist
-        holder.date.text = if (item.at > 0) DATE_FMT.format(java.util.Date(item.at)) else ""
         holder.thumb.load("https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg")
         if (item.score >= 0) {
             holder.score.visibility = View.VISIBLE
@@ -59,20 +52,5 @@ class HistoryAdapter(
             (fixedWidthDp * holder.itemView.resources.displayMetrics.density).toInt()
         else ViewGroup.LayoutParams.MATCH_PARENT
         holder.itemView.layoutParams = lp
-    }
-
-    companion object {
-        private val DATE_FMT = java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.KOREA)
-
-        // "[TJ노래방] 곡명 - 가수 / TJ Karaoke" 같은 제목에서 곡명·가수를 뽑는다.
-        // 형식이 안 맞으면 통째로 곡명, 가수는 빈칸.
-        private fun splitTitle(raw: String): Pair<String, String> {
-            var t = raw.trim()
-            t = t.replace(Regex("^\\[[^\\]]*]\\s*"), "")      // 앞의 [TJ노래방] 등 제거
-            t = t.substringBefore(" / ").trim()                // 뒤의 / TJ Karaoke 제거
-            val dash = t.indexOf(" - ")
-            return if (dash > 0) t.substring(0, dash).trim() to t.substring(dash + 3).trim()
-            else t to ""
-        }
     }
 }

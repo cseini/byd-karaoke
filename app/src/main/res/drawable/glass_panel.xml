@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 반투명 글라스 플로팅 패널(예약 목록 등) — 가독성 위해 좀 더 진한 반투명. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="16dp" />
+    <solid android:color="#D91B1420" />
+    <stroke android:width="1dp" android:color="@color/glass_stroke" />
+</shape>

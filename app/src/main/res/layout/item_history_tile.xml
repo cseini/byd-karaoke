@@ -4,71 +4,35 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="6dp"
-    app:cardCornerRadius="20dp"
+    app:cardCornerRadius="18dp"
     app:cardElevation="0dp"
     app:cardBackgroundColor="@color/glass_card"
     app:strokeColor="@color/tj_pink"
     app:strokeWidth="1.5dp">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:layout_height="wrap_content">
 
-        <FrameLayout
+        <ImageView
+            android:id="@+id/tile_thumb"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <ImageView
-                android:id="@+id/tile_thumb"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:scaleType="centerCrop"
-                android:background="@color/tj_panel_light"
-                android:contentDescription="앨범" />
-
-            <TextView
-                android:id="@+id/tile_score"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="top|start"
-                android:layout_margin="8dp"
-                android:background="@drawable/bg_score_pill"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="@color/tj_bg_deep" />
-        </FrameLayout>
+            android:layout_height="122dp"
+            android:scaleType="centerCrop"
+            android:background="@color/tj_panel_light"
+            android:contentDescription="노래" />
 
         <TextView
-            android:id="@+id/tile_title"
-            android:layout_width="match_parent"
+            android:id="@+id/tile_score"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="@color/tj_text_primary"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/tile_artist"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="2dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_score_pill"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="3dp"
             android:textSize="12sp"
-            android:textColor="@color/tj_text_secondary"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/tile_date"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:textSize="10sp"
-            android:textColor="@color/tj_text_hint" />
-    </LinearLayout>
+            android:textStyle="bold"
+            android:textColor="@color/tj_bg_deep" />
+    </FrameLayout>
 </com.google.android.material.card.MaterialCardView>

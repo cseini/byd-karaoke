@@ -3,7 +3,6 @@ package com.cseini.byd.karaoke
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.data.QueueItem
@@ -25,8 +24,7 @@ class HomeQueueAdapter(
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val title: TextView = v.findViewById(R.id.q_title)
-        val play: Button = v.findViewById(R.id.q_play)
-        val delete: Button = v.findViewById(R.id.q_delete)
+        val delete: TextView = v.findViewById(R.id.q_delete)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
@@ -37,7 +35,7 @@ class HomeQueueAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
         holder.title.text = "${position + 1}. ${item.title}"
-        holder.play.setOnClickListener { onPlay(item) }
+        holder.title.setOnClickListener { onPlay(item) }   // 제목 탭 = 바로 부르기
         holder.delete.setOnClickListener { onDelete(item) }
     }
 }

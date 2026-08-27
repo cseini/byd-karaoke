@@ -701,8 +701,7 @@ private class EmbedQueueAdapter(
     fun submit(list: List<QueueItem>) { items.clear(); items.addAll(list); notifyDataSetChanged() }
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val title: TextView = v.findViewById(R.id.q_title)
-        val play: Button = v.findViewById(R.id.q_play)
-        val delete: Button = v.findViewById(R.id.q_delete)
+        val delete: TextView = v.findViewById(R.id.q_delete)
     }
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
         VH(LayoutInflater.from(parent.context).inflate(R.layout.item_queue_side, parent, false))
@@ -710,7 +709,7 @@ private class EmbedQueueAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = items[position]
         holder.title.text = "${position + 1}. ${item.title}"
-        holder.play.setOnClickListener { onPlay(item) }
+        holder.title.setOnClickListener { onPlay(item) }
         holder.delete.setOnClickListener { onDelete(item) }
     }
 }
