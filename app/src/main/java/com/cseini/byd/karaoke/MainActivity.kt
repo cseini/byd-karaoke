@@ -218,15 +218,28 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         onPlayNow = { playNow(it) },
     )
     private val historyAdapter = HistoryAdapter(
-        onPlay = { playNow(QueueItem(it.videoId, it.title)) },
+        onPlay = { pickPlayOrReplay(it) },
         onScore = { showScoreReview(it) },
     )
     // 랭킹(홈 하단): 채점된 녹음을 점수순으로. 카드 탭=부르기.
     private val rankingAdapter = HistoryAdapter(
-        onPlay = { playNow(QueueItem(it.videoId, it.title)) },
+        onPlay = { pickPlayOrReplay(it) },
         onScore = { showScoreReview(it) },
     )
     private lateinit var rankingEmpty: TextView
+
+    /** 카드 탭 — 그 곡의 내 녹음이 있으면 부르기/다시듣기 선택, 없으면 바로 부르기. */
+    private fun pickPlayOrReplay(item: com.cseini.byd.karaoke.data.PlayHistoryItem) {
+        val rec = recordings.all().firstOrNull { it.videoId == item.videoId && java.io.File(it.path).exists() }
+        if (rec == null) { playNow(QueueItem(item.videoId, item.title)); return }
+        AlertDialog.Builder(this)
+            .setTitle(item.title)
+            .setItems(arrayOf("🎤 부르기", "▶ 내 녹음 다시듣기")) { _, which ->
+                if (which == 0) playNow(QueueItem(item.videoId, item.title))
+                else onReplayRecording(rec)
+            }
+            .show()
+    }
 
     /** 최근곡 카드의 점수 배지 탭 → 그 곡의 채점 심사평(항목별)을 보여준다. */
     private fun showScoreReview(item: com.cseini.byd.karaoke.data.PlayHistoryItem) {
