@@ -17,12 +17,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="⚙️ 설정"
+            android:text="설정"
             android:textSize="22sp"
             android:textStyle="bold"
-            android:textColor="@color/tj_pink"
-            android:shadowColor="@color/tj_pink_dark"
-            android:shadowRadius="12" />
+            android:textColor="@color/tj_text_primary" />
 
         <Button
             android:id="@+id/btn_back"

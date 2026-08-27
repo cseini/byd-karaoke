@@ -21,14 +21,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🎤 노래방"
+            android:text="노래방"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@color/tj_pink"
-            android:shadowColor="@color/tj_pink_dark"
-            android:shadowRadius="16"
-            android:shadowDx="0"
-            android:shadowDy="0" />
+            android:letterSpacing="0.01"
+            android:textColor="@color/tj_text_primary" />
 
         <Button
             android:id="@+id/btn_reserve_server"
