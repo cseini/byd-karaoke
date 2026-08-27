@@ -38,7 +38,10 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
     /** 원 쿼리(오타 포함 가능)와 결과 제목의 유사도로 오타 허용 정렬. */
     private fun sortBySimilarity(items: List<QueueItem>, query: String): List<QueueItem> {
         val nq = normalize(query)
-        return items.sortedBy { levenshtein(normalize(it.title), nq) }
+        // sortedBy 는 비교할 때마다 선택자를 다시 부르므로 거리를 미리 한 번씩만 구해 짝지어 정렬한다.
+        return items.map { it to levenshtein(normalize(it.title), nq) }
+            .sortedBy { it.second }
+            .map { it.first }
     }
 
     private suspend fun rawSearch(query: String, apiKey: String, keyless: Boolean): List<QueueItem> =

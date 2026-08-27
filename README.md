@@ -78,12 +78,17 @@ adb logcat | grep karaoke-spike  # 환경/입력장치 로그 확인
 - 0-A ❌ → 유튜브 전제 재검토(오디오 전용 등).
 - 0-B ❌ → 클로즈토크 마이크 / 스피커 볼륨↓ / 레퍼런스 기반 반주 취소로 포크.
 
-## 확정 기술 스택 (Phase 1/2)
+## 기술 스택
 
-- 유튜브: `com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0`
-- 피치: `be.tarsos.dsp:core:2.5` (repo `https://mvn.0110.be/releases`) + YIN
-- 검색: YouTube Data API v3 (사용자 API 키 필요)
-- 예약: Room / 재생: android-youtube-player `onStateChange(ENDED)` → `loadVideoById`
+- 재생: `com.github.teamnewpipe:NewPipeExtractor` 로 유튜브 스트림을 추출해
+  `androidx.media3`(ExoPlayer)로 직접 재생 — 광고·로그인·임베드 차단 없음.
+  화질은 720p 로 상한(헤드유닛 디코딩 부담), 키·속도는 `SonicAudioProcessor`.
+- 녹음/채점: `MixRecorder` 가 반주(ExoPlayer 오디오 탭)와 마이크를 합성 저장하고,
+  채점은 마이크 원음만 써서 `MelodyScorer`(배음 합산 멜로디 + YIN)로 대조한다.
+- 검색: 기본은 키 없이 결과 페이지 파싱(`YouTubeScraper`), 옵션으로 YouTube Data API v3.
+- 저장: SharedPreferences + Gson(예약·녹음 메타·재생 기록).
+- 화면: 창을 하나만 쓴다 — 재생·녹음함·랭킹·설정이 모두 `MainActivity` 안의 오버레이
+  (`EmbeddedPlayer`, `*Screen`). 별도 Activity 를 띄우면 차량 런처의 분할화면이 깨진다.
 
 ## 참고 문서
 

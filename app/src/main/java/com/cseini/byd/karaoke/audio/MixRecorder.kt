@@ -24,7 +24,7 @@ import kotlin.concurrent.thread
  * 녹음은 시작 시점의 재생 위치(startPosMs)에서 반주를 읽기 시작해 마이크와 함께 순차 진행한다.
  * ExoPlayer 의 디코딩 앞섬(버퍼)과 무관하게 정확히 정렬된다.
  *
- * 오디오 콜백(queueInput)에서는 모노 변환만 한다(언더런 방지, 리샘플은 믹스 시 인덱스로).
+ * 오디오 콜백(queueInput)에서는 모노 변환 + 녹음 레이트로 솎아내기만 한다(할당 없음).
  */
 @UnstableApi
 class MixRecorder(
@@ -32,12 +32,27 @@ class MixRecorder(
     private val settings: SettingsStore,
 ) {
     companion object {
-        private const val MAX_ACCOMP_RATE = 48000
         private const val MAX_SECONDS = 360
         private const val ACCOMP_ADVANCE_MS = 36 // 실측: 반주가 36ms 늦어 그만큼 당겨 보정
+
+        // 반주·목소리 PCM 버퍼는 곡당 십수 MB 라, 곡마다 새로 잡으면 헤드유닛 힙이 매번 출렁이고
+        // 그 순간 다른 화면이 열리면 프로세스가 회수될 수 있다. 한 벌만 만들어 곡 사이에 재사용하고
+        // 재생 화면을 닫을 때 반납한다.
+        private var pooledAccomp: ShortArray? = null
+        private var pooledVoice: ShortArray? = null
+
+        private fun obtain(pooled: ShortArray?, n: Int): ShortArray =
+            if (pooled != null && pooled.size == n) pooled
+            else runCatching { ShortArray(n) }.getOrDefault(ShortArray(0))
+
+        /** 재생 화면을 닫을 때 호출 — 큰 PCM 버퍼를 시스템에 돌려준다. */
+        fun releaseBuffers() {
+            pooledAccomp = null
+            pooledVoice = null
+        }
     }
 
-    // 녹음·저장 레이트(설정). 낮을수록 용량↓·채점↑빠름.
+    // 녹음·저장 레이트(설정). 낮을수록 용량↓·채점↑빠름. 반주 버퍼도 이 레이트로 담는다.
     private val rate = settings.recordRateHz
 
     @Volatile private var recording = false
@@ -47,9 +62,13 @@ class MixRecorder(
         private set
     val isRecording: Boolean get() = recording
 
-    // 반주 PCM(모노, accompRate 기준)을 곡 시간순으로 저장. 재생 시작(onConfigure) 때 리셋/할당.
+    // 반주 PCM(모노, 녹음 rate 기준)을 곡 시간순으로 저장. 재생 시작(onConfigure) 때 리셋/할당.
     private var accompBuffer = ShortArray(0)
     private val accompWrite = AtomicInteger(0)
+    // 다운샘플 상태(오디오 콜백 스레드 전용): 읽은 원본 프레임 수 / 다음에 담을 원본 위치.
+    private var accompSrcPos = 0L
+    private var accompNextSrc = 0.0
+    private var accompStep = 1.0
 
     // 채점용 목소리(마이크 원음, rate 기준). 믹스가 아니라 목소리만 채점해 반주로 인한 고득점을 막는다.
     private var voiceBuffer = ShortArray(0)
@@ -66,8 +85,13 @@ class MixRecorder(
             accompPcm16 = inputAudioFormat.encoding == C.ENCODING_PCM_16BIT
             // 새 재생 시작 → 반주 버퍼 리셋(곡 0초부터 다시 담는다).
             accompWrite.set(0)
-            if (accompBuffer.size != MAX_ACCOMP_RATE * MAX_SECONDS) {
-                accompBuffer = runCatching { ShortArray(MAX_ACCOMP_RATE * MAX_SECONDS) }.getOrDefault(ShortArray(0))
+            accompSrcPos = 0L
+            accompNextSrc = 0.0
+            accompStep = accompRate.toDouble() / rate
+            val want = rate * MAX_SECONDS
+            if (accompBuffer.size != want) {
+                accompBuffer = obtain(pooledAccomp, want)
+                pooledAccomp = accompBuffer.takeIf { it.isNotEmpty() }
             }
             return inputAudioFormat
         }
@@ -82,28 +106,42 @@ class MixRecorder(
         }
     }
 
-    /** 오디오 콜백: 모노 변환만(할당·리샘플 없음). 16bit·float 모두 처리. */
+    /**
+     * 오디오 콜백: 모노 변환 + 녹음 레이트로 솎아내기(할당 없음). 16bit·float 모두 처리.
+     * 48kHz 원본을 그대로 담으면 6분에 34MB 지만, 믹스도 채점도 녹음 레이트 이하만 쓰므로
+     * 여기서 줄여 담는다(읽는 쪽이 하던 최근접 샘플링을 쓰는 쪽으로 옮긴 것이라 음질은 같다).
+     */
     private fun appendAccomp(bb: ByteBuffer) {
         var w = accompWrite.get()
         val ch = accompCh
         val buf = accompBuffer
         val size = buf.size
+        val step = accompStep
+        var src = accompSrcPos
+        var next = accompNextSrc
         if (accompPcm16) {
             while (bb.remaining() >= 2 * ch && w < size) {
                 var sum = 0
                 for (c in 0 until ch) sum += bb.short.toInt()
-                buf[w++] = (sum / ch).toShort()
+                if (src >= next) { buf[w++] = (sum / ch).toShort(); next += step }
+                src++
             }
         } else {
             while (bb.remaining() >= 4 * ch && w < size) {
                 var sum = 0f
                 for (c in 0 until ch) sum += bb.float
-                var v = (sum / ch * 32767f).toInt()
-                if (v > 32767) v = 32767 else if (v < -32768) v = -32768
-                buf[w++] = v.toShort()
+                if (src >= next) {
+                    var v = (sum / ch * 32767f).toInt()
+                    if (v > 32767) v = 32767 else if (v < -32768) v = -32768
+                    buf[w++] = v.toShort()
+                    next += step
+                }
+                src++
             }
         }
         accompWrite.set(w)
+        accompSrcPos = src
+        accompNextSrc = next
     }
 
     /**
@@ -137,8 +175,10 @@ class MixRecorder(
         }
 
         // 채점용 목소리 버퍼 준비(rate 기준, 최대 MAX_SECONDS).
-        if (voiceBuffer.size != rate * MAX_SECONDS) {
-            voiceBuffer = runCatching { ShortArray(rate * MAX_SECONDS) }.getOrDefault(ShortArray(0))
+        val wantVoice = rate * MAX_SECONDS
+        if (voiceBuffer.size != wantVoice) {
+            voiceBuffer = obtain(pooledVoice, wantVoice)
+            pooledVoice = voiceBuffer.takeIf { it.isNotEmpty() }
         }
         voiceWrite = 0
 
@@ -151,9 +191,9 @@ class MixRecorder(
             val buf = ShortArray(minBuf)
             val out = ShortArray(minBuf)
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
+            // 반주 버퍼가 이미 녹음 레이트라 인덱스는 샘플 1:1 로 전진한다.
             val s = if (speed > 0.05f) speed.toDouble() else 1.0
-            var readPos = (startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * accompRate / 1000.0
-            val step = accompRate.toDouble() / rate
+            var readPos = ((startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * rate / 1000.0).toInt()
             // 목소리 처리: 명료도(고음 강조 pre-emphasis) + 에코(리버브)
             // 녹음 믹스 음량: 목소리(기본 1.0)와 반주(기본 0.6)를 설정으로 조절.
             val voiceGain = settings.voiceGainPct / 100.0
@@ -164,6 +204,7 @@ class MixRecorder(
             val echo = FloatArray(echoLen)
             var echoIdx = 0
             var prevX = 0.0
+            var lastLevelNs = 0L
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
@@ -187,17 +228,22 @@ class MixRecorder(
                                 echo[echoIdx] = v.toFloat()
                                 echoIdx = (echoIdx + 1) % echoLen
                             }
-                            val ai = readPos.toInt()
+                            val ai = readPos
                             val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
                             var m = (v * voiceGain).toInt() + (acc * accompGain).toInt()
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
-                            readPos += step
+                            readPos++
                         }
                         writer.write(out, n)
-                        onLevel?.let { cb ->
-                            val f = FloatArray(n) { buf[it] / 32768f }
-                            cb(PitchDetector.rmsDb(f))
+                        // 입력 레벨 표시는 사람이 읽는 숫자라 ~6Hz 면 충분하다. 버퍼마다 올리면
+                        // 오디오 스레드가 float 배열을 새로 만들고 메인 스레드가 초당 수십 번 다시 그린다.
+                        if (onLevel != null) {
+                            val nowNs = System.nanoTime()
+                            if (nowNs - lastLevelNs >= 160_000_000L) {
+                                lastLevelNs = nowNs
+                                onLevel(rmsDbOf(buf, n))
+                            }
                         }
                     } else if (n < 0) break
                 }
@@ -228,8 +274,19 @@ class MixRecorder(
     /** 반주(모노) 를 곡 시작부터, ≤12kHz 다운샘플. 4초 미만이면 비트 추정 불가 → null. */
     fun accompForScoring(): Pair<FloatArray, Int>? {
         val n = accompWrite.get().coerceAtMost(accompBuffer.size)
-        if (n < accompRate * 4) return null
-        return decimateToFloat(accompBuffer, n, accompRate)
+        if (n < rate * 4) return null
+        return decimateToFloat(accompBuffer, n, rate)
+    }
+
+    /** 입력 레벨(dBFS) — 표시용이라 float 사본 없이 PCM16 에서 바로 계산한다. */
+    private fun rmsDbOf(buf: ShortArray, n: Int): Float {
+        if (n <= 0) return -120f
+        var sum = 0.0
+        for (i in 0 until n) {
+            val v = buf[i] / 32768.0
+            sum += v * v
+        }
+        return (20.0 * Math.log10(Math.sqrt(sum / n) + 1e-9)).toFloat()
     }
 
     /** PCM16 → 평균 데시메이션 float. 전체 해상도 float 복사(수십 MB)를 만들지 않는다. */
@@ -246,5 +303,4 @@ class MixRecorder(
         return out to rate / factor
     }
 
-    fun debugInfo(): String = "반주 ${accompWrite.get()}샘플/${accompRate}Hz/pcm16=$accompPcm16"
 }

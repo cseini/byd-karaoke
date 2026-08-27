@@ -33,8 +33,6 @@ object ReserveServer {
     var url: String? = null
         private set
 
-    fun isRunning(): Boolean = server != null
-
     /** 서버 시작. 성공하면 접속 URL, 네트워크가 없으면 null. */
     fun start(context: Context): String? {
         if (server != null) return url

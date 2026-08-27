@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.StreamExtractor
+import org.schabi.newpipe.extractor.stream.VideoStream
 
 /**
  * 오디오 체인: [Sonic(키·속도)] → [반주 탭]. 기본 체인과 달리 탭을 Sonic 뒤에 두어
@@ -63,6 +64,11 @@ class StreamPlayer(
     // 다시듣기 전용: 가사 화면만 필요하므로 가장 가벼운 저화질 영상만 재생(구형 헤드유닛 끊김 방지).
     private val lowRes: Boolean = false,
 ) : KaraokePlayer {
+
+    companion object {
+        /** 재생 화질 상한(p). 차량 화면 크기 대비 그 이상은 디코딩 부담만 커진다. */
+        private const val MAX_RESOLUTION = 720
+    }
 
     private val playerView = PlayerView(context)
     private val exo = buildExo(context, accompProcessor)
@@ -196,18 +202,16 @@ class StreamPlayer(
             // 영상 스트림이 없으면 아래 일반 경로로 폴백
         }
 
-        // 1) muxed(영상+소리 한 트랙)가 있으면 가장 화질 좋은 것으로 단순 재생
-        val muxed = extractor.videoStreams
-            .filter { it.content.isNotEmpty() }
-            .maxByOrNull { resolutionValue(it.resolution) }
+        // 1) muxed(영상+소리 한 트랙)가 있으면 상한 이하 최고 화질로 단순 재생
+        val muxedList = extractor.videoStreams.filter { it.content.isNotEmpty() }
+        val muxed = pickCapped(muxedList) ?: muxedList.firstOrNull()
         if (muxed != null) {
             return ProgressiveMediaSource.Factory(dsf)
                 .createMediaSource(MediaItem.fromUri(muxed.content))
         }
         // 2) 없으면 video-only + audio 를 합쳐 재생(요즘 유튜브 고화질은 대부분 이 경로)
-        val video = extractor.videoOnlyStreams
-            .filter { it.content.isNotEmpty() }
-            .maxByOrNull { resolutionValue(it.resolution) }
+        val videoList = extractor.videoOnlyStreams.filter { it.content.isNotEmpty() }
+        val video = pickCapped(videoList) ?: videoList.firstOrNull()
         val audio = extractor.audioStreams
             .filter { it.content.isNotEmpty() }
             .maxByOrNull { it.averageBitrate }
@@ -226,6 +230,17 @@ class StreamPlayer(
     /** "720p60" 같은 문자열에서 화질 숫자만 뽑아 비교용으로. */
     private fun resolutionValue(res: String?): Int =
         res?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 0
+
+    /**
+     * 화질 상한 이하에서 가장 좋은 것, 그런 게 없으면 가장 낮은 것.
+     * 헤드유닛은 1080p 이상을 소프트 디코딩하다 끊기기 쉽고, 차량 화면에선 720p 면 충분하다.
+     */
+    private fun pickCapped(list: List<VideoStream>): VideoStream? {
+        val known = list.filter { resolutionValue(it.resolution) > 0 }
+        return known.filter { resolutionValue(it.resolution) <= MAX_RESOLUTION }
+            .maxByOrNull { resolutionValue(it.resolution) }
+            ?: known.minByOrNull { resolutionValue(it.resolution) }
+    }
 
     override fun pause() { exo.pause() }
     override fun play() { exo.play() }
@@ -249,5 +264,11 @@ class StreamPlayer(
         loadToken++
         handler.removeCallbacks(ticker)
         runCatching { exo.release() }
+        // 곡마다 새 StreamPlayer 를 만들므로, 여기서 자기 뷰를 떼지 않으면 죽은 PlayerView
+        // (SurfaceView 포함)가 곡 수만큼 화면 트리에 쌓인다.
+        runCatching {
+            playerView.player = null
+            (playerView.parent as? ViewGroup)?.removeView(playerView)
+        }
     }
 }

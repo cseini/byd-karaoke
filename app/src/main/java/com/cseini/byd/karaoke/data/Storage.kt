@@ -45,8 +45,6 @@ object Storage {
         return File(base, FOLDER).apply { mkdirs() }
     }
 
-    fun hasSd(ctx: Context): Boolean = sdBase(ctx) != null
-
     /** 해당 볼륨의 남은 여유 공간(bytes). */
     fun freeBytes(base: File): Long = runCatching { base.usableSpace }.getOrDefault(0L)
 

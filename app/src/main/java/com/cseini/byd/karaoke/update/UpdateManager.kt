@@ -91,6 +91,8 @@ object UpdateManager {
             runCatching {
                 val dir = File(context.getExternalFilesDir(null), "ota").apply { mkdirs() }
                 val out = File(dir, "update-${release.version}.apk")
+                // 지난 버전 APK(개당 6~7MB)가 계속 쌓이므로 이번에 받을 것만 남기고 정리한다.
+                dir.listFiles()?.forEach { if (it.name != out.name) runCatching { it.delete() } }
                 val conn = (URL(release.apkUrl!!).openConnection() as HttpURLConnection).apply {
                     setRequestProperty("User-Agent", "byd-karaoke")
                     instanceFollowRedirects = true

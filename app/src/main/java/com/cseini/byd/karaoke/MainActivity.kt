@@ -27,6 +27,7 @@ import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingStore
 import com.cseini.byd.karaoke.data.SettingsStore
 import com.cseini.byd.karaoke.data.youtube.YouTubeRepository
+import com.cseini.byd.karaoke.data.youtube.YouTubeScraper
 import com.cseini.byd.karaoke.update.UpdateManager
 import com.cseini.byd.karaoke.voice.VoiceSearch
 import kotlinx.coroutines.launch
@@ -39,10 +40,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         private const val DEFAULT_HINT = "검색어를 입력하거나 음성 버튼을 누르세요."
     }
 
-    // 테스트(lab) 앱에서만: 재생·녹음함/랭킹/설정을 이 화면 안에서(임베드) 처리해 분할화면을 유지.
+    // 재생·녹음함/랭킹/설정을 모두 이 화면 안에서(임베드) 처리해 차량 런처의 분할화면을 유지한다.
     private var embeddedPlayer: EmbeddedPlayer? = null
-    // 분할화면 유지용 임베드 재생·화면은 이제 전 플래버 공통(라이브 승격).
-    private val useEmbedded: Boolean get() = true
     private lateinit var embedScreen: android.widget.FrameLayout
     private var screenCleanup: (() -> Unit)? = null
 
@@ -51,7 +50,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private var keyCatcherWarned = false   // 접근성 미활성 안내는 실행당 1회만
 
     // ── ScreenHost: 임베드 화면(녹음함/랭킹/설정)이 콜백하는 호스트 ──
-    override val embedded: Boolean get() = useEmbedded
     override fun onScreenBack() = closeScreen()
     /** 임베드 화면의 하단바 → 다른 임베드 화면으로 전환(분할화면 유지). */
     override fun onNavigate(target: String) {
@@ -125,7 +123,6 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
     override fun onReplayRecording(item: com.cseini.byd.karaoke.data.RecordingItem) {
         embeddedPlayer?.let { closeScreen(); it.replayRecording(item) }
-            ?: startActivity(PlaybackActivity.replayIntent(this, item))
     }
 
     private val isScreenShowing: Boolean
@@ -194,6 +191,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     private lateinit var searchInput: EditText
     private var searchJob: kotlinx.coroutines.Job? = null
+    private var inFlightQuery: String? = null   // 진행 중인 검색어(같은 검색 중복 재시작 방지)
+    private var autoPlayAfterSearch = false    // 이번 검색 결과 첫 곡을 자동 재생할지(음성 트리거)
     private val searchDebounce = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingSearch: Runnable? = null
     private lateinit var status: TextView
@@ -212,13 +211,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private lateinit var autoplayCount: TextView
     private lateinit var autoplayLeft: View
     private lateinit var autoplayRight: View
-    private var lastResults: List<QueueItem> = emptyList()
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var autoPlayRunnable: Runnable? = null
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
-        onPlayNow = { playFromResults(it) },
+        onPlayNow = { playNow(it) },
     )
     private val historyAdapter = HistoryAdapter(
         onPlay = { playNow(QueueItem(it.videoId, it.title)) },
@@ -272,7 +270,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         )
         repo = YouTubeRepository()
         voice = VoiceSearch(this, settings)
-        if (useEmbedded) embeddedPlayer = EmbeddedPlayer(
+        embeddedPlayer = EmbeddedPlayer(
             this, settings, recordings, playHistory,
             onClose = { resetToSearchHome() },
             onRepeatedFailure = { onRepeatedPlayFailure() },
@@ -320,14 +318,9 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         findViewById<Button>(R.id.btn_search).setOnClickListener { hideKeyboard(); doSearch() }
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
         findViewById<Button>(R.id.btn_reserve_server).setOnClickListener { showReserveServer() }
-        NavBar.wire(this, MainActivity::class.java)
-        // 테스트 앱: 네비바(녹음함/랭킹/설정)를 Activity 대신 화면 안 오버레이로 → 분할화면 유지.
         embedScreen = findViewById(R.id.embed_screen)
-        if (useEmbedded) {
-            findViewById<Button>(R.id.nav_recordings).setOnClickListener { showScreen("recordings") }
-            findViewById<Button>(R.id.nav_ranking).setOnClickListener { showScreen("ranking") }
-            findViewById<Button>(R.id.nav_settings).setOnClickListener { showScreen("settings") }
-        }
+        // 네비바(녹음함/랭킹/설정)는 Activity 대신 화면 안 오버레이로 전환 → 분할화면 유지.
+        NavBar.wireEmbedded(window.decorView, "search") { onNavigate(it) }
 
         val btnClear = findViewById<Button>(R.id.btn_clear)
         btnClear.setOnClickListener {
@@ -340,13 +333,15 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); doSearch(); true } else false
         }
         // 타이핑마다 자동 검색(디바운스) — 비슷한 곡이 바로 위에 뜨도록.
+        // 한글은 조합 중에도 매 글자 변경이 오고 검색 한 번이 결과 페이지 통째(수백 KB)라,
+        // 간격이 짧으면 버려질 요청이 회선을 먹어 정작 누른 검색이 밀린다.
         searchInput.doAfterTextChanged { text ->
             cancelAutoPlay()   // 사용자가 직접 타이핑하면 자동재생 취소
             val q = text?.toString()?.trim().orEmpty()
             btnClear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
             pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             if (q.length >= 2) {
-                pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 450) }
+                pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 700) }
             }
         }
 
@@ -541,25 +536,50 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private fun doSearch() {
         val q = searchInput.text.toString().trim()
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
-        val autoPlay = pendingAutoPlay   // 이번 검색이 음성 트리거였는지 확정
+        val wantAutoPlay = pendingAutoPlay   // 이번 호출이 음성 트리거였는지 확정
         pendingAutoPlay = false
-        cancelAutoPlay()                 // 진행 중인 카운트다운은 중단
+        cancelAutoPlay()                     // 진행 중인 카운트다운은 중단
+        if (wantAutoPlay) autoPlayAfterSearch = true
         status.text = "검색 중…"
-        searchJob?.cancel()   // 실시간 타이핑 중 이전 검색은 취소
+        // 타이핑 디바운스로 '같은 검색어'가 이미 날아가 있으면 그대로 기다린다.
+        // 취소하고 새로 시작하면 거의 끝나가던 요청을 버리고 처음부터 다시 받게 되는데,
+        // 검색 버튼은 대개 타이핑이 끝난 직후에 눌러서 이 낭비가 그대로 체감 지연이 된다.
+        // (음성 검색이 같은 검색어로 먼저 떠 있을 수 있어 자동재생 의도는 위에서 살려 둔다)
+        if (q == inFlightQuery && searchJob?.isActive == true) return
+        searchJob?.cancel()   // 검색어가 바뀌었으면 이전 검색은 취소(HTTP 요청도 함께 끊긴다)
+        autoPlayAfterSearch = wantAutoPlay   // 새 검색을 시작하니 직전 검색의 자동재생 의도는 버린다
+        inFlightQuery = q
+        val startedAt = System.currentTimeMillis()
         searchJob = lifecycleScope.launch {
-            when (val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)) {
+            val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
+            inFlightQuery = null
+            logSearchTiming(q, System.currentTimeMillis() - startedAt, r)
+            when (r) {
                 is YouTubeRepository.Result.Ok -> {
-                    lastResults = r.items
                     adapter.submit(r.items)
                     showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
-                    if (autoPlay && settings.autoPlayVoiceFirst && r.items.isNotEmpty()) {
+                    if (autoPlayAfterSearch && settings.autoPlayVoiceFirst && r.items.isNotEmpty()) {
                         startAutoPlayCountdown(r.items.first())
                     }
                 }
                 is YouTubeRepository.Result.Error -> status.text = r.message
             }
+            autoPlayAfterSearch = false
         }
+    }
+
+    /**
+     * 검색이 느릴 때 원인을 실차에서 가리기 위한 기록(설정>이벤트 로그).
+     * net 이 대부분이면 회선, parse 가 대부분이면 결과 페이지 파싱(헤드유닛 CPU) 문제다.
+     */
+    private fun logSearchTiming(q: String, totalMs: Long, r: YouTubeRepository.Result) {
+        val n = (r as? YouTubeRepository.Result.Ok)?.items?.size ?: -1
+        CrashLog.event(
+            this,
+            "검색 ${totalMs}ms (net ${YouTubeScraper.lastFetchMs} / parse ${YouTubeScraper.lastParseMs}, " +
+                "${YouTubeScraper.lastKb}KB) n=$n q=${q.take(20)}",
+        )
     }
 
     /** 음성 검색 결과 첫 곡을 3초 카운트 후 자동 재생. 화면을 탭하거나 다른 조작을 하면 취소. */
@@ -573,7 +593,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
                 if (n <= 0) {
                     autoPlayRunnable = null
                     hideAutoplayOverlay()
-                    playFromResults(item)
+                    playNow(item)
                     return
                 }
                 autoplayCount.text = "$n"
@@ -728,20 +748,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         toast("🎫 예약: ${item.title}")
     }
 
+    /** 부르기 — 재생은 항상 이 화면 안(임베드)에서 처리해 분할화면을 유지한다. */
     private fun playNow(item: QueueItem) {
         hideKeyboard()
         cancelAutoPlay()
-        embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
-        startActivity(PlaybackActivity.intent(this, item.videoId, item.title, fromQueue = false))
-    }
-
-    /** 검색 결과에서 부르기: 재생 불가 영상이면 뒤 후보로 자동으로 넘어가도록 목록을 함께 넘긴다. */
-    private fun playFromResults(item: QueueItem) {
-        hideKeyboard()
-        cancelAutoPlay()
-        embeddedPlayer?.let { it.play(item.videoId, item.title); return }  // 테스트 앱: 화면 안에서 재생
-        val idx = lastResults.indexOfFirst { it.videoId == item.videoId }.coerceAtLeast(0)
-        startActivity(PlaybackActivity.intentWithCandidates(this, lastResults, idx))
+        embeddedPlayer?.play(item.videoId, item.title)
     }
 
     override fun onBackPressed() {

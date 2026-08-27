@@ -1,6 +1,5 @@
 package com.cseini.byd.karaoke
 
-import android.app.Activity
 import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
@@ -16,7 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** 역대 랭킹 화면(Activity/임베드 공용): 채점된 곡을 점수 내림차순으로. */
+/** 역대 랭킹 화면(임베드 오버레이): 채점된 곡을 점수 내림차순으로. */
 class RankingScreen(private val root: View, private val host: ScreenHost) {
 
     private val store = RecordingStore(root.context)
@@ -29,9 +28,7 @@ class RankingScreen(private val root: View, private val host: ScreenHost) {
             layoutManager = LinearLayoutManager(root.context)
             adapter = this@RankingScreen.adapter
         }
-        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
-        if (host.embedded) NavBar.wireEmbedded(root, "ranking") { host.onNavigate(it) }
-        else (root.context as? Activity)?.let { NavBar.wire(it, RankingActivity::class.java) }
+        NavBar.wireEmbedded(root, "ranking") { host.onNavigate(it) }
     }
 
     fun refresh() {

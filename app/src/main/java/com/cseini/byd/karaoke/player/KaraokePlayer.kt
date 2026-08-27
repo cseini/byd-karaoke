@@ -1,8 +1,8 @@
 package com.cseini.byd.karaoke.player
 
 /**
- * 재생 엔진 공통 인터페이스. 구현체는 IframePlayer(유튜브 IFrame)와 StreamPlayer(NewPipe+ExoPlayer).
- * PlaybackActivity 는 어느 엔진이든 같은 방식으로 부른다.
+ * 재생 엔진 공통 인터페이스. 현재 구현체는 StreamPlayer(NewPipe 추출 + ExoPlayer) 하나다.
+ * 호출부(EmbeddedPlayer)는 엔진 종류를 몰라도 되게 이 인터페이스로만 다룬다.
  */
 interface KaraokePlayer {
     fun load(videoId: String)
@@ -25,13 +25,12 @@ interface KaraokePlayer {
 
 /**
  * 재생 이벤트 콜백. 모두 메인 스레드에서 호출된다.
- * - onEmbedBlocked: IFrame 엔진에서 임베드 차단 영상일 때. 다음 후보로 넘길 신호.
- * - onError: 그 외 재생 불가(추출 실패·네트워크 등)를 화면에 표시할 때.
+ * - onError: 재생 불가(스트림 추출 실패·네트워크 등)를 화면에 표시할 때.
+ *   (임베드 차단 신호는 IFrame 엔진 시절 것으로, 스트림 재생에는 해당 개념이 없다)
  */
 class PlayerCallbacks(
     val onPlaying: () -> Unit,
     val onEnded: () -> Unit,
     val onTime: (Float) -> Unit,
-    val onEmbedBlocked: () -> Unit,
     val onError: (String) -> Unit,
 )

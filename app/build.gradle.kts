@@ -61,10 +61,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 안 쓰는 라이브러리 코드·리소스를 걷어내 APK(=차가 매번 받는 OTA 용량)를 줄인다.
+            // 난독화는 끄고(proguard-rules.pro) 축소만 한다 — 리플렉션 라이브러리 파손 위험 최소화.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (otaKeystore.exists()) signingConfig = signingConfigs.getByName("ota")
         }
         debug {
+            // 디버그는 축소하지 않는다(빌드 빠르게, 스택트레이스 그대로).
             isMinifyEnabled = false
             if (otaKeystore.exists()) signingConfig = signingConfigs.getByName("ota")
         }

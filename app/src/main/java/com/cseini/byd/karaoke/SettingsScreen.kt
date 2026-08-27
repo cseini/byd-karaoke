@@ -1,6 +1,5 @@
 package com.cseini.byd.karaoke
 
-import android.app.Activity
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -31,7 +30,7 @@ private val MAP_FUNCTIONS = listOf(
     "panel" to "🎛 노래방 패널",
 )
 
-/** 설정 화면(Activity/임베드 공용): 검색 방식·API 키·싱크·마이크·저장·수동 업데이트. */
+/** 설정 화면(임베드 오버레이): 검색 방식·API 키·싱크·마이크·저장·수동 업데이트. */
 class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
     private val activity = root.context as AppCompatActivity
@@ -45,6 +44,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val syncLabel: TextView = root.findViewById(R.id.sync_label)
     private val rateGroup: RadioGroup = root.findViewById(R.id.rate_group)
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
+    private val scoreDebugCheck: CheckBox = root.findViewById(R.id.chk_score_debug_dump)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
@@ -82,6 +82,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             }
         )
         scoringCheck.isChecked = settings.scoringEnabled
+        scoreDebugCheck.isChecked = settings.scoreDebugDump
         recordingCheck.isChecked = settings.recordingEnabled
 
         micSourceGroup.check(
@@ -135,9 +136,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_event_log).setOnClickListener { showEventLog() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
-        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
-        if (host.embedded) NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
-        else (activity as? Activity)?.let { NavBar.wire(it, SettingsActivity::class.java) }
+        NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
     }
 
     private fun updateGainLabels() {
@@ -162,6 +161,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
+        settings.scoreDebugDump = scoreDebugCheck.isChecked
         settings.recordingEnabled = recordingCheck.isChecked
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"
@@ -302,7 +302,11 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private fun shareScoreDebug() {
         val zip = java.io.File(activity.filesDir, "scoredebug/score-debug.zip")
         if (!zip.exists()) {
-            Toast.makeText(activity, "아직 채점 기록이 없습니다. 한 곡 부른 뒤 다시 시도하세요.", Toast.LENGTH_LONG).show()
+            val msg = if (settings.scoreDebugDump)
+                "아직 채점 기록이 없습니다. 한 곡 부른 뒤 다시 시도하세요."
+            else
+                "'채점 디버그 파일 저장'을 켜고 저장한 뒤, 한 곡 부르고 다시 시도하세요."
+            Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
             return
         }
         runCatching { debugShare?.stop() }

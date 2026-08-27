@@ -37,8 +37,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * (테스트 앱 전용) 재생을 MainActivity 창 '안'에서 처리 → 차량 런처가 분할화면을 유지.
- * PlaybackActivity 의 핵심(재생·녹음·채점·재생기록·예약·seek·전체화면·다시듣기)을 임베드로 담는다.
+ * 재생을 MainActivity 창 '안'에서 처리 → 차량 런처가 분할화면을 유지.
+ * 재생·녹음·채점·재생기록·예약·seek·전체화면·다시듣기가 모두 여기에 있다.
  */
 @UnstableApi
 class EmbeddedPlayer(
@@ -164,14 +164,23 @@ class EmbeddedPlayer(
     fun play(videoId: String, title: String) {
         overlay.visibility = View.VISIBLE
         load(videoId, title)
-        ui.post(songTicker)
-        ui.post(queuePoll)
+        // 이미 떠 있는 상태에서 다시 부르면 반복 러너블이 두 벌로 돌기 때문에 항상 먼저 걷어낸다.
+        restartTicker(songTicker)
+        restartTicker(queuePoll)
+    }
+
+    /** 반복 러너블은 스스로 재등록하므로, 다시 시작할 땐 반드시 기존 예약을 지우고 건다. */
+    private fun restartTicker(r: Runnable) {
+        ui.removeCallbacks(r)
+        ui.post(r)
     }
 
     private fun load(videoId: String, title: String) {
         cancelCountdown()
         stopMediaPlayer()
         player?.release()
+        // 곡을 갈아탈 때(예약곡 넘김 등) 이전 곡의 녹음 스레드가 마이크를 쥔 채 남지 않도록.
+        recorder?.let { if (it.isRecording) it.stop() }
         currentVideoId = videoId
         remoteMuted = false   // 새 곡은 항상 음소거 해제 상태로
         recordStarted = false; scored = false; playLogged = false; replaying = false
@@ -187,7 +196,6 @@ class EmbeddedPlayer(
         recorder = rec
         val cb = PlayerCallbacks(
             onPlaying = { onPlaying() }, onEnded = { onEnded() }, onTime = { },
-            onEmbedBlocked = { statusView.text = "재생 불가 영상입니다. 다른 곡으로 시도하세요." },
             onError = { msg ->
                 if (rec.isRecording) rec.stop()
                 statusView.text = msg
@@ -291,7 +299,9 @@ class EmbeddedPlayer(
                     if (accomp != null) {
                         MelodyScorer.score(
                             voicePair!!.first, voicePair.second, accomp!!.first, accomp!!.second,
-                            debugDir = java.io.File(activity.filesDir, "scoredebug"),
+                            // 덤프는 제보용 옵션(기본 꺼짐) — 켜면 곡마다 WAV 2개를 zip 으로 쓴다.
+                            debugDir = if (settings.scoreDebugDump)
+                                java.io.File(activity.filesDir, "scoredebug") else null,
                         )
                     } else {
                         ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
@@ -424,11 +434,17 @@ class EmbeddedPlayer(
         override fun run() { refreshQueueSide(); ui.postDelayed(this, 5000) }
     }
 
+    private var queueSideBound = false
+
     private fun refreshQueueSide() {
         if (fullscreen) { queueSide.visibility = View.GONE; return }
-        queue.reload()
+        // 폰 리모컨 예약은 대부분 그대로라, 바뀌었을 때만 목록을 다시 그린다(노래 중 메인 스레드 절약).
+        val changed = queue.reload()
         val items = queue.all()
-        queueAdapter.submit(items)
+        if (changed || !queueSideBound) {
+            queueAdapter.submit(items)
+            queueSideBound = true
+        }
         queueSide.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
     }
 
@@ -462,7 +478,7 @@ class EmbeddedPlayer(
                 replayRow.visibility = View.VISIBLE
                 replayPlay.text = "⏸ 정지"
                 statusView.text = "▶ 내 노래 다시 듣는 중"
-                ui.post(replayTicker)
+                restartTicker(replayTicker)
             }.onFailure { statusView.text = "재생 실패: ${it.message}"; endReplay() }
         }
     }
@@ -480,13 +496,18 @@ class EmbeddedPlayer(
     private val replayTicker = object : Runnable {
         override fun run() {
             val mp = mediaPlayer ?: return
+            // 일시정지 중엔 갱신할 게 없으니 재등록도 하지 않는다(재생 버튼이 다시 건다).
+            if (!runCatching { mp.isPlaying }.getOrDefault(false)) {
+                replayPlay.text = "▶ 재생"
+                return
+            }
             runCatching {
                 val pos = mp.currentPosition
                 replaySeek.progress = pos
-                replayPlay.text = if (mp.isPlaying) "⏸ 정지" else "▶ 재생"
+                replayPlay.text = "⏸ 정지"
                 // 영상(음소거)을 녹음 소리 위치에 맞춤: 매 틱 seek 하면 재버퍼링으로 끊기므로
                 // 실제 재생이 시작되면 '한 번'만 정렬하고, 이후엔 크게 어긋날 때만(1.5초↑) 드물게 재정렬.
-                if (mp.isPlaying && player?.isPlaying() == true) {
+                if (player?.isPlaying() == true) {
                     if (replaySeekCooldown > 0) replaySeekCooldown--
                     val drift = kotlin.math.abs((player?.currentPositionMs() ?: 0L) - pos)
                     if (!replayVideoAligned) {
@@ -504,7 +525,7 @@ class EmbeddedPlayer(
         val mp = mediaPlayer ?: return
         runCatching {
             if (mp.isPlaying) { mp.pause(); player?.pause(); replayPlay.text = "▶ 재생" }
-            else { mp.start(); player?.play(); replayPlay.text = "⏸ 정지"; ui.post(replayTicker) }
+            else { mp.start(); player?.play(); replayPlay.text = "⏸ 정지"; restartTicker(replayTicker) }
         }
     }
 
@@ -584,7 +605,6 @@ class EmbeddedPlayer(
         // 영상(음소거·가사)만 화면용으로, 소리는 저장된 믹스(MediaPlayer)로 재생.
         val cb = PlayerCallbacks(
             onPlaying = {}, onEnded = {}, onTime = {},
-            onEmbedBlocked = { statusView.text = "▶ 저장된 노래 재생 (영상 없이)" },
             onError = { statusView.text = "▶ 저장된 노래 재생 (영상 없이)" },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, null, lowRes = true)
@@ -602,10 +622,10 @@ class EmbeddedPlayer(
                 replayRow.visibility = View.VISIBLE
                 replayPlay.text = "⏸ 정지"
                 statusView.text = "▶ 저장된 노래 재생 중"
-                ui.post(replayTicker)
+                restartTicker(replayTicker)
             }.onFailure { statusView.text = "재생 실패: ${it.message}"; endReplay() }
         }
-        ui.post(queuePoll)
+        restartTicker(queuePoll)
     }
 
     fun close() {
@@ -621,6 +641,8 @@ class EmbeddedPlayer(
         recorder = null
         player?.release(); player = null
         container.removeAllViews()
+        // 반주·목소리 PCM 버퍼(수십 MB)는 재생 화면을 떠나면 돌려준다.
+        MixRecorder.releaseBuffers()
         scoreOverlay.visibility = View.GONE
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE

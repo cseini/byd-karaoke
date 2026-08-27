@@ -1,6 +1,5 @@
 package com.cseini.byd.karaoke
 
-import android.app.Activity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** 녹음함 화면(Activity/임베드 공용): 다시 듣기 / 공유 / 삭제. */
+/** 녹음함 화면(임베드 오버레이): 다시 듣기 / 공유 / 삭제. */
 class RecordingsScreen(private val root: View, private val host: ScreenHost) {
 
     private val ctx = root.context
@@ -39,9 +38,7 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
             layoutManager = LinearLayoutManager(ctx)
             adapter = this@RecordingsScreen.adapter
         }
-        // 하단바는 임베드에서도 상시 노출 — 임베드면 화면 전환만(Activity 안 띄움).
-        if (host.embedded) NavBar.wireEmbedded(root, "recordings") { host.onNavigate(it) }
-        else (ctx as? Activity)?.let { NavBar.wire(it, RecordingsActivity::class.java) }
+        NavBar.wireEmbedded(root, "recordings") { host.onNavigate(it) }
     }
 
     fun refresh() {

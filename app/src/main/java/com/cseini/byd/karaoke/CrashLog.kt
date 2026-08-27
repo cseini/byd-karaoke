@@ -25,13 +25,16 @@ object CrashLog {
         }
     }
 
-    /** 한 줄 이벤트 기록(수명주기·close 경로 등). 크기 상한으로 잘라 유지. */
+    /**
+     * 한 줄 이벤트 기록(수명주기·close 경로 등). 크기 상한으로 잘라 유지.
+     * 이어쓰기라 매 호출마다 로그 전체를 읽고 다시 쓰지 않는다(메인 스레드에서 불린다).
+     */
     fun event(ctx: Context, msg: String) {
         runCatching {
             val f = File(ctx.applicationContext.filesDir, "events.log")
-            var s = (if (f.exists()) f.readText() else "") + "${now()} $msg\n"
-            if (s.length > MAX_EVENTS) s = s.takeLast(MAX_EVENTS / 2)
-            f.writeText(s)
+            f.appendText("${now()} $msg\n")
+            // 상한을 넘었을 때만 뒤쪽 절반만 남기고 잘라낸다(가끔).
+            if (f.length() > MAX_EVENTS) f.writeText(f.readText().takeLast(MAX_EVENTS / 2))
         }
     }
 

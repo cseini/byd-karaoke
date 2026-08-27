@@ -173,28 +173,6 @@ object MelodyScorer {
         )
     }
 
-    // ── 실시간 노트 표시용(재생 중 ~8Hz 호출, 채점과 동일한 추출·판정) ──
-
-    
-    
-    
-    /** 끝부분 outN 샘플을 to 레이트로 선형 리샘플(부족하면 null). */
-    private fun resampleTail(x: FloatArray, from: Int, to: Int, outN: Int): FloatArray? {
-        val needSrc = (outN.toLong() * from / to).toInt() + 2
-        if (x.size < needSrc) return null
-        val base = x.size - needSrc
-        val step = from.toDouble() / to
-        val out = FloatArray(outN)
-        for (i in 0 until outN) {
-            val pos = base + i * step
-            val i0 = pos.toInt().coerceIn(0, x.size - 2)
-            val fr = (pos - i0).toFloat()
-            out[i] = x[i0] * (1 - fr) + x[i0 + 1] * fr
-        }
-        return out
-    }
-
-    
     private fun noSing(msg: String) = ScoringEngine.Score(0, 0, 0, 0, 0, 0, 0, 0f, "총점 0점\n$msg")
 
     // ── 배음 합산 멜로디(Melodia-lite): 프레임별 f0 후보(180~1000Hz, 1/2반음 격자)의

@@ -50,32 +50,8 @@
                 android:resource="@xml/usb_device_filter" />
         </activity>
 
-        <activity
-            android:name=".PlaybackActivity"
-            android:exported="false"
-            android:hardwareAccelerated="true"
-            android:keepScreenOn="true"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
-
-        <activity
-            android:name=".RecordingsActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
-
-        <activity
-            android:name=".RankingActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
-
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
-
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density" />
+        <!-- 재생·녹음함·랭킹·설정은 모두 MainActivity 안의 임베드 화면이라 별도 Activity 가 없다
+             (차량 런처의 분할화면을 유지하기 위해 창을 하나만 쓴다). -->
 
         <!-- 물리 키(USB 마이크 버튼) 전역 가로채기 → 음성검색. 설정>접근성에서 켜야 활성. -->
         <service

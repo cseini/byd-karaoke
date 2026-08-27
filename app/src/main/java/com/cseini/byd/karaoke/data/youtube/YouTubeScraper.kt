@@ -1,10 +1,14 @@
 package com.cseini.byd.karaoke.data.youtube
 
 import com.cseini.byd.karaoke.data.QueueItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 
 /**
  * API 키 없이 유튜브 검색.
@@ -14,12 +18,38 @@ import java.net.URLEncoder
  */
 object YouTubeScraper {
 
-    private val client = OkHttpClient()
+    // 차량은 폰 핫스팟을 타는 일이 많아 무한정 기다리면 화면이 멎은 것처럼 보인다.
+    // 기본 OkHttpClient 는 전체 호출 상한이 없어 여기서 못 박는다.
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(15, TimeUnit.SECONDS)
+        .build()
+
     private const val UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    fun search(query: String): List<QueueItem> {
+    // 마지막 검색의 소요·크기 — '네트워크가 느린 건지 파싱이 느린 건지'를 실차에서 가리기 위한 계측.
+    @Volatile
+    var lastFetchMs = 0L
+        private set
+
+    @Volatile
+    var lastParseMs = 0L
+        private set
+
+    @Volatile
+    var lastKb = 0
+        private set
+
+    /**
+     * 결과 페이지를 받아 파싱한다.
+     * 코루틴이 취소되면(타이핑 디바운스로 다음 검색이 뜨는 등) 진행 중인 HTTP 요청도 바로 끊는다.
+     * 블로킹 execute() 는 취소로 중단되지 않아, 버려진 요청이 계속 회선을 먹으면
+     * 정작 사용자가 누른 검색이 그 뒤로 밀린다.
+     */
+    suspend fun search(query: String): List<QueueItem> = withContext(Dispatchers.IO) {
         val url = "https://www.youtube.com/results?search_query=" +
             URLEncoder.encode(query, "UTF-8") + "&hl=ko&gl=KR"
         val req = Request.Builder()
@@ -27,10 +57,23 @@ object YouTubeScraper {
             .header("User-Agent", UA)
             .header("Accept-Language", "ko-KR,ko;q=0.9")
             .build()
-        client.newCall(req).execute().use { resp ->
-            val body = resp.body?.string() ?: return emptyList()
-            val json = extractInitialData(body) ?: return emptyList()
-            return parseVideos(json)
+        val call = client.newCall(req)
+        val cancelHandle = coroutineContext[Job]?.invokeOnCompletion { if (it != null) call.cancel() }
+        try {
+            val t0 = System.nanoTime()
+            call.execute().use { resp ->
+                val body = resp.body?.string()
+                lastFetchMs = (System.nanoTime() - t0) / 1_000_000
+                lastKb = (body?.length ?: 0) / 1024
+                if (body == null) return@withContext emptyList()
+                val t1 = System.nanoTime()
+                val json = extractInitialData(body)
+                val items = if (json == null) emptyList() else parseVideos(json)
+                lastParseMs = (System.nanoTime() - t1) / 1_000_000
+                items
+            }
+        } finally {
+            cancelHandle?.dispose()
         }
     }
 

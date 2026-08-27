@@ -513,6 +513,14 @@
                 </LinearLayout>
 
                 <CheckBox
+                    android:id="@+id/chk_score_debug_dump"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/tj_text_primary"
+                    android:text="🧪 채점 디버그 파일 저장 (제보용 · 곡마다 몇 MB 씀)" />
+
+                <CheckBox
                     android:id="@+id/chk_wheel_button"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
