@@ -15,3 +15,4 @@
 /keystore/ota.keystore
 scripts/autodeploy.log
 scripts/autodeploy.launchd.log
+.DS_Store
