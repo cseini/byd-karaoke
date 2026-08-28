@@ -55,6 +55,7 @@ class UsbMicButtons(
     private val readers = ArrayList<Thread>()
     private var lastTrigger = 0L
     private var lastPermReq = 0L
+    private var usbReconnectTried = false   // dadb USB 소프트 재연결(권한 우회) 1회만 시도
     private var registered = false
     private var notified = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -150,6 +151,12 @@ class UsbMicButtons(
         if (usb.hasPermission(cand)) { diag("mic.start 권한OK ${cand.productName ?: cand.deviceName}"); openAndRead(cand); return }
         raw("USB 권한 요청 중 — 허용을 눌러주세요")
         diag("mic.start 권한없음 ${cand.productName ?: cand.deviceName} vid=${cand.vendorId} pid=${cand.productId}")
+        // 권한 팝업이 안 뜨는 유닛(DiLink) 우회: dadb 로 USB 소프트 재연결 → 연결 이벤트로 자동 권한.
+        // 프로세스당 1회만(성공하면 USB_ATTACHED 인텐트로 자동 재시작). dadb 안 되면 무해.
+        if (!usbReconnectTried) {
+            usbReconnectTried = true
+            kotlin.concurrent.thread { com.cseini.byd.karaoke.update.UpdateManager.reconnectMicViaAdb(activity) }
+        }
         // 권한 없음 → 요청. 단 최근 요청했으면(8초) 다이얼로그 스팸 방지로 스킵.
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastPermReq < 8000L) return

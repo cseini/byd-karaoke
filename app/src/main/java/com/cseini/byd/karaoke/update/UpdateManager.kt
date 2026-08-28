@@ -253,4 +253,35 @@ object UpdateManager {
             false
         }
     }
+
+    /**
+     * dadb(로컬 ADB)로 USB 마이크(Loostone vid=0c76)를 소프트 재연결한다 — sysfs authorized 를
+     * 0→1 토글하면 USB 가 재인식(detach→attach)돼, 매니페스트 <usb-device/> intent-filter 로
+     * 앱이 연결 이벤트를 받아 권한이 자동 부여된다(물리 재연결과 동일 효과).
+     * DiLink 처럼 권한 팝업도 안 뜨고 재연결 신호도 안 오는 유닛의 USB 버튼 문제 우회용.
+     * sysfs 쓰기가 shell 권한으로 되는지 불확실 → 결과를 D1 로 남겨 확인한다.
+     */
+    fun reconnectMicViaAdb(context: Context): Boolean {
+        return try {
+            val priv = java.io.File(context.filesDir, "adbkey")
+            val pub = java.io.File(context.filesDir, "adbkey.pub")
+            if (!priv.exists() || !pub.exists()) dadb.AdbKeyPair.generate(priv, pub)
+            val kp = dadb.AdbKeyPair.read(priv, pub)
+            dadb.Dadb.create("127.0.0.1", 5555, kp, 10_000, 20_000).use { d ->
+                val sh = "for dd in /sys/bus/usb/devices/*/; do " +
+                    "v=\$(cat \${dd}idVendor 2>/dev/null); " +
+                    "if [ \"\$v\" = \"0c76\" ]; then " +
+                    "a=\$(cat \${dd}authorized 2>/dev/null); " +
+                    "echo 0 > \${dd}authorized 2>&1; sleep 1; echo 1 > \${dd}authorized 2>&1; " +
+                    "echo \"toggled was=\$a now=\$(cat \${dd}authorized 2>/dev/null)\"; " +
+                    "fi; done"
+                val out = d.shell(sh).allOutput.trim()
+                com.cseini.byd.karaoke.CrashLog.event(context, "usb.reconnect '" + out.take(160) + "'")
+                out.contains("toggled")
+            }
+        } catch (t: Throwable) {
+            com.cseini.byd.karaoke.CrashLog.event(context, "usb.reconnect 실패 " + t.message)
+            false
+        }
+    }
 }
