@@ -71,6 +71,22 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
 
     fun isAvailable(): Boolean = true
 
+    /**
+     * Gboard 마이크가 쓰는 것과 같은 "액티비티 방식" 음성인식(ACTION_RECOGNIZE_SPEECH).
+     * 백그라운드 SpeechRecognizer(RecognitionService)가 없는 유닛에서도, 이 인텐트를
+     * 처리하는 앱(구글 음성입력 등)이 있으면 API 키·네트워크 없이 무료로 인식된다.
+     * 처리 앱이 없으면 null → 호출부가 Gemini 경로로 폴백한다.
+     */
+    fun activitySttIntent(): Intent? {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "노래 제목이나 가수를 말하세요")
+        }
+        return if (intent.resolveActivity(context.packageManager) != null) intent else null
+    }
+
     /** onReady=듣기 시작, onProcessing=전사 중, onResult/onError=결과, onLevel=마이크 입력 레벨(dBFS). */
     fun start(
         onReady: () -> Unit,

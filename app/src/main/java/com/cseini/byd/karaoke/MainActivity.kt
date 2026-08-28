@@ -213,6 +213,24 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var autoPlayRunnable: Runnable? = null
+
+    // Gboard 마이크가 쓰는 액티비티 방식 STT 결과 수신(백그라운드 음성인식이 없는 유닛용).
+    // 반드시 프로퍼티 초기화 시점에 등록해야 한다(startVoice 안에서 늦게 등록하면 IllegalStateException).
+    private val sttLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val text = result.data
+            ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()?.trim().orEmpty()
+        hideVoiceOverlay()
+        // 취소·빈 결과는 사용자 취소로 본다(구글 UI 를 이미 봤으므로 Gemini 로 체이닝하지 않는다).
+        if (text.isNotEmpty()) {
+            searchInput.setText(text)
+            pendingSearch?.let { searchDebounce.removeCallbacks(it) }
+            pendingAutoPlay = true
+            doSearch()
+        }
+    }
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
         onPlayNow = { playNow(it) },
@@ -712,6 +730,17 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             != PackageManager.PERMISSION_GRANTED) {
             ensureMicPermission(); toast("마이크 권한이 필요합니다"); return
         }
+        // 백그라운드 음성인식(RecognitionService)이 없는 유닛(DiLink 등)이라도 액티비티 방식
+        // STT(구글 음성입력)가 있으면 그걸 우선 쓴다 — API 키·네트워크 없이 무료. 없으면 Gemini.
+        val bgStt = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
+        if (!bgStt) {
+            voice.activitySttIntent()?.let { sttIntent ->
+                CrashLog.event(this, "stt route=activity")
+                try { sttLauncher.launch(sttIntent); return }
+                catch (e: Exception) { CrashLog.event(this, "stt activity launch실패 ${e.message}") }
+            }
+        }
+        CrashLog.event(this, "stt route=" + if (bgStt) "system" else "gemini")
         showVoiceOverlay("🎙", "준비 중…", "잠깐만요")
         voice.start(
             onReady = {

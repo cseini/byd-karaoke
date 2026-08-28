@@ -12,6 +12,14 @@
     <!-- SD카드(블랙박스 독점 볼륨) 직접 접근 — Legacy Storage 로 /storage 경로에 쓴다 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- targetSdk 30+ 의 패키지 가시성 필터링 대비: 음성인식(RecognizerIntent) 처리 앱을
+         resolveActivity 로 조회하려면 선언이 필요하다(현재 targetSdk 28 에선 무해). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
     <!-- BYD ROM 은 설치만으로 부여됨(레퍼런스 앱 분석 문서) — 접근성(키 감지) 자동 켜기에 사용.
          일반 안드로이드에선 부여되지 않으며, 그 경우 설정>접근성에서 수동으로 켠다. -->
     <uses-permission
