@@ -231,12 +231,24 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     /** 카드 탭 — 그 곡의 내 녹음이 있으면 부르기/다시듣기 선택, 없으면 바로 부르기. */
     private fun pickPlayOrReplay(item: com.cseini.byd.karaoke.data.PlayHistoryItem) {
         val rec = recordings.all().firstOrNull { it.videoId == item.videoId && java.io.File(it.path).exists() }
-        if (rec == null) { playNow(QueueItem(item.videoId, item.title)); return }
+        val opts = ArrayList<String>()
+        opts.add("🎤 부르기")
+        if (rec != null) opts.add("▶ 내 녹음 다시듣기")
+        opts.add("🗑 목록에서 삭제")
         AlertDialog.Builder(this)
             .setTitle(item.title)
-            .setItems(arrayOf("🎤 부르기", "▶ 내 녹음 다시듣기")) { _, which ->
-                if (which == 0) playNow(QueueItem(item.videoId, item.title))
-                else onReplayRecording(rec)
+            .setItems(opts.toTypedArray()) { _, which ->
+                when (opts[which]) {
+                    "🎤 부르기" -> playNow(QueueItem(item.videoId, item.title))
+                    "▶ 내 녹음 다시듣기" -> rec?.let { onReplayRecording(it) }
+                    "🗑 목록에서 삭제" -> {
+                        playHistory.removeByVideoId(item.videoId)
+                        val recs = recordings.all().filter { it.videoId == item.videoId }
+                        if (recs.isNotEmpty()) recordings.removeItems(recs)
+                        refreshHistory()
+                        toast("목록에서 삭제했어요")
+                    }
+                }
             }
             .show()
     }

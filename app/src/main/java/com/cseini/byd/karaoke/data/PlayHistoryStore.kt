@@ -55,6 +55,12 @@ class PlayHistoryStore(context: Context) {
         }
     }
 
+    /** 최근 부른 노래 목록에서 해당 곡 제거(사용자 삭제). */
+    fun removeByVideoId(videoId: String) {
+        reload()
+        if (items.removeAll { it.videoId == videoId }) persist()
+    }
+
     fun all(): List<PlayHistoryItem> = items.toList()
 
     /** 재생 기록이 아직 비어 있으면 기존 녹음 목록 등으로 1회 채운다(마이그레이션). */
