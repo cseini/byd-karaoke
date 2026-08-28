@@ -23,12 +23,51 @@
             android:textColor="@color/tj_text_primary" />
 
         <Button
+            android:id="@+id/btn_log_send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            app:backgroundTint="@color/tj_panel_light"
+            android:textColor="@color/tj_text_primary"
+            android:text="🐞" />
+
+        <Button
+            android:id="@+id/btn_check_update"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            app:backgroundTint="@color/tj_green"
+            android:textColor="@color/tj_bg_deep"
+            android:text="🔄" />
+
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="저장" />
+
+        <Button
             android:id="@+id/btn_back"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
             android:text="닫기" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/update_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:textSize="12sp"
+        android:textColor="@color/tj_text_secondary"
+        android:text="현재 버전 확인 중…" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -691,48 +730,6 @@
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingTop="10dp">
-
-        <TextView
-            android:id="@+id/update_status"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:textSize="13sp"
-            android:textColor="@color/tj_text_secondary"
-            android:text="현재 버전 확인 중…" />
-
-        <Button
-            android:id="@+id/btn_log_send"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            app:backgroundTint="@color/tj_panel_light"
-            android:textColor="@color/tj_text_primary"
-            android:text="🐞 로그 전송" />
-
-        <Button
-            android:id="@+id/btn_check_update"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            app:backgroundTint="@color/tj_green"
-            android:textColor="@color/tj_bg_deep"
-            android:text="🔄 업데이트 확인" />
-
-        <Button
-            android:id="@+id/btn_save"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="저장" />
     </LinearLayout>
 
     <include android:id="@+id/navbar" layout="@layout/include_navbar" />
