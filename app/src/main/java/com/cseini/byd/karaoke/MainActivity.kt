@@ -510,6 +510,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         }
         // USB 마이크가 연결됨(앱 실행 중) → 권한이 부여됐으니 즉시 버튼 제어 시작.
         if (intent.action == "android.hardware.usb.action.USB_DEVICE_ATTACHED") {
+            // 계측: 재연결 신호가 실제로 오는지 + 그때 권한이 자동으로 잡히는지 원격 확인용.
+            val dev = intent.getParcelableExtra<android.hardware.usb.UsbDevice>(android.hardware.usb.UsbManager.EXTRA_DEVICE)
+            val um = getSystemService(android.content.Context.USB_SERVICE) as? android.hardware.usb.UsbManager
+            val perm = if (dev != null && um != null) um.hasPermission(dev) else false
+            CrashLog.event(this, "usb.attached ${dev?.productName ?: "?"} vid=${dev?.vendorId} pid=${dev?.productId} perm=$perm")
             syncPhysicalButtons()
             return
         }

@@ -63,6 +63,14 @@ class UsbMicButtons(
     @Volatile var onRaw: ((String) -> Unit)? = null
     private fun raw(msg: String) { onRaw?.let { cb -> handler.post { cb(msg) } } }
 
+    /** USB 버튼 상태 변화를 D1 로그로 남긴다(진단 화면 안 열어도 원격 추적). 직전과 같은 메시지는 스킵. */
+    private var lastDiag = ""
+    private fun diag(msg: String) {
+        if (msg == lastDiag) return
+        lastDiag = msg
+        runCatching { CrashLog.event(activity, msg) }
+    }
+
     /**
      * 버튼 학습 모드: 설정하면 '눌렀다 뗌'에서 감지된 버튼 코드(바이트인덱스, 값)를 전달하고
      * 제스처·네이티브 전달은 잠시 멈춘다. (뗄 때 원래 값으로 되돌아가는 바이트가 그 버튼의 코드)
@@ -105,8 +113,8 @@ class UsbMicButtons(
         override fun onReceive(c: Context?, i: Intent?) {
             if (i?.action != ACTION_PERM) return
             val dev: UsbDevice = i.getParcelableExtra(UsbManager.EXTRA_DEVICE) ?: return
-            if (i.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) openAndRead(dev)
-            else { Log.i(TAG, "USB 권한 거부: ${dev.productName}"); raw("USB 권한이 거부되었습니다") }
+            if (i.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) { diag("mic.perm 허용됨 ${dev.productName ?: dev.deviceName}"); openAndRead(dev) }
+            else { Log.i(TAG, "USB 권한 거부: ${dev.productName}"); raw("USB 권한이 거부되었습니다"); diag("mic.perm 거부됨 ${dev.productName ?: dev.deviceName}") }
         }
     }
 
@@ -125,6 +133,7 @@ class UsbMicButtons(
             Log.i(TAG, "USB 장치 없음")
             notifyOnce("USB 마이크가 연결돼 있지 않습니다")
             raw("USB 장치가 없습니다 — 마이크를 꽂아주세요")
+            diag("mic.start 장치없음")
             return
         }
         devices.forEach {
@@ -135,10 +144,12 @@ class UsbMicButtons(
             Log.i(TAG, "HID 버튼 인터페이스 없음")
             notifyOnce("이 마이크는 버튼 제어를 지원하지 않습니다 (설정에서 꺼주세요)")
             raw("버튼(HID) 인터페이스가 없습니다 — 이 마이크는 버튼 신호를 USB 로 보내지 않습니다")
+            diag("mic.start HID없음 devs=${devices.joinToString { "${it.productName ?: it.deviceName}(if=${it.interfaceCount})" }}")
             return
         }
-        if (usb.hasPermission(cand)) { openAndRead(cand); return }
+        if (usb.hasPermission(cand)) { diag("mic.start 권한OK ${cand.productName ?: cand.deviceName}"); openAndRead(cand); return }
         raw("USB 권한 요청 중 — 허용을 눌러주세요")
+        diag("mic.start 권한없음 ${cand.productName ?: cand.deviceName} vid=${cand.vendorId} pid=${cand.productId}")
         // 권한 없음 → 요청. 단 최근 요청했으면(8초) 다이얼로그 스팸 방지로 스킵.
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastPermReq < 8000L) return
@@ -214,9 +225,10 @@ class UsbMicButtons(
                 claimed++
             }
         }
-        if (claimed == 0) { Log.i(TAG, "HID claim 실패"); running = false; runCatching { c.close() }; conn = null; return }
+        if (claimed == 0) { Log.i(TAG, "HID claim 실패"); raw("HID claim 실패"); diag("mic.read claim실패 ${dev.productName ?: dev.deviceName}"); running = false; runCatching { c.close() }; conn = null; return }
         Log.i(TAG, "USB 버튼 읽기 시작: ${dev.productName ?: dev.deviceName} — ${claimed}개 인터페이스")
         raw("읽기 시작: ${dev.productName ?: dev.deviceName} (${claimed}개 인터페이스) — 버튼을 눌러보세요")
+        diag("mic.read 시작 ${claimed}개iface ${dev.productName ?: dev.deviceName}")
     }
 
     private fun readLoop(c: UsbDeviceConnection, ep: UsbEndpoint) {
