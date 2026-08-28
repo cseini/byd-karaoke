@@ -549,6 +549,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         val ranked = recordings.all()
             .filter { it.score >= 0 }
             .sortedWith(compareByDescending<com.cseini.byd.karaoke.data.RecordingItem> { it.score }.thenByDescending { it.at })
+            .distinctBy { it.videoId }   // 같은 곡은 최고점 1건만
+            .take(10)                    // 랭킹은 탑10만
             .map { com.cseini.byd.karaoke.data.PlayHistoryItem(it.videoId, it.title, it.at, it.score) }
         rankingAdapter.submit(ranked)
         rankingEmpty.visibility = if (ranked.isEmpty()) View.VISIBLE else View.GONE

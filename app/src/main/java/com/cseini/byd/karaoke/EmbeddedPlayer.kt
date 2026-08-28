@@ -453,9 +453,8 @@ class EmbeddedPlayer(
     private var queueSideBound = false
 
     private fun refreshQueueSide() {
-        // 재생 화면 예약은 상단 '다음곡' 배너로 흐르게 한다(옆 목록은 안 쓴다).
+        // 재생 화면 예약은 상단 '다음곡' 배너로 흐르게 한다(전체화면에서도 유지 — 옆 목록은 안 쓴다).
         queueSide.visibility = View.GONE
-        if (fullscreen) { nextBanner.visibility = View.GONE; return }
         queue.reload()
         val items = queue.all()
         if (items.isEmpty()) {
