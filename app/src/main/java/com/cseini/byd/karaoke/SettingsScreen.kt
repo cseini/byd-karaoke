@@ -118,6 +118,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_back).setOnClickListener { host.onScreenBack() }
         root.findViewById<Button>(R.id.btn_save).setOnClickListener { save() }
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
+        root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
 
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
         root.findViewById<Button>(R.id.btn_log_send).setOnClickListener { sendLog(it as Button) }
@@ -191,6 +192,36 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
     private fun selectedMap(id: Int): String =
         MAP_FUNCTIONS[root.findViewById<android.widget.Spinner>(id).selectedItemPosition].first
+
+    /** 마이크 버튼 진단 — HID raw hex 를 화면에 보여주고, '로그 전송'으로 D1(운영자)에 보낸다. */
+    private fun showMicDiag() {
+        val tv = TextView(activity).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setTextIsSelectable(true)
+            setPadding(28, 20, 28, 20)
+        }
+        val scroll = android.widget.ScrollView(activity).apply { addView(tv) }
+        val lines = StringBuilder("마이크 버튼을 하나씩 눌러보세요 (마이크 / 볼륨▲ / 볼륨▼)\n\n")
+        tv.text = lines
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("🔍 마이크 진단")
+            .setView(scroll)
+            .setPositiveButton("닫고 로그 전송") { _, _ ->
+                LogUploader.uploadNow(activity) { ok ->
+                    Toast.makeText(activity, if (ok) "진단 로그를 보냈어요. 감사합니다!" else "전송 실패", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("닫기", null)
+            .setOnDismissListener { host.onMicDiagStop() }
+            .show()
+        host.onMicDiagStart { line ->
+            lines.append(line).append('\n')
+            tv.text = lines
+            scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+            CrashLog.event(activity, "micdiag $line")   // 로그 전송 시 D1 로 감
+        }
+    }
 
     /**
      * 마이크 버튼 학습: 버튼을 하나씩 눌러보게 해 이 마이크의 HID 코드를 자동으로 찾아 저장.

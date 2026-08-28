@@ -49,10 +49,10 @@ class UsbMicButtons(
 
     private val usb = activity.getSystemService(Context.USB_SERVICE) as UsbManager
     private var conn: UsbDeviceConnection? = null
-    private var iface: UsbInterface? = null
+    private val ifaces = ArrayList<UsbInterface>()
     @Volatile private var running = false
     @Volatile private var held = false
-    private var reader: Thread? = null
+    private val readers = ArrayList<Thread>()
     private var lastTrigger = 0L
     private var lastPermReq = 0L
     private var registered = false
@@ -156,8 +156,8 @@ class UsbMicButtons(
         pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
         pendingVol?.let { handler.removeCallbacks(it) }; pendingVol = null
         pendingMicTap?.let { handler.removeCallbacks(it) }; pendingMicTap = null
-        reader?.let { runCatching { it.join(500) } }; reader = null
-        iface?.let { i -> conn?.releaseInterface(i) }; iface = null
+        readers.forEach { runCatching { it.join(500) } }; readers.clear()
+        ifaces.forEach { i -> runCatching { conn?.releaseInterface(i) } }; ifaces.clear()
         conn?.let { runCatching { it.close() } }; conn = null
         if (registered) { runCatching { activity.unregisterReceiver(permReceiver) }; registered = false }
     }
@@ -183,15 +183,44 @@ class UsbMicButtons(
         return null
     }
 
+    /** 마이크의 HID 인터럽트-IN 엔드포인트를 **모두** 모은다(버튼/볼륨이 서로 다른 인터페이스일 수 있다). */
+    private fun findAllHidInterrupts(d: UsbDevice): List<Pair<UsbInterface, UsbEndpoint>> {
+        val out = ArrayList<Pair<UsbInterface, UsbEndpoint>>()
+        for (i in 0 until d.interfaceCount) {
+            val f = d.getInterface(i)
+            if (f.interfaceClass != UsbConstants.USB_CLASS_HID) continue
+            for (j in 0 until f.endpointCount) {
+                val e = f.getEndpoint(j)
+                if (e.type == UsbConstants.USB_ENDPOINT_XFER_INT && e.direction == UsbConstants.USB_DIR_IN) {
+                    out.add(f to e); break
+                }
+            }
+        }
+        return out
+    }
+
     private fun openAndRead(dev: UsbDevice) {
-        val (hid, ep) = findHidInterrupt(dev) ?: run { Log.i(TAG, "HID 인터럽트 엔드포인트 없음"); return }
+        val hids = findAllHidInterrupts(dev)
+        if (hids.isEmpty()) { Log.i(TAG, "HID 인터럽트 엔드포인트 없음"); return }
         val c = usb.openDevice(dev) ?: run { Log.i(TAG, "USB 장치 열기 실패"); return }
-        if (!c.claimInterface(hid, true)) { Log.i(TAG, "HID claim 실패"); c.close(); return }
-        conn = c; iface = hid
-        Log.i(TAG, "USB 버튼 읽기 시작: ${dev.productName ?: dev.deviceName}")
-        raw("읽기 시작: ${dev.productName ?: dev.deviceName} — 버튼을 눌러보세요")
+        conn = c
         running = true
-        reader = thread(name = "usb-mic") {
+        var claimed = 0
+        // 버튼이 어느 인터페이스에 있든 잡도록 모든 HID 인터럽트 인터페이스를 claim 하고 각각 읽는다.
+        for ((hid, ep) in hids) {
+            if (c.claimInterface(hid, true)) {
+                ifaces.add(hid)
+                readers.add(thread(name = "usb-mic-$claimed") { readLoop(c, ep) })
+                claimed++
+            }
+        }
+        if (claimed == 0) { Log.i(TAG, "HID claim 실패"); running = false; runCatching { c.close() }; conn = null; return }
+        Log.i(TAG, "USB 버튼 읽기 시작: ${dev.productName ?: dev.deviceName} — ${claimed}개 인터페이스")
+        raw("읽기 시작: ${dev.productName ?: dev.deviceName} (${claimed}개 인터페이스) — 버튼을 눌러보세요")
+    }
+
+    private fun readLoop(c: UsbDeviceConnection, ep: UsbEndpoint) {
+        run {
             val buf = ByteArray(ep.maxPacketSize.coerceIn(1, 64))
             val prevBuf = ByteArray(buf.size)
             var lastCode = -1
