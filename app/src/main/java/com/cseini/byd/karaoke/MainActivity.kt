@@ -271,8 +271,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         if (!::homeQueueSection.isInitialized) return
         queue.reload()
         val items = queue.all()
-        homeQueueAdapter.submit(items)
-        homeQueueTitle.text = "🎫 예약된 곡 ${items.size}"
+        // 차량에선 스크롤 조작이 위험 → 플로팅엔 다음 6곡까지만, 총 개수는 제목에.
+        homeQueueAdapter.submit(items.take(6))
+        homeQueueTitle.text = if (items.size > 6) "🎫 예약된 곡 ${items.size} (다음 6곡)"
+            else "🎫 예약된 곡 ${items.size}"
         homeQueueSection.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
     }
 
