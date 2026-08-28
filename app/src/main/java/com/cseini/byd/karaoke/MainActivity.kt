@@ -544,7 +544,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         refreshVoiceUi()
         // 접근성이 꺼져 있으면(키보드 마이크 자동클릭용) dadb(ADB)로 한 번 켜본다.
         // 유닛이 접근성 설정 UI 를 막아 사용자가 직접 못 켜는 경우 대비. 실패해도 무해.
-        if (KeyCatcherService.instance == null && !a11yTried) {
+        if (BuildConfig.FLAVOR == "lab" && KeyCatcherService.instance == null && !a11yTried) {
             a11yTried = true
             kotlin.concurrent.thread { UpdateManager.enableAccessibilityViaAdb(this@MainActivity) }
         }
@@ -563,8 +563,9 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         val s = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
         val a = voice.activitySttIntent() != null
         CrashLog.event(this, "voice.avail gemini=$g sys=$s activity=$a")   // 어느 STT 가 있는지 원격 확인
-        // 앱 STT·Gemini 가 없어도 키보드 마이크로 유도하는 폴백이 있으므로 버튼은 항상 노출한다.
-        findViewById<Button>(R.id.btn_voice).visibility = View.VISIBLE
+        // lab 은 키보드 마이크 폴백(실험)이 있어 STT 가 없어도 버튼을 띄운다. prod 는 실제 STT/Gemini 있을 때만.
+        val voiceOn = g || s || a || BuildConfig.FLAVOR == "lab"
+        findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
 
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
@@ -737,7 +738,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         // 검색창 텍스트로 들어와 자동 검색되므로 별도 처리가 필요 없다(권한도 IME 가 알아서 처리).
         val bgStt = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
         val actIntent = voice.activitySttIntent()
-        if (!bgStt && actIntent == null && settings.geminiApiKeys().isEmpty()) {
+        if (BuildConfig.FLAVOR == "lab" && !bgStt && actIntent == null && settings.geminiApiKeys().isEmpty()) {
             CrashLog.event(this, "stt route=keyboard")
             searchInput.requestFocus()
             (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
