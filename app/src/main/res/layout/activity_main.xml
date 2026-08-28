@@ -708,12 +708,12 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 전체화면 토글(영상 좌상단) -->
+        <!-- 전체화면 토글(영상 우상단 — 상단 다음곡 배너와 겹치지 않게) -->
         <Button
             android:id="@+id/embed_fullscreen"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
+            android:layout_gravity="top|end"
             android:layout_margin="10dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
