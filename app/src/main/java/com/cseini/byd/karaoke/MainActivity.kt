@@ -361,17 +361,10 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
-        findViewById<RecyclerView>(R.id.history).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = this@MainActivity.historyAdapter
-        }
-        historyAdapter.fixedWidthDp = 190
+        findViewById<RecyclerView>(R.id.history).adapter = historyAdapter
         rankingEmpty = findViewById(R.id.ranking_empty)
-        findViewById<RecyclerView>(R.id.ranking).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = this@MainActivity.rankingAdapter
-        }
-        rankingAdapter.fixedWidthDp = 190
+        findViewById<RecyclerView>(R.id.ranking).adapter = rankingAdapter
+        applyHomeSizing()
         homeQueueSection = findViewById(R.id.home_queue_section)
         homeQueueTitle = findViewById(R.id.home_queue_title)
         findViewById<RecyclerView>(R.id.home_queue).apply {
@@ -549,16 +542,29 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         refreshVoiceUi()
+        // 접근성이 꺼져 있으면(키보드 마이크 자동클릭용) dadb(ADB)로 한 번 켜본다.
+        // 유닛이 접근성 설정 UI 를 막아 사용자가 직접 못 켜는 경우 대비. 실패해도 무해.
+        if (KeyCatcherService.instance == null && !a11yTried) {
+            a11yTried = true
+            kotlin.concurrent.thread { UpdateManager.enableAccessibilityViaAdb(this@MainActivity) }
+        }
     }
 
+    private var a11yTried = false
+
     /**
-     * 음성 버튼·즉시재생 옵션은 Gemini 키가 있을 때만 노출.
+     * 음성 버튼 노출 조건: Gemini 키가 있거나, 시스템/Gboard 음성인식이 가능하면 켠다.
+     * (Gboard STT 는 Gemini 키 없이도 되므로, 키가 없다고 버튼을 숨기면 그걸 못 쓴다.)
      * 설정 화면이 같은 창의 오버레이라 닫아도 onResume 이 안 불리므로,
      * 설정을 닫을 때도 호출해야 '키를 넣고 저장했는데 버튼이 안 나오는' 문제가 없다.
      */
     private fun refreshVoiceUi() {
-        val voiceOn = settings.geminiApiKeys().isNotEmpty()
-        findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
+        val g = settings.geminiApiKeys().isNotEmpty()
+        val s = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
+        val a = voice.activitySttIntent() != null
+        CrashLog.event(this, "voice.avail gemini=$g sys=$s activity=$a")   // 어느 STT 가 있는지 원격 확인
+        // 앱 STT·Gemini 가 없어도 키보드 마이크로 유도하는 폴백이 있으므로 버튼은 항상 노출한다.
+        findViewById<Button>(R.id.btn_voice).visibility = View.VISIBLE
     }
 
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
@@ -726,15 +732,29 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             toast("이 기기는 음성 인식을 지원하지 않습니다. 타이핑으로 검색하세요.")
             return
         }
+        // 앱이 부를 수 있는 STT(시스템 RecognitionService·Gboard 액티비티)도 Gemini 도 없는 유닛(DiLink 등)
+        // 이면 → 검색창 포커스 + 키보드를 띄워 '키보드 마이크'로 유도한다. 키보드 음성입력 결과는
+        // 검색창 텍스트로 들어와 자동 검색되므로 별도 처리가 필요 없다(권한도 IME 가 알아서 처리).
+        val bgStt = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
+        val actIntent = voice.activitySttIntent()
+        if (!bgStt && actIntent == null && settings.geminiApiKeys().isEmpty()) {
+            CrashLog.event(this, "stt route=keyboard")
+            searchInput.requestFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                .showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            // 접근성 서비스가 켜져 있으면 키보드가 뜬 뒤 마이크 버튼을 자동으로 눌러본다(안 되면 수동).
+            searchInput.postDelayed({ KeyCatcherService.instance?.clickKeyboardMic() }, 600)
+            toast("키보드의 🎤 마이크를 눌러 노래 제목을 말하면 검색돼요")
+            return
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             ensureMicPermission(); toast("마이크 권한이 필요합니다"); return
         }
-        // 백그라운드 음성인식(RecognitionService)이 없는 유닛(DiLink 등)이라도 액티비티 방식
-        // STT(구글 음성입력)가 있으면 그걸 우선 쓴다 — API 키·네트워크 없이 무료. 없으면 Gemini.
-        val bgStt = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
+        // 백그라운드 음성인식(RecognitionService)이 없는 유닛이라도 액티비티 방식 STT(구글 음성입력)가
+        // 있으면 그걸 우선 쓴다 — API 키·네트워크 없이 무료. 없으면 Gemini.
         if (!bgStt) {
-            voice.activitySttIntent()?.let { sttIntent ->
+            actIntent?.let { sttIntent ->
                 CrashLog.event(this, "stt route=activity")
                 try { sttLauncher.launch(sttIntent); return }
                 catch (e: Exception) { CrashLog.event(this, "stt activity launch실패 ${e.message}") }
@@ -905,6 +925,53 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         CrashLog.event(this, "cfgChanged ${cfgSnapshot()}")
+        applyHomeSizing()   // 가로/세로 전환 시 홈 카드·캐러셀 배치를 화면에 맞춰 다시 잡는다
+    }
+
+    /**
+     * 화면 방향·크기(dp)를 감지해 홈 캐러셀 배치를 조정한다.
+     *  - 가로(넓고 낮음): 최근곡·랭킹 둘 다 가로 캐러셀을 상하로 반씩(카드 작게).
+     *  - 세로(좁고 높음): 최근곡은 상단 가로 캐러셀, 랭킹은 2열 그리드로 아래를 채운다(다단).
+     * configChanges 로 액티비티가 회전에도 살아남으므로 layout-land/port 리소스가 안 바뀐다 → 코드로 잡는다.
+     */
+    private fun applyHomeSizing() {
+        val cfg = resources.configuration
+        val wDp = cfg.screenWidthDp
+        val hDp = cfg.screenHeightDp
+        val portrait = hDp > wDp
+        val historyRv = findViewById<RecyclerView>(R.id.history)
+        val rankingRv = findViewById<RecyclerView>(R.id.ranking)
+
+        fun setFill(rv: RecyclerView, fill: Boolean) {
+            val lp = rv.layoutParams as android.widget.LinearLayout.LayoutParams
+            if (fill) { lp.height = 0; lp.weight = 1f }
+            else { lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT; lp.weight = 0f }
+            rv.layoutParams = lp
+        }
+
+        if (portrait) {
+            // 최근곡: 상단 3열 그리드 다단으로 나머지 세로 공간을 채운다(카드 작게, 많이 보이게)
+            historyRv.layoutManager = GridLayoutManager(this, 3)
+            val cellW = (wDp - 32) / 3
+            historyAdapter.fixedWidthDp = 0           // 그리드 셀 폭(1/3) 따름
+            historyAdapter.fixedThumbHeightDp = cellW * 9 / 16
+            setFill(historyRv, true)
+            // 랭킹: 하단에도 같은 3열 그리드(최근곡과 동일 크기), 여러 줄로
+            rankingRv.layoutManager = GridLayoutManager(this, 3)
+            rankingAdapter.fixedWidthDp = 0
+            rankingAdapter.fixedThumbHeightDp = cellW * 9 / 16
+            setFill(rankingRv, true)
+        } else {
+            // 가로: 예전처럼 두 가로 캐러셀을 상하 반씩(카드 작게)
+            historyRv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+            rankingRv.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+            historyAdapter.fixedWidthDp = 190; historyAdapter.fixedThumbHeightDp = 122
+            rankingAdapter.fixedWidthDp = 190; rankingAdapter.fixedThumbHeightDp = 122
+            setFill(historyRv, true)
+            setFill(rankingRv, true)
+        }
+        historyAdapter.notifyDataSetChanged()
+        rankingAdapter.notifyDataSetChanged()
     }
 
     /**

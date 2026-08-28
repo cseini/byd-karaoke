@@ -481,12 +481,31 @@ class EmbeddedPlayer(
      * 화면 가장자리 스와이프로 잠깐 다시 나온다). 유닛의 하단바가 안드로이드 내비바가
      * 아니라 차량 런처 자체 독이면 효과가 없을 수 있다.
      */
+    private var savedPad: IntArray? = null   // 풀스크린 진입 전 [sr.top, sr.bot, es.top, es.bot]
+
     private fun applySystemBars() {
-        activity.window.decorView.systemUiVisibility = if (fullscreen)
-            (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN
+        val dv = activity.window.decorView
+        val sr = activity.findViewById<View>(R.id.search_root)
+        val es = activity.findViewById<View>(R.id.embed_screen)
+        if (fullscreen) {
+            // 진입 전 정상 패딩을 저장한다. 해제 시 fits 가 인셋(예:84)을 패딩으로 다시 얹는데,
+            // 거기에 window 확장 잔재가 겹쳐 여백이 두 배가 된다 → 저장해 둔 원래 값으로 되돌린다.
+            if (savedPad == null && sr != null && es != null)
+                savedPad = intArrayOf(sr.paddingTop, sr.paddingBottom, es.paddingTop, es.paddingBottom)
+            dv.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
-        else 0
+        } else {
+            dv.systemUiVisibility = 0
+            val p = savedPad ?: return
+            savedPad = null
+            // fits 가 해제 후 인셋을 패딩으로 얹는 건 dispatch 시점 이후 → 그 뒤에 원래 값으로 덮는다.
+            dv.postDelayed({
+                sr?.setPadding(sr.paddingLeft, p[0], sr.paddingRight, p[1])
+                es?.setPadding(es.paddingLeft, p[2], es.paddingRight, p[3])
+                CrashLog.event(activity, "fs.exit restored sr=${p[0]}/${p[1]} es=${p[2]}/${p[3]}")
+            }, 400)
+        }
     }
 
     // ── 다시듣기: 영상은 음소거로 처음부터(화면), 소리는 녹음 믹스(MediaPlayer) ──

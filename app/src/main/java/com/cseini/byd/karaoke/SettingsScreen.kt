@@ -327,10 +327,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     /** 노래 중 튕김처럼 재현이 어려운 문제의 이벤트 로그를 지금 서버로 보낸다(운영자 제보용). */
     private fun sendLog(btn: Button) {
         btn.isEnabled = false
-        btn.text = "⏳"
+        btn.text = "전송 중…"
         LogUploader.uploadNow(activity) { ok ->
             btn.isEnabled = true
-            btn.text = "🐞"
+            btn.text = "로그 전송"
             android.widget.Toast.makeText(
                 activity,
                 if (ok) "로그를 보냈어요. 감사합니다!" else "보낼 로그가 없거나 네트워크 오류예요.",

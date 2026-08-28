@@ -17,8 +17,9 @@ class HistoryAdapter(
 
     private val items = ArrayList<PlayHistoryItem>()
 
-    // 가로 캐러셀에서 카드 폭을 고정한다(그 외엔 그리드/리스트 셀 폭을 따름).
+    // 가로 캐러셀에서 카드 폭을 고정한다(0=셀 폭 따름, 세로 그리드 등). 썸네일 높이는 방향별로 코드에서 준다.
     var fixedWidthDp: Int = 0
+    var fixedThumbHeightDp: Int = 0
 
     fun submit(list: List<PlayHistoryItem>) {
         items.clear()
@@ -47,10 +48,15 @@ class HistoryAdapter(
             holder.score.visibility = View.GONE
         }
         holder.itemView.setOnClickListener { onPlay(item) }
+        val density = holder.itemView.resources.displayMetrics.density
         val lp = holder.itemView.layoutParams
-        lp.width = if (fixedWidthDp > 0)
-            (fixedWidthDp * holder.itemView.resources.displayMetrics.density).toInt()
+        lp.width = if (fixedWidthDp > 0) (fixedWidthDp * density).toInt()
         else ViewGroup.LayoutParams.MATCH_PARENT
         holder.itemView.layoutParams = lp
+        if (fixedThumbHeightDp > 0) {
+            val tp = holder.thumb.layoutParams
+            tp.height = (fixedThumbHeightDp * density).toInt()
+            holder.thumb.layoutParams = tp
+        }
     }
 }

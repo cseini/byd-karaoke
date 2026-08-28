@@ -121,8 +121,8 @@ class StreamPlayer(
         YouTubeDownloader.ensureInit()
         // 노래 부를 땐 앱 버튼(정지 등)만 쓰므로 ExoPlayer 기본 재생 컨트롤(앞/뒤·멈춤)은 숨긴다.
         playerView.useController = false
-        // 영상을 화면에 꽉 채운다(레터박스 여백 제거). 비율이 다르면 가장자리를 살짝 크롭한다.
-        playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        // 영상을 컨테이너 영역 안에 비율 그대로 맞춘다(짧은 쪽 기준 fit — 크롭 없이 전부 보이게).
+        playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
         container.addView(
             playerView,
             FrameLayout.LayoutParams(

@@ -30,7 +30,7 @@
             android:paddingHorizontal="14dp"
             app:backgroundTint="@color/tj_panel_light"
             android:textColor="@color/tj_text_primary"
-            android:text="🐞" />
+            android:text="로그 전송" />
 
         <Button
             android:id="@+id/btn_check_update"
@@ -41,7 +41,7 @@
             android:paddingHorizontal="14dp"
             app:backgroundTint="@color/tj_green"
             android:textColor="@color/tj_bg_deep"
-            android:text="🔄" />
+            android:text="업데이트" />
 
         <Button
             android:id="@+id/btn_save"

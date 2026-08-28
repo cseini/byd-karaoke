@@ -223,4 +223,34 @@ object UpdateManager {
             true
         } catch (t: Throwable) { android.util.Log.w("Karaoke", "silentInstall 실패", t); false }
     }
+
+    /**
+     * dadb(로컬 ADB 5555)로 접근성 서비스를 켠다 — 유닛이 접근성 설정 UI 를 막아 사용자가 직접
+     * 못 켜는 경우용. ADB shell 은 WRITE_SECURE_SETTINGS 권한이 있어 앱이 못 하는 이 설정을 할 수 있다.
+     * 키보드 마이크 자동 클릭(KeyCatcherService.clickKeyboardMic)에 필요. 실패해도(ADB 미개방) 무해.
+     */
+    fun enableAccessibilityViaAdb(context: Context): Boolean {
+        return try {
+            val priv = java.io.File(context.filesDir, "adbkey")
+            val pub = java.io.File(context.filesDir, "adbkey.pub")
+            if (!priv.exists() || !pub.exists()) dadb.AdbKeyPair.generate(priv, pub)
+            val kp = dadb.AdbKeyPair.read(priv, pub)
+            dadb.Dadb.create("127.0.0.1", 5555, kp, 10_000, 20_000).use { d ->
+                val comp = context.packageName + "/com.cseini.byd.karaoke.KeyCatcherService"
+                val cur = d.shell("settings get secure enabled_accessibility_services").allOutput.trim()
+                val next = when {
+                    cur.isBlank() || cur == "null" -> comp
+                    cur.contains(comp) -> cur
+                    else -> cur + ":" + comp
+                }
+                d.shell("settings put secure enabled_accessibility_services '" + next + "'")
+                d.shell("settings put secure accessibility_enabled 1")
+                com.cseini.byd.karaoke.CrashLog.event(context, "a11y.adb ok comp=" + comp + " prev='" + cur + "'")
+            }
+            true
+        } catch (t: Throwable) {
+            com.cseini.byd.karaoke.CrashLog.event(context, "a11y.adb 실패 " + t.message)
+            false
+        }
+    }
 }

@@ -6,6 +6,8 @@ import android.content.Intent
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 
 /**
  * (diplus KDService 방식) 접근성 onKeyEvent 로 물리 키를 전역 가로채기.
@@ -19,6 +21,8 @@ class KeyCatcherService : AccessibilityService() {
     companion object {
         private const val TAG = "karaoke-keys"
         const val ACTION_VOICE = "com.cseini.byd.karaoke.VOICE_SEARCH"
+        // 켜져 있으면 MainActivity 가 키보드 마이크 자동 클릭을 요청할 수 있다(꺼져 있으면 null).
+        @Volatile var instance: KeyCatcherService? = null
         // 음성검색 트리거 후보(마이크/헤드셋 계열 표준 키). 볼륨은 차 시스템에 넘긴다.
         private val TRIGGER_KEYS = setOf(
             KeyEvent.KEYCODE_HEADSETHOOK,
@@ -41,9 +45,48 @@ class KeyCatcherService : AccessibilityService() {
         super.onServiceConnected()
         // 매니페스트 config 에 더해 런타임에서도 키 필터 플래그를 확실히 켠다(diplus 동일 패턴).
         serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
-            flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+            flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS   // 키보드 창 노드 접근용
         }
+        instance = this
         Log.i(TAG, "KeyCatcher 연결됨 — 키 가로채기 시작")
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        instance = null
+        return super.onUnbind(intent)
+    }
+
+    /**
+     * 키보드(IME) 창에서 '음성 입력' 버튼 노드를 찾아 클릭한다. Gboard 등 IME 의 음성모드로
+     * 진입시켜, 앱이 부를 STT 가 없는 유닛에서도 음성검색이 되게 한다. 결과 텍스트는 검색창으로
+     * 들어와 자동 검색된다. 성공·실패를 D1 로 남겨(원격) 노드 식별이 되는지 확인한다.
+     */
+    fun clickKeyboardMic(): Boolean {
+        val cands = listOf("음성", "voice", "mic", "말하기", "speak")
+        val ws = windows ?: return false
+        for (w in ws) {
+            if (w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue
+            val root = w.root ?: continue
+            val hit = findMicNode(root, cands) ?: continue
+            var t: AccessibilityNodeInfo? = hit
+            while (t != null && !t.isClickable) t = t.parent
+            val ok = (t ?: hit).performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            CrashLog.event(this, "kbdmic clicked=$ok desc='${hit.contentDescription}'")
+            return ok
+        }
+        CrashLog.event(this, "kbdmic 못찾음 windows=${ws.size} ime=${ws.count { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }}")
+        return false
+    }
+
+    private fun findMicNode(node: AccessibilityNodeInfo, cands: List<String>): AccessibilityNodeInfo? {
+        val desc = (node.contentDescription?.toString() ?: "").lowercase()
+        if (desc.isNotEmpty() && cands.any { desc.contains(it) }) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findMicNode(child, cands)?.let { return it }
+        }
+        return null
     }
 
     private val settings by lazy { com.cseini.byd.karaoke.data.SettingsStore(this) }
