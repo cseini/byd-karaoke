@@ -112,8 +112,29 @@ object UpdateFlow {
             CrashLog.event(activity, "무음설치 실패 v${release.version}: ${why.take(300)}")
             AlertDialog.Builder(activity)
                 .setTitle("자동 설치가 안 됐어요")
-                .setMessage("설치창을 열어 이어서 설치할 수 있어요.\n\n원인: ${why.take(200)}")
+                .setMessage(
+                    "USB 디버깅이 꺼져 있으면 자동 설치가 안 됩니다(씨라이언 등).\n\n" +
+                        "① 설정 → 개발자 옵션 → 'USB 디버깅' 켜기 → 다시 업데이트하면 자동 설치됩니다.\n" +
+                        "   (개발자 옵션이 없으면: 설정 → 기기정보 → '빌드번호'를 7번 연속 탭)\n" +
+                        "② 또는 아래 '설치창 열기'로 수동 설치하세요.\n\n" +
+                        "원인: ${why.take(150)}",
+                )
                 .setPositiveButton("설치창 열기") { _, _ -> UpdateManager.installViaSystem(activity, apk) }
+                .setNeutralButton("개발자 설정 열기") { _, _ ->
+                    runCatching {
+                        activity.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }.onFailure {
+                        runCatching {
+                            activity.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS)
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    }
+                }
                 .setNegativeButton("나중에", null)
                 .show()
         }
