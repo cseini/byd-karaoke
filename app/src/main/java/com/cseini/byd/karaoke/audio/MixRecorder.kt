@@ -58,6 +58,7 @@ class MixRecorder(
     @Volatile private var recording = false
     private var worker: Thread? = null
     private var aec: AcousticEchoCanceler? = null
+    private var ns: NoiseSuppressor? = null
     var outputFile: File? = null
         private set
     val isRecording: Boolean get() = recording
@@ -167,11 +168,12 @@ class MixRecorder(
         )
         val record = opened.record
         // 내장(통화) 마이크는 스피커 반주가 섞여 들어오므로 에코·잡음 제거를 켠다(믹스 이중 반주 방지).
-        if (opened.builtin) {
+        if (opened.builtin && !opened.bydOwnsMic) {   // 씨라이언7: HAL 효과가 BYD 마이크 경로를 건드릴 수 있어 끈다
             val sid = record.audioSessionId
             if (AcousticEchoCanceler.isAvailable())
                 aec = runCatching { AcousticEchoCanceler.create(sid)?.apply { enabled = true } }.getOrNull()
-            if (NoiseSuppressor.isAvailable()) runCatching { NoiseSuppressor.create(sid)?.enabled = true }
+            if (NoiseSuppressor.isAvailable())
+                ns = runCatching { NoiseSuppressor.create(sid)?.apply { enabled = true } }.getOrNull()
         }
 
         // 채점용 목소리 버퍼 준비(rate 기준, 최대 MAX_SECONDS).
@@ -247,11 +249,17 @@ class MixRecorder(
                         }
                     } else if (n < 0) break
                 }
+            } catch (t: Throwable) {
+                // 디스크 풀·SD 제거, 그리고 녹음 중 마이크가 시스템에 회수될 때의 AudioRecord 예외까지.
+                // 워커 스레드의 uncaught 예외는 곧 앱 강제종료다 — 여기서 반드시 삼키고 정리만 한다.
+                com.cseini.byd.karaoke.CrashLog.event(context, "mixrec 워커 중단 ${t::class.java.simpleName}: ${t.message}")
             } finally {
+                recording = false
                 runCatching { record.stop() }
-                record.release()
+                runCatching { record.release() }
                 runCatching { aec?.release() }; aec = null
-                writer.close()
+                runCatching { ns?.release() }; ns = null
+                runCatching { writer.close() }
             }
         }
         return null

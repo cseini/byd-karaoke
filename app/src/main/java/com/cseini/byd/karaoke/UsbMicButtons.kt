@@ -52,6 +52,7 @@ class UsbMicButtons(
     private val ifaces = ArrayList<UsbInterface>()
     @Volatile private var running = false
     @Volatile private var held = false
+    @Volatile private var pausedForVoice = false  // 음성검색 중 HID 일시정지 상태 추적
     private val readers = ArrayList<Thread>()
     private var lastTrigger = 0L
     private var lastPermReq = 0L
@@ -125,7 +126,7 @@ class UsbMicButtons(
         codeMic = parseCode(settings.hidMicCode) ?: BtnCode(5, 0x3C)
         codeVolUp = parseCode(settings.hidVolUpCode) ?: BtnCode(5, 0x3D)
         codeVolDown = parseCode(settings.hidVolDownCode) ?: BtnCode(5, 0x3E)
-        if (conn != null) return   // 이미 읽는 중
+        if (conn != null || pausedForVoice) return   // 이미 읽는 중이거나 음성검색 중 일시정지 상태
         if (!registered) runCatching {
             activity.registerReceiver(permReceiver, IntentFilter(ACTION_PERM)); registered = true
         }
@@ -169,6 +170,7 @@ class UsbMicButtons(
     }
 
     fun stop() {
+        pausedForVoice = false  // 안전 장치 리셋 — 음성검색 중 stop 호출 시에도 상태 정리
         running = false
         held = false
         pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
@@ -178,6 +180,35 @@ class UsbMicButtons(
         ifaces.forEach { i -> runCatching { conn?.releaseInterface(i) } }; ifaces.clear()
         conn?.let { runCatching { it.close() } }; conn = null
         if (registered) { runCatching { activity.unregisterReceiver(permReceiver) }; registered = false }
+    }
+
+    private var lastDev: UsbDevice? = null
+
+    /**
+     * 음성검색 동안 USB(오디오)를 시스템에 돌려주려고 HID claim 을 놓는다(버튼 읽기 일시중단).
+     * BYD-micTS02 처럼 HID·오디오가 한 장치에 얽힌 마이크는 우리가 HID 를 잡으면 오디오가 막혀
+     * 음성검색에 목소리가 안 들어간다. receiver 는 유지해 resumeAfterVoice 로 곧 다시 잡는다.
+     */
+    fun pauseForVoice(reason: String = ""): Boolean {
+        if (conn == null) return false
+        pausedForVoice = true  // start() 재진입 차단 — onWindowFocusChanged 등에서 HID 재claim 방지
+        running = false
+        held = false
+        pendingLong?.let { handler.removeCallbacks(it) }; pendingLong = null
+        pendingVol?.let { handler.removeCallbacks(it) }; pendingVol = null
+        pendingMicTap?.let { handler.removeCallbacks(it) }; pendingMicTap = null
+        readers.forEach { runCatching { it.join(300) } }; readers.clear()
+        ifaces.forEach { i -> runCatching { conn?.releaseInterface(i) } }; ifaces.clear()
+        conn?.let { runCatching { it.close() } }; conn = null
+        diag("mic.pause $reason HID 놓음(오디오 확보)")
+        return true
+    }
+
+    /** 음성검색이 끝나면 다시 HID 를 잡아 버튼 읽기를 재개한다. */
+    fun resumeAfterVoice() {
+        pausedForVoice = false  // 일시정지 상태 해제 — start() 재진입 허용
+        if (conn != null) return
+        lastDev?.let { openAndRead(it) }
     }
 
     private fun logDevice(d: UsbDevice) {
@@ -222,6 +253,7 @@ class UsbMicButtons(
         if (hids.isEmpty()) { Log.i(TAG, "HID 인터럽트 엔드포인트 없음"); return }
         val c = usb.openDevice(dev) ?: run { Log.i(TAG, "USB 장치 열기 실패"); return }
         conn = c
+        lastDev = dev
         running = true
         var claimed = 0
         // 버튼이 어느 인터페이스에 있든 잡도록 모든 HID 인터럽트 인터페이스를 claim 하고 각각 읽는다.
@@ -300,12 +332,27 @@ class UsbMicButtons(
         }
     }
 
+    // micevent 를 받을 BYD 리시버 — 유닛마다 다르다(minikaraoke 의 KaraokeReceiver / com.byd.sing 의 별도 클래스).
+    // 하드코딩하면 sing 유닛에서 패널·볼륨 네이티브 동작이 허공으로 가므로 설치된 리시버를 찾아 쓴다.
+    private var micEventTarget: android.content.ComponentName? = null
+    private fun micEventTarget(): android.content.ComponentName {
+        micEventTarget?.let { return it }
+        val found = runCatching {
+            activity.packageManager.queryBroadcastReceivers(Intent(MICEVENT_ACTION), 0)
+                .map { it.activityInfo }
+                .firstOrNull { it.packageName.startsWith("com.byd.") }
+                ?.let { android.content.ComponentName(it.packageName, it.name) }
+        }.getOrNull() ?: android.content.ComponentName(KARAOKE_PKG, KARAOKE_RECEIVER)
+        CrashLog.event(activity, "micevent target=${found.flattenToShortString()}")
+        micEventTarget = found
+        return found
+    }
+
     /** BYD 노래방 시스템에 micevent 를 보내 네이티브 동작(패널/마이크 볼륨)을 그대로 실행. */
     private fun sendMicEvent(keyEvent: Int) {
         activity.runOnUiThread {
             runCatching {
-                val i = Intent(MICEVENT_ACTION)
-                i.setClassName(KARAOKE_PKG, KARAOKE_RECEIVER)
+                val i = Intent(MICEVENT_ACTION).setComponent(micEventTarget())
                 i.putExtra("android.intent.extra.KEY_EVENT", keyEvent)
                 activity.sendBroadcast(i)
             }

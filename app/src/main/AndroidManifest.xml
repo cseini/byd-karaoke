@@ -26,6 +26,9 @@
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- 씨라이언7 모드: BYD 노래방 팝업이 화면을 가릴 때 그 위에 '말하세요' 띠를 띄운다. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application

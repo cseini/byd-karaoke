@@ -3,6 +3,7 @@ package com.cseini.byd.karaoke.data.youtube
 import com.cseini.byd.karaoke.data.QueueItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * YouTube 검색 저장소. 동일 검색어 5분 캐시로 quota(검색 100회/일) 절약.
@@ -32,7 +33,7 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
     }
 
     private data class Cached(val at: Long, val items: List<QueueItem>)
-    private val cache = HashMap<String, Cached>()
+    private val cache = ConcurrentHashMap<String, Cached>()
     private val ttlMs = 5 * 60 * 1000L
 
     /** 원 쿼리(오타 포함 가능)와 결과 제목의 유사도로 오타 허용 정렬. */

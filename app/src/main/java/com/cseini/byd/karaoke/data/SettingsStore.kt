@@ -81,6 +81,20 @@ class SettingsStore(context: Context) {
         set(v) = prefs.edit().putBoolean("mic_button_control", v).apply()
 
     /**
+     * 순정 마이크(HID·오디오가 한 장치에 얽힌 마이크, 아토3 BYD-micTS02 등). 켜면 버튼으로 음성검색할 때
+     * USB HID 를 잠깐 놓아 마이크 오디오를 되찾은 뒤 음성인식하고, 끝나면 버튼 읽기를 재개한다.
+     * (안 켜면 HID 를 계속 잡아 오디오가 막혀 음성검색에 목소리가 안 들어갈 수 있다.)
+     */
+    var nativeMicMode: Boolean
+        get() = prefs.getBoolean("native_mic_mode", false)
+        set(v) = prefs.edit().putBoolean("native_mic_mode", v).apply()
+
+    /** 음성검색 STT 엔진 — "server"(Groq 서버, 기본) / "gemini"(직접 발급 키). */
+    var sttEngine: String
+        get() = prefs.getString("stt_engine", "server")!!
+        set(v) = prefs.edit().putString("stt_engine", v).apply()
+
+    /**
      * 학습된 HID 버튼 코드 — "바이트인덱스:값(10진)". 설정의 '버튼 학습'으로 채워지며,
      * 기본값은 최초 실측 마이크(리포트[5]=0x3C/0x3D/0x3E). 기종마다 달라 학습으로 덮어쓴다.
      */
@@ -120,6 +134,37 @@ class SettingsStore(context: Context) {
     var wheelButtonControl: Boolean
         get() = prefs.getBoolean("wheel_button_control", false)
         set(v) = prefs.edit().putBoolean("wheel_button_control", v).apply()
+
+    /**
+     * 씨라이언7 전용 모드 — USB 마이크 버튼을 앱이 직접 못 읽는 유닛 우회. BYD 노래방 팝업
+     * (com.byd.minikaraoke) 등장을 접근성으로 감지해 음성검색을 띄운다. 버튼 종류 구분은
+     * 안 되지만(아무 버튼이나 음성검색), USB 를 점유하지 않아 BYD 가 마이크를 잡을 수 있다.
+     */
+    var sealionMode: Boolean
+        get() = prefs.getBoolean("sealion_mode", false)
+        set(v) = prefs.edit().putBoolean("sealion_mode", v).apply()
+
+    /**
+     * BYD 시스템 브로드캐스트(byd.intent.minikaraoke_micevent)의 KEY_EVENT 코드에 음성검색을 붙일지 —
+     * "off"(기본) / "131" / "132" / "both".
+     *
+     * ⚠️ 기본이 off 인 이유(2026-09-02 실차 확정): 이 브로드캐스트로 오는 코드는 **131·132 두 개뿐이고
+     * 둘 다 마이크 '전원' 버튼**이다(로그 42건 전수 확인). 정작 쓰고 싶은 버튼(볼륨창을 띄우는 버튼)은
+     * 신호가 오지 않는다. 켜면 마이크를 껐다 켤 때마다 음성검색이 뜬다 — 씨라이언에서 버튼으로
+     * 음성검색을 하려면 [씨라이언7 전용 모드](팝업 감지)를 쓸 것.
+     */
+    var micEventTrigger: String
+        get() = prefs.getString("micevent_trigger", "off")!!
+        set(v) = prefs.edit().putString("micevent_trigger", v).apply()
+
+    /**
+     * 구글 키보드(Gboard) 음성입력을 Gemini 보다 우선한다. 인식률이 좋고 API 키가 필요 없다
+     * (앱이 검색창에 키보드를 띄우고 접근성으로 음성 버튼을 눌러 구글 STT 로 진입). 씨라이언
+     * 모드는 이 값과 무관하게 항상 키보드 우선. Gboard 가 없으면 설치를 유도한다.
+     */
+    var googleSttPreferred: Boolean
+        get() = prefs.getBoolean("google_stt_preferred", false)
+        set(v) = prefs.edit().putBoolean("google_stt_preferred", v).apply()
 
     /** 새 곡을 항상 전체화면으로 시작(화면 탭으로 해제). 기본 꺼짐. */
     var startFullscreen: Boolean

@@ -2,6 +2,7 @@ package com.cseini.byd.karaoke.data
 
 import android.content.Context
 import android.os.Environment
+import android.util.Log
 import java.io.File
 
 /** 녹음 저장 위치·용량 관리. 헤드유닛 내부와 SD카드 중 선택. 폴더명은 고정. */
@@ -71,7 +72,12 @@ object Storage {
         while (total > maxBytes && i < files.size) {
             val f = files[i]
             val len = f.length()
-            if (f.delete()) { total -= len; deleted.add(f.absolutePath) }
+            if (f.delete()) {
+                total -= len
+                deleted.add(f.absolutePath)
+            } else {
+                Log.w("Storage", "파일 삭제 실패: ${f.absolutePath}")
+            }
             i++
         }
         return deleted

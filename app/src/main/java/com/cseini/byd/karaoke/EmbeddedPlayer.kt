@@ -48,6 +48,9 @@ class EmbeddedPlayer(
     private val playHistory: PlayHistoryStore,
     private val onClose: () -> Unit = {},
     private val onRepeatedFailure: () -> Unit = {},
+    // 순정 마이크(HID·오디오 얽힘) 대응 — 노래 재생 시작/종료를 알려 USB HID 를 놓고/다시 잡게 한다.
+    private val onSongStart: () -> Unit = {},
+    private val onSongEnd: () -> Unit = {},
 ) {
     private val queue = QueueStore(activity)
     private val ui = Handler(Looper.getMainLooper())
@@ -164,6 +167,7 @@ class EmbeddedPlayer(
     }
 
     fun play(videoId: String, title: String) {
+        onSongStart()   // 순정 마이크: 재생 시작 → USB HID 놓기(채점·녹음 오디오 확보)
         overlay.visibility = View.VISIBLE
         load(videoId, title)
         // 이미 떠 있는 상태에서 다시 부르면 반복 러너블이 두 벌로 돌기 때문에 항상 먼저 걷어낸다.
@@ -242,8 +246,10 @@ class EmbeddedPlayer(
             playLogged = true
             playHistory.add(currentVideoId, titleView.text.toString(), System.currentTimeMillis())
         }
-        if (!settings.recordingEnabled) {
-            statusView.text = "🎵 재생 중 (녹음 꺼짐)"
+        // 녹음(저장) 또는 채점 중 하나라도 켜져 있으면 마이크를 캡처한다.
+        // 채점만 켜진 경우엔 곡이 끝나며 파일을 지워 저장은 남기지 않는다.
+        if (!settings.recordingEnabled && !settings.scoringEnabled) {
+            statusView.text = "🎵 재생 중 (녹음·채점 꺼짐)"
             CrashLog.event(activity, "rec skip: 설정 꺼짐")
             return
         }
@@ -264,24 +270,36 @@ class EmbeddedPlayer(
             CrashLog.event(activity, "rec fail: $err")
         } else {
             recordStarted = true; lastRecording = file
-            CrashLog.event(activity, "rec start")
+            // 순정 마이크(내장) vs USB 마이크(Loostone) 구분 — 씨라이언에서 녹음이 순정 마이크
+            // 라우팅을 끊는 문제 진단용. type: 15=BUILTIN_MIC, 11=USB_DEVICE, 22=USB_HEADSET 등.
+            val inDevs = runCatching {
+                val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+                    .joinToString(";") { "t=${it.type}/${it.productName}" }.take(180)
+            }.getOrDefault("?")
+            CrashLog.event(activity, "rec start in=[$inDevs]")
         }
     }
 
     private fun onEnded() {
+      try {
         CrashLog.event(activity, "onEnded scored=$scored recStarted=$recordStarted")
         if (scored) return
         if (!recordStarted) {
-            if (!settings.recordingEnabled) {
-                scored = true; statusView.text = "🎵 재생 완료"
-                scheduleAfterSong()
-            }
+            // 녹음·채점을 켰어도 마이크를 못 열었거나(권한·장치) 시작에 실패했으면 여기로 온다.
+            // 예전엔 이 경우 아무것도 안 하고 return 해 다음곡 진행이 영구히 멈췄다.
+            scored = true
+            statusView.text = if (!settings.recordingEnabled && !settings.scoringEnabled) "🎵 재생 완료"
+                else "🎵 재생 완료 (마이크를 못 열어 녹음·채점 없음)"
+            scheduleAfterSong()
             return
         }
         scored = true
         val file = recorder?.stop()
-        lastRecording = file
         if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
+        // 채점만 켜진 경우(녹음 저장 off) 파일을 남기지 않으므로 다시듣기도 없다.
+        val keepRecording = settings.recordingEnabled
+        lastRecording = if (keepRecording) file else null
         showPostSong()
         val rec = recorder
         if (!settings.scoringEnabled) {
@@ -324,16 +342,20 @@ class EmbeddedPlayer(
                 }.getOrNull()
             }
             ui.removeCallbacks(scoringTicker)
-            saveRecording(file, result?.total ?: -1)
+            if (keepRecording) saveRecording(file, result?.total ?: -1)
+            else runCatching { file.delete() }   // 채점 전용 — 파일 안 남김
             result?.let { playHistory.setScore(currentVideoId, it.total, it.breakdown) }
             if (result == null) {
-                statusView.text = "채점 실패 — 녹음은 저장됨"
+                statusView.text = if (keepRecording) "채점 실패 — 녹음은 저장됨" else "채점 실패 — 다시 시도하세요"
             } else {
-                statusView.text = "🎯 ${result.total}점 — 다시듣기로 들어보세요"
+                statusView.text = if (keepRecording) "🎯 ${result.total}점 — 다시듣기로 들어보세요" else "🎯 ${result.total}점"
                 showScore(result)
             }
             scheduleAfterSong()
         }
+      } finally {
+        onSongEnd()   // 채점(녹음 마이크 종료) 뒤 USB HID 를 다시 잡아 버튼 읽기를 재개한다
+      }
     }
 
     private fun showScore(result: ScoringEngine.Score) {
@@ -353,7 +375,13 @@ class EmbeddedPlayer(
 
     private fun saveRecording(file: File, score: Int) {
         recordings.add(RecordingItem(file.absolutePath, currentVideoId, titleView.text.toString(), score, System.currentTimeMillis()))
-        Storage.pruneToLimit(file.parentFile ?: file, settings.maxStorageBytes).let { if (it.isNotEmpty()) recordings.removeByPaths(it) }
+        // 용량 정리(listFiles·stat·delete)는 SD카드가 블랙박스에 점유되면 수백ms 걸린다 — 메인 스레드에서 뺀다.
+        val dir = file.parentFile ?: file
+        val max = settings.maxStorageBytes
+        activity.lifecycleScope.launch {
+            val pruned = withContext(Dispatchers.IO) { Storage.pruneToLimit(dir, max) }
+            if (pruned.isNotEmpty()) recordings.removeByPaths(pruned)
+        }
     }
 
     /** 곡이 끝난 뒤: 다시듣기 버튼 노출, 예약 있으면 다음곡 버튼. */
@@ -366,9 +394,9 @@ class EmbeddedPlayer(
     private fun stopSong() {
         CrashLog.event(activity, "stopSong recStarted=$recordStarted scored=$scored replaying=$replaying")
         cancelCountdown()
-        if (replaying) { endReplay(); return }
+        if (replaying) { endReplay(); onSongEnd(); return }
         player?.pause()
-        if (recordStarted && !scored) onEnded() else showPostSong()
+        if (recordStarted && !scored) onEnded() else { showPostSong(); onSongEnd() }
     }
 
     private fun playNext() {

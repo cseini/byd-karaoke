@@ -18,6 +18,9 @@ interface ScreenHost {
      */
     fun onSettingsSaved() {}
 
+    /** 설정에서 녹음을 전체 삭제했을 때 — 호스트의 인메모리 녹음 목록을 다시 읽는다. */
+    fun onRecordingsChanged() {}
+
     /** 마이크 버튼 진단 시작/종료 — 장치 정보·버튼 신호(hex)를 onLine 으로 스트리밍. */
     fun onMicDiagStart(onLine: (String) -> Unit) {}
     fun onMicDiagStop() {}

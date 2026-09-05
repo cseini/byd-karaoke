@@ -11,16 +11,35 @@ import java.io.FileInputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.URLEncoder
+import java.security.SecureRandom
 
 /**
  * 녹음 하나를 내려받게 해주는 초경량 HTTP 서버.
  * 차량 헤드유닛엔 공유 대상 앱이 없어 ACTION_SEND 가 통하지 않으므로,
  * 같은 네트워크(차 핫스팟/WiFi)에 붙은 휴대폰이 브라우저로 직접 받게 한다.
+ *
+ * 서버 시작 시 일회용 토큰을 생성하며, 파일 다운로드는 이 토큰으로만 가능하다.
+ * (같은 WiFi의 다른 기기에서 무단 다운로드하는 것을 방지)
  */
 class FileShareServer(private val file: File) : NanoHTTPD(0) {
 
+    // 서버 시작 시 생성되는 일회용 토큰 (Base36 16자)
+    private val accessToken: String = SecureRandom().let {
+        val bytes = ByteArray(12)
+        it.nextBytes(bytes)
+        bytes.joinToString("") { b -> "%02x".format(b) }
+    }
+
     override fun serve(session: IHTTPSession): Response {
-        return if (session.uri.endsWith("/file")) {
+        val uri = session.uri
+        val tokenParam = session.parameters["t"]?.firstOrNull() ?: ""
+
+        // 토큰 검증: "/file?t=TOKEN" 또는 "/?t=TOKEN" 형태로만 접근 가능
+        if (!tokenParam.equals(accessToken)) {
+            return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Not found")
+        }
+
+        return if (uri.startsWith("/file")) {
             // 고정 길이 응답 → 휴대폰 브라우저가 전체 용량·진행률을 표시
             val res = newFixedLengthResponse(
                 Response.Status.OK, "audio/x-wav", FileInputStream(file), file.length()
@@ -38,7 +57,7 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
                 <body style="font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#eee">
                 <h2>🎤 내 노래 받기</h2>
                 <p style="color:#9ad">${htmlEscape(file.name)}<br>(${kb} KB)</p>
-                <p><a href="/file" download
+                <p><a href="/file?t=$accessToken" download
                    style="display:inline-block;padding:16px 28px;background:#2b6cff;color:#fff;
                    border-radius:10px;text-decoration:none;font-size:18px">⬇ 다운로드</a></p>
                 </body></html>
@@ -46,6 +65,9 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
             newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
         }
     }
+
+    /** 서버가 노출하는 공개 URL (QR 코드에 포함). 포트는 listeningPort로 자동 할당됨. */
+    fun getPublicUrl(baseUrl: String): String = "$baseUrl?t=$accessToken"
 
     private fun htmlEscape(s: String) =
         s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

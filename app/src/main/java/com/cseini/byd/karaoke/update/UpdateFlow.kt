@@ -71,9 +71,12 @@ object UpdateFlow {
             dlg.getButton(AlertDialog.BUTTON_NEGATIVE)?.isEnabled = false
             val dispatched = UpdateManager.startSilentInstall(activity, apk)
             if (!dispatched) {
-                // ADB 미개방/미인증 유닛 → 시스템 설치창(진행 화면은 시스템이 띄운다)
+                // ADB(5555)에 아예 못 붙은 경우 — 씨라이언 등 USB 디버깅이 꺼진 유닛.
+                // 예전엔 설명 없이 시스템 설치창으로 넘겨서, 사용자는 왜 갑자기 '허용' 을 요구하는지
+                // 모른 채 권한 토스트만 봤다. 아래 안내를 거쳐 스스로 고를 수 있게 한다.
                 dlg.dismiss()
-                UpdateManager.installViaSystem(activity, apk)
+                CrashLog.event(activity, "무음설치 미시도 v${release.version}: ADB(5555) 연결 실패")
+                manualInstallGuide(activity, apk, "USB 디버깅이 꺼져 있어 자동 설치를 시도하지 못했습니다")
                 return@launch
             }
 
@@ -110,33 +113,7 @@ object UpdateFlow {
             // 여기 도달 = 무음 설치 실패(성공했다면 이미 프로세스가 죽었다).
             val why = reason ?: "설치 응답 없음 (${INSTALL_WAIT_SEC}초 초과)"
             CrashLog.event(activity, "무음설치 실패 v${release.version}: ${why.take(300)}")
-            AlertDialog.Builder(activity)
-                .setTitle("자동 설치가 안 됐어요")
-                .setMessage(
-                    "USB 디버깅이 꺼져 있으면 자동 설치가 안 됩니다(씨라이언 등).\n\n" +
-                        "① 설정 → 개발자 옵션 → 'USB 디버깅' 켜기 → 다시 업데이트하면 자동 설치됩니다.\n" +
-                        "   (개발자 옵션이 없으면: 설정 → 기기정보 → '빌드번호'를 7번 연속 탭)\n" +
-                        "② 또는 아래 '설치창 열기'로 수동 설치하세요.\n\n" +
-                        "원인: ${why.take(150)}",
-                )
-                .setPositiveButton("설치창 열기") { _, _ -> UpdateManager.installViaSystem(activity, apk) }
-                .setNeutralButton("개발자 설정 열기") { _, _ ->
-                    runCatching {
-                        activity.startActivity(
-                            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }.onFailure {
-                        runCatching {
-                            activity.startActivity(
-                                android.content.Intent(android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS)
-                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                    }
-                }
-                .setNegativeButton("나중에", null)
-                .show()
+            manualInstallGuide(activity, apk, why)
         }
         // 다운로드 단계에서만 취소 가능(설치 단계에선 버튼을 비활성화한다).
         // show() 뒤라 버튼은 반드시 존재한다 — 널이면 기본 리스너(즉시 dismiss)만 남아
@@ -145,5 +122,43 @@ object UpdateFlow {
             job.cancel()
             dlg.dismiss()
         }
+    }
+
+    /**
+     * 무음 설치가 안 될 때의 안내 — ADB 에 못 붙은 경우와 붙었지만 pm install 이 실패한 경우 공통.
+     * '설치창 열기' 는 출처 허용 권한이 없으면 시스템 권한 화면으로 넘어간다(앱 이름은 UpdateManager 가 표시).
+     */
+    private fun manualInstallGuide(activity: AppCompatActivity, apk: java.io.File, why: String) {
+        val label = runCatching {
+            activity.applicationInfo.loadLabel(activity.packageManager).toString()
+        }.getOrDefault("노래방")
+        AlertDialog.Builder(activity)
+            .setTitle("자동 설치가 안 됐어요")
+            .setMessage(
+                "USB 디버깅이 꺼져 있으면 자동 설치가 안 됩니다(씨라이언 등).\n\n" +
+                    "① 설정 → 개발자 옵션 → 'USB 디버깅' 켜기 → 다시 업데이트하면 자동 설치됩니다.\n" +
+                    "   (개발자 옵션이 없으면: 설정 → 기기정보 → '빌드번호'를 7번 연속 탭)\n" +
+                    "② 또는 아래 '설치창 열기'로 수동 설치하세요.\n" +
+                    "   권한 화면이 뜨면 목록에서 반드시 '$label' 을 켜세요(비슷한 이름의 다른 앱 주의).\n\n" +
+                    "원인: ${why.take(150)}",
+            )
+            .setPositiveButton("설치창 열기") { _, _ -> UpdateManager.installViaSystem(activity, apk) }
+            .setNeutralButton("개발자 설정 열기") { _, _ ->
+                runCatching {
+                    activity.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }.onFailure {
+                    runCatching {
+                        activity.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_DEVICE_INFO_SETTINGS)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
+            .setNegativeButton("나중에", null)
+            .show()
     }
 }

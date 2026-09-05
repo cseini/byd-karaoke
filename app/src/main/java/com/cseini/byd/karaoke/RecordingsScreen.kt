@@ -94,7 +94,8 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
             val server = com.cseini.byd.karaoke.share.FileShareServer(src)
             server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
             shareServer = server
-            val url = "http://$ip:${server.listeningPort}/"
+            val baseUrl = "http://$ip:${server.listeningPort}/"
+            val url = server.getPublicUrl(baseUrl)
             showShareDialog(url)
         } catch (e: Exception) {
             android.widget.Toast.makeText(ctx, "공유 서버 시작 실패: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -104,11 +105,14 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
     private fun showShareDialog(url: String) {
         val view = LayoutInflater.from(ctx).inflate(R.layout.dialog_share, null)
         // 주소를 눌러 다른 후보 IP로 전환 가능(유닛마다 인터페이스가 달라 자동 선택이 틀릴 수 있음).
+        // 토큰이 있으면 각 후보 IP와 함께 전달 (다운로드는 토큰으로만 가능)
+        val tokenParam = if (url.contains("?")) "?" + url.substringAfter("?") else ""
         com.cseini.byd.karaoke.share.QrSwitcher.bind(
             view.findViewById(R.id.share_qr),
             view.findViewById(R.id.share_url),
             view.findViewById(R.id.share_hint),
             com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8088),
+            tokenParam,
         )
         AlertDialog.Builder(ctx)
             .setView(view)

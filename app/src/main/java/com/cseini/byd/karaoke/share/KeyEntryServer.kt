@@ -52,9 +52,10 @@ object KeyEntryServer {
             fun q(k: String): String = p[k]?.firstOrNull()?.trim().orEmpty()
             // 프록시 사용 시 절대 URL 로 오므로 경로만 남긴다(ReserveServer 와 동일 이유).
             return if (ReserveServer.normalizePath(session.uri).startsWith("/save")) {
-                settings.openaiApiKey = q("k1")
-                settings.openaiApiKey2 = q("k2")
-                settings.openaiApiKey3 = q("k3")
+                // 빈 필드는 기존 값 유지하여 실수로 모든 키를 덮어쓰지 않도록 함
+                if (q("k1").isNotEmpty()) settings.openaiApiKey = q("k1")
+                if (q("k2").isNotEmpty()) settings.openaiApiKey2 = q("k2")
+                if (q("k3").isNotEmpty()) settings.openaiApiKey3 = q("k3")
                 onSaved?.let { cb -> Handler(Looper.getMainLooper()).post { cb() } }
                 json("{\"ok\":true}")
             } else {
@@ -63,20 +64,23 @@ object KeyEntryServer {
         }
 
         private fun page(): String {
-            fun esc(s: String) = s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
+            // 저장된 키는 평문으로 보이지 않게 하여 브라우저 캐시 노출 방지
+            fun statusText(key: String) = if (key.isNotEmpty()) "설정됨" else ""
             return PAGE
-                .replace("{{K1}}", esc(settings.openaiApiKey))
-                .replace("{{K2}}", esc(settings.openaiApiKey2))
-                .replace("{{K3}}", esc(settings.openaiApiKey3))
+                .replace("{{K1}}", statusText(settings.openaiApiKey))
+                .replace("{{K2}}", statusText(settings.openaiApiKey2))
+                .replace("{{K3}}", statusText(settings.openaiApiKey3))
         }
 
         private fun html(body: String) =
             newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", body)
-                .apply { addHeader("Access-Control-Allow-Origin", "*") }
+                .apply {
+                    // 브라우저 캐시 방지: 저장된 키가 캐시/히스토리에 남지 않도록
+                    addHeader("Cache-Control", "no-store, no-cache, must-revalidate, private")
+                }
 
         private fun json(body: String) =
             newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", body)
-                .apply { addHeader("Access-Control-Allow-Origin", "*") }
     }
 
     private val PAGE = """
@@ -100,9 +104,9 @@ object KeyEntryServer {
 <div class="wrap">
  <p class="d">음성 검색용 Gemini 키를 붙여넣고 전송하세요. 1~3개까지 넣을 수 있고,
    여러 개면 한도 초과 시 자동으로 다음 키로 넘어갑니다. 키는 <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>에서 무료 발급.</p>
- <label>키 1</label><input id="k1" value="{{K1}}" placeholder="AIza…" autocomplete="off" autocapitalize="off" spellcheck="false">
- <label>키 2 (선택)</label><input id="k2" value="{{K2}}" placeholder="예비 키" autocomplete="off" autocapitalize="off" spellcheck="false">
- <label>키 3 (선택)</label><input id="k3" value="{{K3}}" placeholder="예비 키" autocomplete="off" autocapitalize="off" spellcheck="false">
+ <label>키 1</label><input id="k1" placeholder="{{K1}}" autocomplete="off" autocapitalize="off" spellcheck="false">
+ <label>키 2 (선택)</label><input id="k2" placeholder="{{K2}}" autocomplete="off" autocapitalize="off" spellcheck="false">
+ <label>키 3 (선택)</label><input id="k3" placeholder="{{K3}}" autocomplete="off" autocapitalize="off" spellcheck="false">
  <button onclick="save()">차로 전송</button>
  <div id="msg" class="msg"></div>
 </div>

@@ -32,10 +32,14 @@ class RecordingStore(context: Context) {
             val type = object : TypeToken<List<RecordingItem>>() {}.type
             runCatching { gson.fromJson<List<RecordingItem>>(json, type) }
                 .getOrNull()
-                // 파일이 지워진 항목은 목록에서도 정리
-                ?.let { list -> items.addAll(list.filter { File(it.path).exists() }) }
+                ?.let { list ->
+                    // 파일이 지워진 항목만 정리. 부모 폴더 자체가 안 보이면(SD 카드가 아직/잠시 안 잡힘)
+                    // 지우지 않는다 — 예전엔 그 순간 SD 녹음 인덱스가 통째로 사라진 채 저장됐다.
+                    val kept = list.filter { val f = File(it.path); f.exists() || f.parentFile?.exists() != true }
+                    items.addAll(kept)
+                    if (kept.size != list.size) persist()
+                }
         }
-        persist()
     }
 
     fun all(): List<RecordingItem> = items.sortedByDescending { it.at }
@@ -67,6 +71,7 @@ class RecordingStore(context: Context) {
     }
 
     private fun persist() {
-        prefs.edit().putString("recordings", gson.toJson(items)).apply()
+        // 차량은 전원이 갑자기 끊긴다 — apply() 의 비동기 쓰기가 유실되지 않게 동기 commit.
+        prefs.edit().putString("recordings", gson.toJson(items)).commit()
     }
 }

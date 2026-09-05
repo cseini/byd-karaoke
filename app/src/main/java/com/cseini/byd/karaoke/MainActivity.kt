@@ -44,6 +44,13 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private var embeddedPlayer: EmbeddedPlayer? = null
     private lateinit var embedScreen: android.widget.FrameLayout
     private var screenCleanup: (() -> Unit)? = null
+    // 설정 화면 인스턴스 — 뒤로가기 시 미저장 변경 저장 여부를 묻기 위해 참조를 들고 있는다.
+    private var settingsScreen: SettingsScreen? = null
+
+    // 화면을 닫되, 설정이면 미저장 변경 확인을 거친다(버튼·하드웨어·리모트 back 공통).
+    private fun closeScreenChecked() {
+        settingsScreen?.let { it.requestClose { closeScreen() } } ?: closeScreen()
+    }
 
     // (테스트) USB 마이크 버튼 HID 직접 읽기 — 대상 버튼 길게 누르면 음성검색.
     private var usbMic: UsbMicButtons? = null
@@ -51,9 +58,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     // ── ScreenHost: 임베드 화면(녹음함/랭킹/설정)이 콜백하는 호스트 ──
     override fun onScreenBack() = closeScreen()
+    override fun onRecordingsChanged() { if (::recordings.isInitialized) recordings.reload() }
     /** 임베드 화면의 하단바 → 다른 임베드 화면으로 전환(분할화면 유지). */
     override fun onNavigate(target: String) {
-        if (target == "search") closeScreen() else showScreen(target)
+        val go = { if (target == "search") closeScreen() else showScreen(target) }
+        settingsScreen?.let { it.requestClose { go() } } ?: go()
     }
 
     /** 마이크 버튼 제스처 → 설정에서 매핑된 기능 실행. */
@@ -67,12 +76,66 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         runMappedFunction(fn)
     }
 
+    private var voiceUsbPaused = false
+
+    // postDelayed 콜백들 — onDestroy에서 정리를 위해 참조 유지
+    private val voiceReleaseRunnable = Runnable { startVoice() }
+    private val resumeUsbRunnable = Runnable { resumeUsbIfPaused() }
+    private val sealionVoiceRunnable = Runnable { startVoiceInner(true) }
+
+    /**
+     * USB 마이크 버튼으로 음성검색 — HID 를 잡고 있으면 오디오가 막혀 목소리가 안 들어가는 마이크
+     * (아토3 BYD-micTS02 등)를 위해, 버튼을 놓아 USB 오디오를 되찾은 뒤(복구 지연) 음성검색하고
+     * 끝나면 다시 버튼 읽기를 재개한다. HID 를 안 잡는(씨라이언 등) 경우엔 그냥 바로 음성검색.
+     */
+    private fun startVoiceReleasingUsb() {
+        val mic = usbMic
+        if (mic != null && settings.micButtonControl && settings.nativeMicMode && mic.pauseForVoice("음성검색")) {
+            voiceUsbPaused = true
+            window.decorView.postDelayed(voiceReleaseRunnable, 900)            // USB 오디오 복구 대기
+            window.decorView.postDelayed(resumeUsbRunnable, 30000)   // 안전장치: 오래 걸려도 재개
+        } else {
+            startVoice()
+        }
+    }
+
+    // 버튼성 트리거(micevent·BYD 콜백·접근성 팝업감지)가 공유하는 단일 게이트 — 같은 누름이 두 경로로
+    // 들어오거나(씨라이언 모드+micevent) 131/132 가 쌍으로 와도 음성검색은 5초에 1회. 노래 재생 중엔 무시.
+    private var lastVoiceTrigger = 0L
+    private fun startVoiceGated(source: String, sealion: Boolean = false) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val dt = now - lastVoiceTrigger
+        val playing = embeddedPlayer?.isPlayingSong == true
+        // 듣는 중(오버레이 표시)이면 5초가 지났어도 재시작하지 않는다 — 순정마이크 900ms·씨라이언 TTS 2.2초 뒤에
+        // 시작하는 경로에서 두 번째 신호가 인식 도중에 들어오는 것을 막는다.
+        val listening = ::voiceOverlay.isInitialized && voiceOverlay.visibility == View.VISIBLE
+        val pass = dt > 5_000L && !playing && !listening
+        CrashLog.event(this, "voice gate src=$source dt=${dt}ms playing=$playing listening=$listening ${if (pass) "PASS" else "BLOCK"}")
+        if (!pass) return
+        lastVoiceTrigger = now
+        cancelAutoPlay()
+        if (sealion) startVoice(sealion = true) else startVoiceReleasingUsb()
+    }
+
+    /** 노래 재생(채점·녹음) 동안 USB 오디오를 쓰려고 HID 를 놓는다 — 순정 마이크 모드일 때만. */
+    private fun pauseUsbForAudio(reason: String) {
+        val mic = usbMic
+        if (!voiceUsbPaused && mic != null && settings.micButtonControl && settings.nativeMicMode &&
+            mic.pauseForVoice(reason)) {
+            voiceUsbPaused = true
+        }
+    }
+
+    private fun resumeUsbIfPaused() {
+        if (voiceUsbPaused) { voiceUsbPaused = false; usbMic?.resumeAfterVoice() }
+    }
+
     private fun runMappedFunction(fn: String) {
         when (fn) {
             // 음성검색: 노래 재생 중만 제외하고 어디서든(검색·채점·녹음함…) 동작
-            "voice" -> if (embeddedPlayer?.isPlayingSong != true) { cancelAutoPlay(); startVoice() }
+            "voice" -> if (embeddedPlayer?.isPlayingSong != true) { cancelAutoPlay(); startVoiceReleasingUsb() }
             // 뒤로: 채점 화면 → 검색(재생 중엔 무시), 그 외엔 열린 화면 닫기
-            "back" -> if (embeddedPlayer?.remoteBack() != true && isScreenShowing) closeScreen()
+            "back" -> if (embeddedPlayer?.remoteBack() != true && isScreenShowing) closeScreenChecked()
             "mute" -> embeddedPlayer?.remoteMuteToggle()
             "next" -> embeddedPlayer?.remoteNext()
             "stop" -> embeddedPlayer?.remoteStop()
@@ -145,7 +208,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             when (which) {
                 "recordings" -> RecordingsScreen(v, this).also { it.refresh(); screenCleanup = { it.destroy() } }
                 "ranking" -> RankingScreen(v, this).refresh()
-                "settings" -> SettingsScreen(v, this)
+                "settings" -> settingsScreen = SettingsScreen(v, this)
             }
             embedScreen.visibility = View.VISIBLE
         }.onFailure { e ->
@@ -173,6 +236,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     private fun closeScreen() {
         screenCleanup?.invoke(); screenCleanup = null
+        settingsScreen = null
         if (::embedScreen.isInitialized) {
             embedScreen.removeAllViews()
             embedScreen.visibility = View.GONE
@@ -211,6 +275,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     private lateinit var autoplayLeft: View
     private lateinit var autoplayRight: View
     private var pendingAutoPlay = false          // 음성 검색 결과가 오면 첫 곡 자동재생 대기
+    private var gboardVoicePending = false        // Gboard 마이크 클릭 후 들어올 텍스트는 음성 결과(자동재생 대상)
     private val autoPlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var autoPlayRunnable: Runnable? = null
 
@@ -316,8 +381,16 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         // 튕김 추적: 진짜 크래시(crash.txt)만 팝업으로 표시. '비정상 종료(재시작)' 팝업은
         // BYD 분할화면 리사이즈가 매번 Activity 를 재생성해 오탐이 잦아 제거(이벤트 로그엔 계속 남김).
         CrashLog.install(this)
-        CrashLog.takeCrash(this)?.let { showIncidentDialog("⚠ 이전 실행이 크래시로 종료됐어요", it) }
+        CrashLog.takeCrash(this)?.let {
+            // 다이얼로그로 소비되면 crash.txt 가 삭제돼 '로그 보내기'에 크래시가 빠진다 → events.log 에도 남긴다.
+            CrashLog.event(this, "CRASH(이전실행) " + it.replace("\n", " ⏎ ").take(3000))
+            showIncidentDialog("⚠ 이전 실행이 크래시로 종료됐어요", it)
+        }
         CrashLog.event(this, "onCreate saved=${savedInstanceState != null} ${cfgSnapshot()}")
+        // DiLink 버전/차종 자동 감지용 — 씨라이언(DiLink5)이면 USB 마이크 버튼 기능을 자동 비활성화하기 위한 데이터.
+        runCatching {
+            CrashLog.event(this, "build model=${android.os.Build.MODEL} product=${android.os.Build.PRODUCT} device=${android.os.Build.DEVICE} brand=${android.os.Build.BRAND} manuf=${android.os.Build.MANUFACTURER}")
+        }
 
         settings = SettingsStore(this)
         queue = QueueStore(this)
@@ -334,6 +407,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             this, settings, recordings, playHistory,
             onClose = { resetToSearchHome() },
             onRepeatedFailure = { onRepeatedPlayFailure() },
+            onSongStart = { pauseUsbForAudio("노래재생") },   // 순정 마이크: 노래 중 채점·녹음 오디오 확보
+            onSongEnd = { resumeUsbIfPaused() },              // 노래 끝 → 버튼 읽기 재개
         )
 
         searchInput = findViewById(R.id.search_input)
@@ -352,7 +427,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         autoplayLeft = findViewById(R.id.autoplay_left)
         autoplayRight = findViewById(R.id.autoplay_right)
         // 좌측 = 취소하고 다시 음성검색 / 우측 = 취소만
-        autoplayLeft.setOnClickListener { cancelAutoPlay(); startVoice() }
+        autoplayLeft.setOnClickListener { cancelAutoPlay(); startVoiceReleasingUsb() }
         autoplayRight.setOnClickListener { cancelAutoPlay(); status.text = "자동 재생을 취소했습니다." }
         voiceOverlay.setOnClickListener { cancelVoice() }
 
@@ -372,7 +447,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             adapter = this@MainActivity.homeQueueAdapter
         }
 
-        findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoice() }
+        findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoiceReleasingUsb() }
         findViewById<Button>(R.id.btn_reserve_server).setOnClickListener { showReserveServer() }
         embedScreen = findViewById(R.id.embed_screen)
         // 네비바(녹음함/랭킹/설정)는 Activity 대신 화면 안 오버레이로 전환 → 분할화면 유지.
@@ -392,8 +467,15 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         // 한글은 조합 중에도 매 글자 변경이 오고 검색 한 번이 결과 페이지 통째(수백 KB)라,
         // 간격이 짧으면 버려질 요청이 회선을 먹어 정작 누른 검색이 밀린다.
         searchInput.doAfterTextChanged { text ->
-            cancelAutoPlay()   // 사용자가 직접 타이핑하면 자동재생 취소
+            _sealionGuide?.hide()
             val q = text?.toString()?.trim().orEmpty()
+            // Gboard 음성이 넣은 텍스트면 자동재생을 취소하지 않고 첫곡 자동재생을 예약한다(설정 켜졌으면 doSearch 가 실행).
+            // 직접 타이핑이면 자동재생 취소(매 글자 자동재생 방지).
+            if (gboardVoicePending && q.isNotEmpty()) {
+                pendingAutoPlay = true
+            } else {
+                cancelAutoPlay()
+            }
             btnClear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
             pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             if (q.length >= 2) {
@@ -413,7 +495,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
         // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
         if (intent?.action == KeyCatcherService.ACTION_VOICE) {
-            searchInput.post { startVoice() }
+            val sealion = intent.getBooleanExtra("sealion", false)
+            searchInput.post { startVoiceGated("a11y", sealion) }
         }
     }
 
@@ -515,8 +598,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         super.onNewIntent(intent)
         // 마이크 버튼(접근성)이 부른 음성검색 — 이미 실행 중일 때.
         if (intent.action == KeyCatcherService.ACTION_VOICE) {
-            cancelAutoPlay()
-            searchInput.post { startVoice() }
+            val sealion = intent.getBooleanExtra("sealion", false)
+            searchInput.post { startVoiceGated("a11y", sealion) }
             return
         }
         // USB 마이크가 연결됨(앱 실행 중) → 권한이 부여됐으니 즉시 버튼 제어 시작.
@@ -548,9 +631,72 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             a11yTried = true
             kotlin.concurrent.thread { UpdateManager.enableAccessibilityViaAdb(this@MainActivity) }
         }
+        // 차량이 부팅 때 기본키보드를 자기 것으로 되돌린다(테스터: 재시동 후 Gboard 아님). Gboard 음성 모드면
+        // 앱 시작 때마다 기본키보드가 Gboard 가 아니면 ADB 로 다시 지정한다(설치돼 있을 때만, 없으면 무해).
+        if (BuildConfig.FLAVOR == "lab" && settings.googleSttPreferred && !gboardEnsured) {
+            gboardEnsured = true
+            kotlin.concurrent.thread { UpdateManager.ensureGboardDefault(this@MainActivity) }
+        }
+        // BYD 마이크 서비스 bind — USB 를 직접 못 여는 유닛(씨라이언)에서 BYD(시스템·USB권한)가
+        // 대신 읽은 마이크 버튼 이벤트를 콜백으로 받는다. 현재는 계측 단계.
+        // ⚠️ prod 상시 bind 는 일부 유닛(아토3)에서 음성인식 오디오 캡처를 깨뜨렸다(v5.13 회귀).
+        // 오디오 간섭 없이 버튼 콜백만 받는 방법을 lab 에서 확정하기 전까지 prod 는 bind 하지 않는다.
+        if (BuildConfig.FLAVOR == "lab") {
+            if (bydBridge == null) bydBridge = BydMicBridge(this) { runOnUiThread { startVoiceGated("bydbridge", settings.sealionMode) } }
+            bydBridge?.bind()
+        }
+        // BYD 시스템의 마이크 버튼 브로드캐스트(micevent) 수신 — DiLink5(com.byd.sing) 유닛에서 USB 권한 없이
+        // 버튼이 된다(D1 실증: KEY 131/132). DiLink3(minikaraoke) 등 신호가 없는 유닛에선 아무 일도 없으므로
+        // 모든 플레이버에서 등록한다. (오디오 캡처를 깨뜨렸던 건 위 AIDL bind 이지 이 수신기가 아니다)
+        if (bydMicEventReceiver == null) {
+            bydMicEventReceiver = BydMicEventReceiver(settings) { code ->
+                runOnUiThread { startVoiceGated("micevent:$code", settings.sealionMode) }
+            }
+            val filter = android.content.IntentFilter().apply {
+                BydMicEventReceiver.ACTIONS.forEach { addAction(it) }
+            }
+            val reg = runCatching {
+                ContextCompat.registerReceiver(this, bydMicEventReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+            }
+            CrashLog.event(
+                this,
+                "bydmicevent 등록=" + (if (reg.isSuccess) "ok" else "실패 " + reg.exceptionOrNull()?.message) +
+                    " actions=" + BydMicEventReceiver.ACTIONS.size,
+            )
+            if (reg.isFailure) bydMicEventReceiver = null
+        }
+
+        // 씨라이언7 모드: 접근성이 이미 켜져 있어도(운영자 유닛) 오버레이 권한은 별도로 필요하다.
+        // TTS 는 미리 초기화해 첫 버튼 누름이 무음이 되지 않게 하고, 권한·엔진 상태를 계측한다.
+        if (settings.sealionMode) {
+            sealionGuide()
+            if (!sealionAppopsTried && !android.provider.Settings.canDrawOverlays(this)) {
+                sealionAppopsTried = true
+                kotlin.concurrent.thread { UpdateManager.grantOverlayViaAdb(this@MainActivity) }
+            }
+            window.decorView.postDelayed({
+                CrashLog.event(
+                    this,
+                    "sealion tts=" + (if (sealionGuide().ttsReady) "OK" else "FAIL") +
+                        " overlay=" + sealionGuide().canOverlay,
+                )
+            }, 1500)
+        }
     }
 
     private var a11yTried = false
+    private var gboardA11yGuided = false   // Gboard 모드에서 접근성 설정 안내를 한 번만 열도록
+    private var gboardEnsured = false      // 기본키보드 Gboard 재지정을 앱 켤 때 한 번만
+    private var sealionAppopsTried = false
+    private var bydBridge: BydMicBridge? = null
+    private var bydMicEventReceiver: BydMicEventReceiver? = null
+
+    // 씨라이언7 모드 안내(소리 + 팝업 위 띠). 필요할 때 지연 생성.
+    private var _sealionGuide: SealionGuide? = null
+    private fun sealionGuide(): SealionGuide {
+        if (_sealionGuide == null) _sealionGuide = SealionGuide(this)
+        return _sealionGuide!!
+    }
 
     /**
      * 음성 버튼 노출 조건: Gemini 키가 있거나, 시스템/Gboard 음성인식이 가능하면 켠다.
@@ -563,8 +709,26 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         val s = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
         val a = voice.activitySttIntent() != null
         CrashLog.event(this, "voice.avail gemini=$g sys=$s activity=$a")   // 어느 STT 가 있는지 원격 확인
+        // Gboard 음성입력 경로 검토용(씨라이언: Google 음성 서비스 없음). Gboard·Google앱 설치/버전, 등록 IME,
+        // RecognitionService 제공 앱을 남겨 "Gboard 마이크가 부르는 것"을 이 유닛에서 쓸 수 있는지 판단한다.
+        runCatching {
+            val pm = packageManager
+            fun ver(pkg: String) = runCatching { pm.getPackageInfo(pkg, 0).versionName }.getOrNull() ?: "none"
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            val imes = imm.inputMethodList.joinToString(",") { it.id.substringBefore('/') }.take(160)
+            val recog = pm.queryIntentServices(
+                android.content.Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0,
+            ).joinToString(",") { it.serviceInfo.packageName }.ifEmpty { "none" }
+            CrashLog.event(
+                this,
+                "ime.avail gboard=${ver("com.google.android.inputmethod.latin")} gapp=${ver("com.google.android.googlequicksearchbox")} " +
+                    "gms=${ver("com.google.android.gms")} recog=[$recog] imes=[$imes]",
+            )
+        }
         // lab 은 키보드 마이크 폴백(실험)이 있어 STT 가 없어도 버튼을 띄운다. prod 는 실제 STT/Gemini 있을 때만.
-        val voiceOn = g || s || a || BuildConfig.FLAVOR == "lab"
+        // 서버(Groq) 엔진은 키도 시스템 STT 도 필요 없다 — 이걸 빼면 키 없는 prod 유닛에서
+        // 음성검색이 되는데도 🎤 버튼이 숨겨진다.
+        val voiceOn = g || s || a || settings.sttEngine == "server" || BuildConfig.FLAVOR == "lab"
         findViewById<Button>(R.id.btn_voice).visibility = if (voiceOn) View.VISIBLE else View.GONE
     }
 
@@ -613,10 +777,12 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     }
 
     private fun doSearch() {
+        _sealionGuide?.hide()   // 씨라이언 안내 띠 — 검색이 시작되면(키보드 경로 포함) 내린다
         val q = searchInput.text.toString().trim()
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
         val wantAutoPlay = pendingAutoPlay   // 이번 호출이 음성 트리거였는지 확정
         pendingAutoPlay = false
+        gboardVoicePending = false           // Gboard 음성 세션 종료(검색 실행됨)
         cancelAutoPlay()                     // 진행 중인 카운트다운은 중단
         if (wantAutoPlay) autoPlayAfterSearch = true
         status.text = "검색 중…"
@@ -727,27 +893,85 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             .show()
     }
 
-    private fun startVoice() {
+    private fun startVoice(sealion: Boolean = false) {
+        // 자동재생 5초 카운트다운이 진행 중일 때 다시 부르면, 그 카운트를 즉시 취소하고 검색을 다시 시작한다.
         cancelAutoPlay()
+        if (sealion) {
+            // Gemini 경로: TTS 가 열린 마이크에 녹음돼 인식을 망치므로 안내가 끝난 뒤(약 2.2초) 인식을 시작한다.
+            sealionGuide().show()
+            window.decorView.postDelayed(sealionVoiceRunnable, 2200)
+            return
+        }
+        startVoiceInner(sealion)
+    }
+
+    private fun isGboardInstalled(): Boolean =
+        runCatching { packageManager.getPackageInfo("com.google.android.inputmethod.latin", 0); true }
+            .getOrDefault(false)
+
+    /** 현재 오디오 입력 장치 목록 — 순정 마이크가 음성검색 때 실제로 잡히는지 진단용. */
+    private fun audioInputs(): String = runCatching {
+        val am = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+        am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+            .joinToString(";") { "t=${it.type}/${it.productName}" }.take(140)
+    }.getOrDefault("?")
+
+    /** Gboard 미설치 안내 — Play 가 있으면 스토어로, 없으면 사이드로드 안내(재배포는 하지 않는다). */
+    private fun promptInstallGboard() {
+        val playIntent = Intent(
+            Intent.ACTION_VIEW,
+            android.net.Uri.parse("market://details?id=com.google.android.inputmethod.latin"),
+        )
+        val hasPlay = playIntent.resolveActivity(packageManager) != null
+        CrashLog.event(this, "gboard 없음 → 설치안내 play=$hasPlay")
+        val b = AlertDialog.Builder(this)
+            .setTitle("음성검색엔 Gboard가 필요해요")
+            .setMessage(
+                if (hasPlay) "구글 키보드(Gboard)를 설치하면 인식률 좋은 음성검색을 쓸 수 있어요. 설치할까요?"
+                else "구글 키보드(Gboard)가 있어야 음성검색이 됩니다. 이 기기엔 Play 스토어가 없어 APK로 직접 설치해야 해요(karaoke.usenu.kr 참고)."
+            )
+            .setNegativeButton("나중에", null)
+        if (hasPlay) b.setPositiveButton("설치") { _, _ -> runCatching { startActivity(playIntent) } }
+        b.show()
+    }
+
+    private fun startVoiceInner(sealion: Boolean) {
+        cancelAutoPlay()
+        // Gboard 음성입력 모드(정확도↑ + 마이크 경쟁 회피): 우리가 녹음하지 않고, 검색창에 Gboard 를 띄워
+        // 그 마이크 버튼을 접근성으로 눌러 Gboard STT 로 받는다. 결과 텍스트는 검색창에 들어와 자동 검색된다.
+        // 우리 앱이 마이크를 안 잡으므로 씨라이언 BUS 경쟁에서 빠진다(Gboard 음성이 시스템 경로로 잡으면 성공).
+        if (settings.googleSttPreferred) {
+            val kc = KeyCatcherService.instance
+            if (kc != null) {
+                CrashLog.event(this, "stt route=keyboard(gboard) sealion=$sealion")
+                searchInput.setText("")
+                searchInput.requestFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                    .showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                // Gboard 가 자기 음성 UI(듣는 중 표시)를 띄우므로 우리 '말하세요' 안내는 겹쳐서 안 사라지기만 한다 → 안 띄운다.
+                kc.clickKeyboardMicRetry()
+                gboardVoicePending = true   // 곧 Gboard 가 넣을 텍스트는 음성 결과 → 첫곡 자동재생 예약(직접 타이핑 아님)
+                return
+            }
+            // 접근성이 아직 안 붙음. 차량 헤드유닛은 접근성 UI 가 막혀 앱이 ADB 로 켜지만(자동), 태블릿·폰은
+            // ADB(5555)가 안 열려 있어 자동이 안 되니 접근성 설정 화면으로 안내한다. 둘 다 시도(무해).
+            CrashLog.event(this, "gboard: 접근성 미연결 → ADB 시도 + 설정 안내")
+            kotlin.concurrent.thread { UpdateManager.enableAccessibilityViaAdb(this) }
+            if (!gboardA11yGuided) {
+                gboardA11yGuided = true
+                toast("접근성 서비스가 필요해요. 차량은 자동으로 켜지고, 태블릿·폰은 방금 연 화면에서 '노래방' 접근성을 켠 뒤 마이크를 다시 누르세요")
+                runCatching { startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            } else {
+                toast("접근성 준비 중… 켜졌으면 마이크를 다시 눌러주세요")
+            }
+            return
+        }
         if (!voice.isAvailable()) {
             toast("이 기기는 음성 인식을 지원하지 않습니다. 타이핑으로 검색하세요.")
             return
         }
-        // 앱이 부를 수 있는 STT(시스템 RecognitionService·Gboard 액티비티)도 Gemini 도 없는 유닛(DiLink 등)
-        // 이면 → 검색창 포커스 + 키보드를 띄워 '키보드 마이크'로 유도한다. 키보드 음성입력 결과는
-        // 검색창 텍스트로 들어와 자동 검색되므로 별도 처리가 필요 없다(권한도 IME 가 알아서 처리).
         val bgStt = android.speech.SpeechRecognizer.isRecognitionAvailable(this)
         val actIntent = voice.activitySttIntent()
-        if (BuildConfig.FLAVOR == "lab" && !bgStt && actIntent == null && settings.geminiApiKeys().isEmpty()) {
-            CrashLog.event(this, "stt route=keyboard")
-            searchInput.requestFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
-                .showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-            // 접근성 서비스가 켜져 있으면 키보드가 뜬 뒤 마이크 버튼을 자동으로 눌러본다(안 되면 수동).
-            searchInput.postDelayed({ KeyCatcherService.instance?.clickKeyboardMic() }, 600)
-            toast("키보드의 🎤 마이크를 눌러 노래 제목을 말하면 검색돼요")
-            return
-        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             ensureMicPermission(); toast("마이크 권한이 필요합니다"); return
@@ -761,11 +985,16 @@ class MainActivity : AppCompatActivity(), ScreenHost {
                 catch (e: Exception) { CrashLog.event(this, "stt activity launch실패 ${e.message}") }
             }
         }
-        CrashLog.event(this, "stt route=" + if (bgStt) "system" else "gemini")
+        beginVoiceCapture(sealion, bgStt)
+    }
+
+    private fun beginVoiceCapture(sealion: Boolean, bgStt: Boolean) {
+        CrashLog.event(this, "stt route=" + (if (bgStt) "system" else "gemini") + " in=[" + audioInputs() + "]")
         showVoiceOverlay("🎙", "준비 중…", "잠깐만요")
         voice.start(
             onReady = {
                 beepStart()
+                if (sealion) sealionGuide().show("노래 제목을 말하세요")
                 showVoiceOverlay("🎙", "말씀하세요", "노래 제목이나 가수를 말하면 검색해요")
                 voiceLevel.visibility = View.VISIBLE
                 voiceLevelHint.visibility = View.VISIBLE
@@ -773,11 +1002,14 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             },
             onProcessing = {
                 beepEnd()
+                if (sealion) sealionGuide().show("음성 인식 중…")
                 voiceLevel.visibility = View.GONE
                 voiceLevelHint.visibility = View.GONE
                 showVoiceOverlay("🌀", "인식 중…", "잠시만 기다려주세요")
             },
             onResult = { text ->
+                if (sealion) sealionGuide().hide()
+                resumeUsbIfPaused()
                 hideVoiceOverlay()
                 searchInput.setText(text)
                 pendingSearch?.let { searchDebounce.removeCallbacks(it) }  // 타이핑 디바운스 중복 검색 방지
@@ -785,6 +1017,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
                 doSearch()
             },
             onError = {
+                if (sealion) sealionGuide().hide()
+                resumeUsbIfPaused()
                 // 오류는 읽을 시간을 준다(예전엔 1.8초 만에 사라져 원인을 못 봤다). 탭하면 즉시 닫힘.
                 showVoiceOverlay("⚠️", "음성 검색 실패", "$it\n\n(화면을 누르면 닫힙니다)")
                 voiceOverlay.postDelayed({ hideVoiceOverlay() }, 6000)
@@ -806,6 +1040,8 @@ class MainActivity : AppCompatActivity(), ScreenHost {
     /** 음성 오버레이 탭 = 취소: UI뿐 아니라 녹음·전사·자동재생 파이프라인까지 전부 중단. */
     private fun cancelVoice() {
         voice.stop()
+        _sealionGuide?.hide()
+        resumeUsbIfPaused()
         hideVoiceOverlay()
         cancelAutoPlay()
         status.text = DEFAULT_HINT
@@ -861,7 +1097,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
 
     override fun onBackPressed() {
         when {
-            isScreenShowing -> closeScreen()
+            isScreenShowing -> closeScreenChecked()
             embeddedPlayer?.isShowing == true -> embeddedPlayer?.close()
             else -> super.onBackPressed()
         }
@@ -1016,6 +1252,13 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         cancelAutoPlay()
         voice.stop()
         usbMic?.stop()
+        bydBridge?.unbind()
+        bydMicEventReceiver?.let { runCatching { unregisterReceiver(it) } }
+        _sealionGuide?.release()
+        // postDelayed 콜백들 정리 — lifecycle-leak 방지
+        window.decorView.removeCallbacks(voiceReleaseRunnable)
+        window.decorView.removeCallbacks(resumeUsbRunnable)
+        window.decorView.removeCallbacks(sealionVoiceRunnable)
         // 액티비티가 재생성(구성 변경·메모리 회수)될 때 플레이어가 유출되면
         // 화면은 초기화됐는데 소리만 계속 나고, 재시작 시 노래가 겹친다.
         runCatching { embeddedPlayer?.close() }

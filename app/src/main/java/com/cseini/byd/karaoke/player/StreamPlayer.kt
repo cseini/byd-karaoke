@@ -70,6 +70,7 @@ class StreamPlayer(
         private const val MAX_RESOLUTION = 720
     }
 
+    private val appContext = context.applicationContext
     private val playerView = PlayerView(context)
     private val exo = buildExo(context, accompProcessor)
 
@@ -103,15 +104,16 @@ class StreamPlayer(
 
     // ExoPlayer 는 메인 스레드에서만 접근 가능하므로, 재생 위치를 여기서 캐시하고
     // 녹음 스레드(MixRecorder)는 캐시값+경과시간 보간으로 읽는다.
-    @Volatile private var cachedPositionMs = 0L
-    @Volatile private var cachedAtNanos = 0L
+    // 두 값을 원자적으로 갱신하기 위해 하나의 Pair 로 통합(비원자 읽기 방지).
+    @Volatile private var cached: Pair<Long, Long> = 0L to 0L  // (cachedPositionMs, cachedAtNanos)
 
     private val ticker = object : Runnable {
         override fun run() {
             if (exo.isPlaying) {
-                cachedPositionMs = exo.currentPosition
-                cachedAtNanos = System.nanoTime()
-                cb.onTime(cachedPositionMs / 1000f)
+                val pos = exo.currentPosition
+                val nanos = System.nanoTime()
+                cached = pos to nanos
+                cb.onTime(pos / 1000f)
             }
             handler.postDelayed(this, 200)
         }
@@ -181,9 +183,17 @@ class StreamPlayer(
     }
 
     private fun buildMediaSource(videoId: String): MediaSource {
-        val extractor: StreamExtractor =
-            ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
-        extractor.fetchPage()
+        val url = "https://www.youtube.com/watch?v=$videoId"
+        val extractor: StreamExtractor = try {
+            ServiceList.YouTube.getStreamExtractor(url).also { it.fetchPage() }
+        } catch (e: Exception) {
+            if (!YouTubeDownloader.isAnonBlocked(e)) throw e
+            // 유튜브가 이 회선의 IPv6 대역을 봇차단(로그인 요구)한 경우 — IPv4 로 다시 붙으면 풀린다.
+            com.cseini.byd.karaoke.CrashLog.event(appContext, "yt IPv6 봇차단 감지 → IPv4 재시도 vid=$videoId")
+            ServiceList.YouTube.getStreamExtractor(url).also {
+                YouTubeDownloader.withIpv4 { it.fetchPage() }
+            }
+        }
         val dsf = DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT)
 
         // 다시듣기(lowRes): 소리는 녹음 파일로 나가므로 오디오 트랙 없이 가장 낮은 화질 영상만.
@@ -257,9 +267,10 @@ class StreamPlayer(
     }
     override fun durationMs(): Long = exo.duration.let { if (it > 0) it else 0L }
     override fun currentPositionMs(): Long {
-        if (cachedAtNanos == 0L) return cachedPositionMs
-        val elapsed = (System.nanoTime() - cachedAtNanos) / 1_000_000L
-        return cachedPositionMs + elapsed
+        val (pos, at) = cached
+        if (at == 0L) return pos
+        val elapsed = (System.nanoTime() - at) / 1_000_000L
+        return pos + elapsed
     }
 
     override fun release() {

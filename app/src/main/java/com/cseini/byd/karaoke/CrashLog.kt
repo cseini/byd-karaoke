@@ -29,6 +29,7 @@ object CrashLog {
      * 한 줄 이벤트 기록(수명주기·close 경로 등). 크기 상한으로 잘라 유지.
      * 이어쓰기라 매 호출마다 로그 전체를 읽고 다시 쓰지 않는다(메인 스레드에서 불린다).
      */
+    @Synchronized
     fun event(ctx: Context, msg: String) {
         runCatching {
             val f = File(ctx.applicationContext.filesDir, "events.log")

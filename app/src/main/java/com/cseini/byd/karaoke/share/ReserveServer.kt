@@ -1,6 +1,7 @@
 package com.cseini.byd.karaoke.share
 
 import android.content.Context
+import com.cseini.byd.karaoke.CrashLog
 import com.cseini.byd.karaoke.data.QueueItem
 import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.SettingsStore
@@ -83,9 +84,11 @@ object ReserveServer {
                     repo.search(query, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
                 }
             }.getOrElse { e ->
+                // 원본 exception은 서버 로그에만, 폰에는 일반 메시지만 반환
+                CrashLog.event(ctx, "Search failed: ${e.message ?: e::class.java.simpleName}")
                 return jsonBody(
                     JSONObject().put("items", JSONArray())
-                        .put("error", "차에서 검색 실패: ${e.message ?: e::class.java.simpleName}").toString()
+                        .put("error", "차에서 검색 실패: 네트워크를 확인하세요").toString()
                 )
             }
             val arr = JSONArray()
@@ -119,9 +122,7 @@ object ReserveServer {
 
         private fun jsonBody(s: String) = json(Response.Status.OK, "application/json; charset=utf-8", s)
         private fun json(status: Response.Status, mime: String, body: String): Response =
-            newFixedLengthResponse(status, mime, body).apply {
-                addHeader("Access-Control-Allow-Origin", "*")
-            }
+            newFixedLengthResponse(status, mime, body)
     }
 
     // 폰 브라우저용 예약 페이지 (자체 완결 HTML/CSS/JS)

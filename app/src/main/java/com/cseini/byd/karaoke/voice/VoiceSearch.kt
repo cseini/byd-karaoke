@@ -30,11 +30,25 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
 
     companion object {
         // VAD(무음 감지) 자동 종료 — 어절이 끝나고 잠깐 조용하면 자동으로 끊는다.
-        private const val SPEECH_DB = -36f       // 이 이상이면 '말소리'로 간주
+        // 이 이상이면 '말소리'로 간주. 씨라이언 순정마이크(BUS) 실측: 배경 -57~-62dB, 목소리 -35~-40dB.
+        // -36 은 너무 빡빡해 -37dB 목소리를 무음 처리했다(v6.56 실측) → -45 로 낮춰 배경과 12dB 이상 벌린다.
+        private const val SPEECH_DB = -45f
         private const val SILENCE_MS = 900L      // 말소리 뒤 이만큼 조용하면 종료
         private const val MIN_MS = 700L          // 최소 녹음 시간(너무 이른 종료 방지)
         private const val NO_SPEECH_MS = 4000L   // 이때까지 말이 없으면 포기
         private const val MAX_MS = 8000L         // 하드 상한(계속 말해도 여기서 끊음)
+        // 마이크(USB/BUS)를 여는 순간의 초기 팝·노이즈가 '말소리'로 오인돼 즉시 종료되는 것을 막는
+        // 워밍업 구간. 이 시간이 지나기 전의 입력은 VAD 에서 무시한다(마이크 안정화 대기).
+        private const val WARMUP_MS = 700L
+        // 자동 소스 폴백: 어떤 소스는 열리기만 하고(state OK) 완전 무음(-99)을 준다(씰 순정마이크 실측: src=9 무음,
+        // src=6 은 -39~-48 로 잡힘). 주변음이 있는 정상 소스는 첫 구간부터 바닥이 -40~-62 다. 그래서 '이 아래면
+        // 신호경로 없음'을 -80dB 로 잡아 '조용한 사용자'(-45~-62)와 구분한다.
+        const val DEAD_DB = -80f
+        const val DEAD_CHECK_MS = 1200L
+
+        /** 자동 소스 폴백 판정 — 부수효과 없는 순수 함수(단위 테스트). 첫 ~1.2초가 완전 무음이면 다음 소스로. */
+        fun shouldSwitchSource(elapsedMs: Long, maxDb: Float, hasSpeech: Boolean, hasNext: Boolean): Boolean =
+            hasNext && !hasSpeech && elapsedMs > DEAD_CHECK_MS && maxDb < DEAD_DB
 
         /**
          * 음성인식 모델 폴백 순서(전부 무료 티어 · 한도는 모델별로 따로 = 모델당 하루 20회 수준).
@@ -55,6 +69,11 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
             "flash" to (FLASH + LITE),
             "flash-lite" to (LITE + FLASH),
         )
+
+        // 서버(Groq whisper-large-v3-turbo) STT 프록시 — 사용자 키 불필요.
+        // 키가 없어 달리 방법이 없는 유닛(씨라이언 등)의 기본 경로이자, 설정에서 명시 선택 가능.
+        private const val STT_SERVER = "https://karaoke.usenu.kr/api/stt"
+        private const val STT_SECRET = "b13b80e18c631211fc5f7392f991f906"
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -97,12 +116,16 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     ) {
         cancelled = false
         when {
+            // 서버(Groq) 선택 → 녹음은 공통(startGemini)이고 전사만 서버로 간다.
+            settings.sttEngine == "server" ->
+                startGemini(onReady, onProcessing, onResult, onError, onLevel)
             SpeechRecognizer.isRecognitionAvailable(context) ->
                 startSystem(onReady, onProcessing, onResult, onError, onLevel)
             settings.geminiApiKeys().isNotEmpty() ->
                 startGemini(onReady, onProcessing, onResult, onError, onLevel)
+            // 키·시스템STT 가 전혀 없는 유닛(씨라이언 등)도 서버(Groq)로 시도한다 — 설정 없이 그냥 되게.
             else ->
-                onError("음성검색을 쓰려면 설정에서 Gemini API 키(무료)를 넣으세요.")
+                startGemini(onReady, onProcessing, onResult, onError, onLevel)
         }
     }
 
@@ -168,51 +191,95 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     ) {
         teardown()
         val file = File(context.cacheDir, "voice_query.wav")
-        // 음성검색 마이크 소스: 설정에서 특정 소스를 골랐으면 그걸 쓰고(유닛마다 잘 되는 소스가 다름),
-        // '자동'이면 USB 원음(UNPROCESSED) 기본. 녹음 음량은 아래 normalizeWav 로 보정.
-        val rec = AudioRecorder(
-            context, settings, 16000,
-            sourceOverride = settings.forcedMicSource()
-                ?: android.media.MediaRecorder.AudioSource.UNPROCESSED,
-            forceEffects = false,
-        )
-        recorder = rec
-        val startAt = android.os.SystemClock.elapsedRealtime()
-        val speechAt = java.util.concurrent.atomic.AtomicLong(0L)      // 마지막 말소리 시각(0=아직 없음)
-        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
-
-        // 녹음 종료 → 전사(말소리 없으면 오류). 어느 스레드에서 불려도 한 번만 실행.
-        fun finish(hadSpeech: Boolean) {
-            if (!finished.compareAndSet(false, true)) return
-            main.post {
-                pendingStop?.let { main.removeCallbacks(it) }; pendingStop = null
-                runCatching { rec.stop() }; recorder = null
-                if (cancelled) return@post
-                if (!hadSpeech) { deliver { onError("말소리가 없습니다. 다시 시도하세요.") }; return@post }
-                onProcessing()
-                thread(name = "gemini") { transcribeGemini(file, onResult, onError) }
-            }
+        // 시도할 마이크 소스 목록. 설정에서 소스를 지정했으면 그것만(사용자 선택 존중). '자동'이면 원음→음성인식→MIC
+        // 순으로, 앞 소스가 완전 무음이면 다음으로 넘어간다(씰 순정마이크: src9 무음, src6 잡힘). 단 씨라이언
+        // (BYD 가 USB 독점: com.byd.sing)에선 폴백 금지 — BUS 를 여러 소스로 붙잡으면 28초 행이 난다(v6.54).
+        val bydOwns = runCatching { context.packageManager.getPackageInfo("com.byd.sing", 0); true }.getOrDefault(false)
+        val forced = settings.forcedMicSource()
+        val sources: List<Int> = when {
+            forced != null -> listOf(forced)
+            bydOwns -> listOf(android.media.MediaRecorder.AudioSource.UNPROCESSED)
+            else -> listOf(
+                android.media.MediaRecorder.AudioSource.UNPROCESSED,
+                android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                android.media.MediaRecorder.AudioSource.MIC,
+            )
         }
+        var readyFired = false
 
-        // 마이크 입력 레벨을 UI 에 넘기고(소리 표시), 동시에 무음 감지로 자동 종료를 판단한다.
-        val err = rec.start(file) { db ->
-            main.post { onLevel(db) }
-            val now = android.os.SystemClock.elapsedRealtime()
-            val elapsed = now - startAt
-            if (db > SPEECH_DB) speechAt.set(now)
-            val last = speechAt.get()
-            when {
-                last != 0L && elapsed > MIN_MS && now - last > SILENCE_MS -> finish(true)
-                last == 0L && elapsed > NO_SPEECH_MS -> finish(false)
-                elapsed > MAX_MS -> finish(last != 0L)
+        fun attempt(idx: Int) {
+            val src = sources[idx]
+            val hasNext = idx < sources.size - 1
+            val rec = AudioRecorder(context, settings, 16000, sourceOverride = src, forceEffects = false)
+            recorder = rec
+            val startAt = android.os.SystemClock.elapsedRealtime()
+            val speechAt = java.util.concurrent.atomic.AtomicLong(0L)
+            val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+            val switching = java.util.concurrent.atomic.AtomicBoolean(false)   // 소스 전환 중 옛 recorder 콜백 무시용
+            val usedSource = java.util.concurrent.atomic.AtomicInteger(-1)
+            val levels = FloatArray(24) { -99f }
+            var maxDb = -99f
+
+            fun switchNext() {
+                if (!switching.compareAndSet(false, true)) return
+                com.cseini.byd.karaoke.CrashLog.event(context, "voice ${com.cseini.byd.karaoke.audio.MicRouting.sourceName(src)} 무음 → ${com.cseini.byd.karaoke.audio.MicRouting.sourceName(sources[idx + 1])} 자동전환")
+                main.post {
+                    pendingStop?.let { main.removeCallbacks(it) }; pendingStop = null
+                    runCatching { rec.stop() }; recorder = null
+                    attempt(idx + 1)
+                }
             }
+
+            fun finish(hadSpeech: Boolean) {
+                if (switching.get()) return
+                if (!finished.compareAndSet(false, true)) return
+                val took = android.os.SystemClock.elapsedRealtime() - startAt
+                com.cseini.byd.karaoke.CrashLog.event(context, "voice VAD 종료 hadSpeech=$hadSpeech src=${com.cseini.byd.karaoke.audio.MicRouting.sourceName(usedSource.get())} ${took}ms")
+                val nb = ((took / 500) + 1).toInt().coerceIn(1, levels.size)
+                com.cseini.byd.karaoke.CrashLog.event(
+                    context,
+                    "voice levels(0.5s,dB)=[" + levels.take(nb).joinToString(",") { it.toInt().toString() } + "] 기준 말소리>${SPEECH_DB.toInt()}",
+                )
+                main.post {
+                    pendingStop?.let { main.removeCallbacks(it) }; pendingStop = null
+                    runCatching { rec.stop() }; recorder = null
+                    if (cancelled) return@post
+                    if (!hadSpeech) { deliver { onError("말소리가 없습니다. 다시 시도하세요.") }; return@post }
+                    onProcessing()
+                    thread(name = "stt") { transcribeByEngine(file, onResult, onError) }
+                }
+            }
+
+            val err = rec.start(file) { db ->
+                if (switching.get() || finished.get()) return@start
+                main.post { onLevel(db) }
+                val now = android.os.SystemClock.elapsedRealtime()
+                val elapsed = now - startAt
+                val b = (elapsed / 500).toInt()
+                if (b in levels.indices && db > levels[b]) levels[b] = db
+                if (db > maxDb) maxDb = db
+                if (elapsed > WARMUP_MS && db > SPEECH_DB) speechAt.set(now)
+                val last = speechAt.get()
+                // 완전 무음 소스면(주변음도 없음) 다음 소스로 자동 전환. 그 뒤 VAD 판단은 스킵.
+                if (shouldSwitchSource(elapsed, maxDb, last != 0L, hasNext)) { switchNext(); return@start }
+                when {
+                    last != 0L && elapsed > MIN_MS && now - last > SILENCE_MS -> finish(true)
+                    last == 0L && elapsed > NO_SPEECH_MS -> finish(false)
+                    elapsed > MAX_MS -> finish(last != 0L)
+                }
+            }
+            if (err != null) {
+                if (hasNext) switchNext() else onError("마이크 오류: $err")
+                return
+            }
+            usedSource.set(rec.getCurrentSource())
+            com.cseini.byd.karaoke.CrashLog.event(context, "voice ready ${android.os.SystemClock.elapsedRealtime() - startAt}ms src=${com.cseini.byd.karaoke.audio.MicRouting.sourceName(src)}(#${idx + 1}/${sources.size})")
+            if (!readyFired) { readyFired = true; onReady() }
+            val guard = Runnable { finish(speechAt.get() != 0L) }
+            pendingStop = guard
+            main.postDelayed(guard, MAX_MS + 1500)
         }
-        if (err != null) { onError("마이크 오류: $err"); return }
-        onReady()
-        // 안전망: 레벨 콜백이 안 오는 기기 대비 하드 타임아웃.
-        val guard = Runnable { finish(speechAt.get() != 0L) }
-        pendingStop = guard
-        main.postDelayed(guard, MAX_MS + 1500)
+        attempt(0)
     }
 
     /** 취소된 뒤에는 결과·오류 콜백을 전달하지 않는다(백그라운드 자동재생 방지). */
@@ -244,6 +311,75 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                 i += 2
             }
             file.writeBytes(b)
+        }
+    }
+
+    /** 녹음된 WAV 를 설정 엔진으로 전사 — 서버(Groq)/gemini. 지연·결과를 로깅. */
+    private fun transcribeByEngine(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
+        // 서버(Groq) 경로: 명시적 server 선택, 또는 키가 전혀 없어(씨라이언 등) 달리 방법이 없을 때.
+        if (settings.sttEngine == "server" || settings.geminiApiKeys().isEmpty()) {
+            transcribeServer(file, onResult, onError); return
+        }
+        transcribeGemini(file, onResult, onError)
+    }
+
+    /** 서버(Cloudflare Worker → Groq whisper-large-v3-turbo) 전사. 실패 시 gemini(키 있으면)로 폴백. */
+    private fun transcribeServer(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
+        if (!file.exists() || file.length() < 2000) { deliver { onError("녹음이 감지되지 않았습니다") }; return }
+        normalizeWav(file)
+        val device = runCatching {
+            android.provider.Settings.Secure.getString(
+                context.contentResolver, android.provider.Settings.Secure.ANDROID_ID,
+            )
+        }.getOrNull() ?: "unknown"
+        val url = "$STT_SERVER?k=$STT_SECRET&lang=ko&device=$device&ver=${com.cseini.byd.karaoke.BuildConfig.VERSION_NAME}"
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        val req = Request.Builder().url(url)
+            .post(file.readBytes().toRequestBody("audio/wav".toMediaTypeOrNull()))
+            .build()
+        try {
+            http.newCall(req).execute().use { resp ->
+                val ms = android.os.SystemClock.elapsedRealtime() - t0
+                val json = resp.body?.string().orEmpty()
+                if (resp.isSuccessful) {
+                    val obj = runCatching { JSONObject(json) }.getOrNull()
+                    val ok = obj?.optBoolean("ok") == true
+                    val text = obj?.optString("text").orEmpty().trim()
+                    val engine = obj?.optString("engine").orEmpty()
+                    // whisper 무음/특수토큰([음악]·(박수) 등)·빈문자는 실패로 본다(무음 오인식 방지).
+                    val bad = !ok || text.isBlank() || text.startsWith("[") || text.startsWith("(")
+                    com.cseini.byd.karaoke.CrashLog.event(
+                        context, "stt server ${ms}ms engine=$engine ok=$ok → '${text.take(50)}'",
+                    )
+                    if (bad) deliver { onError("말소리를 알아듣지 못했어요. 다시 시도해 주세요.") }
+                    else deliver { onResult(text) }
+                    return
+                }
+                // 429(운영자 Groq 계정 하루 무료 한도 ~50회 소진)·5xx·기타 → 폴백/안내
+                val limited = resp.code == 429 ||
+                    json.contains("rate", true) || json.contains("quota", true) ||
+                    json.contains("limit", true) || json.contains("429")
+                com.cseini.byd.karaoke.CrashLog.event(context, "stt server 실패 http=${resp.code} limited=$limited ${ms}ms → 폴백")
+                serverFallback(file, onResult, onError, limited)
+            }
+        } catch (e: Exception) {
+            com.cseini.byd.karaoke.CrashLog.event(context, "stt server 예외 ${e.message} → 폴백")
+            serverFallback(file, onResult, onError, false)
+        }
+    }
+
+    /**
+     * 서버 실패 시 폴백. gemini 키가 있으면 gemini 로 처리(그대로 됨). 키가 없는데 '한도 소진(429)'이면
+     * Groq(운영자 계정 공유, 하루 ~50회 무료)를 다 쓴 것이므로 Gemini/Gboard 로 바꾸라고 명확히 안내한다.
+     */
+    private fun serverFallback(file: File, onResult: (String) -> Unit, onError: (String) -> Unit, limited: Boolean) {
+        if (settings.geminiApiKeys().isNotEmpty()) {
+            com.cseini.byd.karaoke.CrashLog.event(context, "stt server→gemini 폴백 (limited=$limited)")
+            transcribeGemini(file, onResult, onError)
+        } else if (limited) {
+            deliver { onError("오늘 무료 음성검색 한도(약 50회)를 다 썼어요.\n설정 → 음성 검색에서 'Gboard' 또는 'Gemini'로 바꿔주세요.") }
+        } else {
+            deliver { onError("음성 인식 서버에 연결하지 못했어요.\n인터넷 연결을 확인하고 다시 시도해 주세요.") }
         }
     }
 
@@ -290,6 +426,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
                     if (r is KeyResult.Fail && r.retryable) r = requestGemini(key, payloadStr, model)  // 타임아웃 1회 재시도
                     when (r) {
                         is KeyResult.Ok -> {
+                            com.cseini.byd.karaoke.CrashLog.event(context, "stt gemini($model) → '${r.text.take(50)}'")
                             deliver { if (r.text.isEmpty()) onError("인식된 내용이 없습니다") else onResult(r.text) }
                             return
                         }

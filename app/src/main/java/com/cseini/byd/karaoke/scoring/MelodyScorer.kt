@@ -38,7 +38,8 @@ object MelodyScorer {
 
         // 병렬: 목소리 YIN 추적 / 반주 배음합산 멜로디
         var micResult: List<SignalAnalysis.Frame>? = null
-        val t = kotlin.concurrent.thread { micResult = SignalAnalysis.analyze(vDs, vRate) }
+        // 분석 예외는 이 스레드 안에서 잡아야 한다 — 호출자의 runCatching 은 다른 스레드라 못 잡고 프로세스가 죽는다.
+        val t = kotlin.concurrent.thread { micResult = runCatching { SignalAnalysis.analyze(vDs, vRate) }.getOrNull() }
         val mel = salienceMelody(aDs, aRate)
         t.join()
         val mic = micResult ?: return noSing("채점 분석에 실패했습니다.")

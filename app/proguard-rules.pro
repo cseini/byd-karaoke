@@ -55,3 +55,6 @@
 -keep class com.cseini.byd.karaoke.KeyCatcherService { *; }
 -keep class com.cseini.byd.karaoke.media.** { *; }
 -keep class com.cseini.byd.karaoke.update.RestartReceiver { *; }
+
+# BYD 마이크 서비스 AIDL — 원격 서비스와 바이너리(transaction 코드) 호환 유지 필수
+-keep class com.byd.minikaraoke.** { *; }

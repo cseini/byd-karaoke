@@ -10,15 +10,16 @@ import android.widget.TextView
  */
 object QrSwitcher {
 
-    /** @return 후보 개수(0이면 네트워크 없음). */
-    fun bind(qr: ImageView, urlView: TextView, hint: TextView?, port: Int): Int {
+    /** @return 후보 개수(0이면 네트워크 없음).
+     * @param tokenParam 쿼리 문자열(예: "?t=abc123"). 없으면 빈 문자열. */
+    fun bind(qr: ImageView, urlView: TextView, hint: TextView?, port: Int, tokenParam: String = ""): Int {
         val cands = localIpCandidates()
         if (cands.isEmpty()) return 0
         var idx = 0
 
         fun render() {
             val c = cands[idx]
-            val url = "http://${c.ip}:$port/"
+            val url = "http://${c.ip}:$port/$tokenParam"
             urlView.text = url
             qr.setImageBitmap(qrBitmap(url, 480))
             hint?.text = if (cands.size > 1) {
@@ -39,5 +40,6 @@ object QrSwitcher {
 
     /** "http://1.2.3.4:8080/" 에서 포트만 추출(실패 시 기본값). */
     fun portOf(url: String?, def: Int): Int =
-        Regex(":(\\d+)/?$").find(url.orEmpty())?.groupValues?.get(1)?.toIntOrNull() ?: def
+        // 뒤에 경로·쿼리(?t=토큰)가 붙어도 포트를 찾는다 — 공유 서버는 랜덤 포트라 기본값으로 떨어지면 QR 이 틀린다.
+        Regex(":(\\d+)(?:/.*)?$").find(url.orEmpty())?.groupValues?.get(1)?.toIntOrNull() ?: def
 }

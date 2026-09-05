@@ -2,7 +2,7 @@
 <!-- 물리 키(USB 마이크 버튼 등) 가로채기용 접근성 설정.
      flagRequestFilterKeyEvents 가 있어야 onKeyEvent 로 키가 들어온다(diplus 와 동일). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows"
     android:canRequestFilterKeyEvents="true"
