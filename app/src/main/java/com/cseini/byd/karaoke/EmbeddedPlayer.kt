@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.audio.MixRecorder
 import com.cseini.byd.karaoke.data.PlayHistoryStore
 import com.cseini.byd.karaoke.data.QueueItem
+import com.cseini.byd.karaoke.share.SecondScreenState
 import com.cseini.byd.karaoke.data.QueueStore
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
@@ -100,6 +101,8 @@ class EmbeddedPlayer(
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
     private var extractFails = 0   // 연속 스트림 추출 실패 수(재생 성공 시 0)
+    private var lastScore = -1          // 세컨드스크린 노출용: 마지막 채점 점수(-1=미채점)
+    private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
 
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
@@ -191,6 +194,7 @@ class EmbeddedPlayer(
         remoteMuted = false   // 새 곡은 항상 음소거 해제 상태로
         recordStarted = false; scored = false; playLogged = false; replaying = false
         lastRecording = null
+        lastScore = -1; lastBreakdown = ""   // 새 곡 → 이전 점수 세컨드스크린에서 지움
         titleView.text = title
         statusView.text = "불러오는 중…"
         scoreOverlay.visibility = View.GONE
@@ -367,6 +371,8 @@ class EmbeddedPlayer(
             else -> "👏 잘했어요!"
         }
         scoreDetail.text = result.breakdown.lines().drop(1).filterNot { it.startsWith("(") }.joinToString("\n")
+        lastScore = result.total; lastBreakdown = scoreDetail.text.toString()   // 세컨드스크린 노출
+        publishSnapshot()
         queue.reload()
         activity.findViewById<Button>(R.id.embed_score_next).visibility =
             if (queue.size() > 0) View.VISIBLE else View.GONE
@@ -469,8 +475,37 @@ class EmbeddedPlayer(
                     timeView.text = "${fmt(pos.toInt())} / ${fmt(dur.toInt())}"
                 }
             }
+            publishSnapshot()   // 뒷좌석 태블릿 싱크용(재생·일시정지·채점 상태 모두)
             ui.postDelayed(this, 400)
         }
+    }
+
+    /** 뒷좌석 태블릿용 현재 재생 스냅샷을 메인스레드에서 publish(HTTP 워커가 @Volatile 로 읽음). */
+    private fun publishSnapshot() {
+        if (!SecondScreenState.enabled) return
+        val p = player
+        val (pos, at) = p?.clock() ?: (0L to 0L)
+        val phase = when {
+            replaying -> "replay"
+            scoreOverlay.visibility == View.VISIBLE -> "scoring"
+            p == null -> "idle"
+            else -> "playing"
+        }
+        SecondScreenState.publishPlay(
+            SecondScreenState.PlaySnap(
+                videoId = currentVideoId,
+                title = titleView.text.toString(),
+                streamUrl = p?.tabletStreamUrl(),
+                positionMs = pos,
+                atNanos = at,
+                durationMs = p?.durationMs() ?: 0L,
+                isPlaying = p?.isPlaying() == true,
+                speed = p?.speed() ?: 1f,
+                phase = phase,
+                score = lastScore,
+                breakdown = lastBreakdown,
+            ),
+        )
     }
 
     // ── 예약 목록(옆) 갱신 ──
@@ -667,6 +702,7 @@ class EmbeddedPlayer(
     fun remotePauseToggle() {
         if (!isPlayingSong) return
         if (player?.isPlaying() == true) player?.pause() else player?.play()
+        publishSnapshot()   // 태블릿에 일시정지/재개 즉시 반영
     }
 
     /** 녹음함/랭킹에서 저장된 녹음을 임베드로 다시 듣기(채점·녹음 없이, 영상은 음소거). */
@@ -737,7 +773,9 @@ class EmbeddedPlayer(
         scoreOverlay.visibility = View.GONE
         if (fullscreen) toggleFullscreen()
         overlay.visibility = View.GONE
-        com.cseini.byd.karaoke.media.KeepAliveService.stop(activity)
+        // 세컨드스크린 세션 중이면 곡 사이·검색 중에도 프로세스가 회수되지 않게 FGS 를 유지한다.
+        if (!SecondScreenState.enabled) com.cseini.byd.karaoke.media.KeepAliveService.stop(activity)
+        SecondScreenState.publishPlay(SecondScreenState.PlaySnap())   // 태블릿엔 idle 로
         onClose()
     }
 }

@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 
 /** 검색 홈. 타이핑/음성 검색 → 바로 부르기. */
 @UnstableApi
-class MainActivity : AppCompatActivity(), ScreenHost {
+class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.share.ReserveServer.Host {
 
     companion object {
         private const val DEFAULT_HINT = ""
@@ -143,6 +143,27 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             "panel" -> usbMic?.sendPanelToggle()
             // "none" → 아무것도 안 함
         }
+    }
+
+    /** 뒷좌석 태블릿(세컨드스크린) 원격 명령 — HTTP 워커에서 불려 메인스레드로 넘긴다. */
+    override fun runCommand(action: String, videoId: String, title: String) {
+        runOnUiThread {
+            when (action) {
+                "play" -> if (videoId.isNotBlank()) { cancelAutoPlay(); embeddedPlayer?.play(videoId, title.ifBlank { "재생곡" }) }
+                "voice" -> startVoiceGated("tablet", settings.sealionMode)
+                else -> runMappedFunction(action)   // pause / next / stop / mute
+            }
+        }
+    }
+
+    /** 세컨드스크린 음성검색 상태 노출(태블릿 표시용). autoClearMs 후 idle 로 되돌린다. */
+    private fun ssVoice(s: String, autoClearMs: Long = 0) {
+        com.cseini.byd.karaoke.share.SecondScreenState.publishVoice(s)
+        if (autoClearMs > 0) window.decorView.postDelayed({
+            if (com.cseini.byd.karaoke.share.SecondScreenState.voice == s) {
+                com.cseini.byd.karaoke.share.SecondScreenState.publishVoice("idle")
+            }
+        }, autoClearMs)
     }
 
     /** 마이크 버튼 진단: 옵션을 안 켠 상태여도 임시 인스턴스로 신호를 읽어 보여준다. */
@@ -625,6 +646,11 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         refreshVoiceUi()
+        // 뒷좌석 태블릿 세컨드스크린(lab): 켜져 있으면 상시 서버 기동 + 명령 host 연결 + 프로세스 보호 FGS.
+        if (BuildConfig.FLAVOR == "lab" && settings.secondScreen) {
+            com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
+            com.cseini.byd.karaoke.media.KeepAliveService.start(this)
+        }
         // 접근성이 꺼져 있으면(키보드 마이크 자동클릭용) dadb(ADB)로 한 번 켜본다.
         // 유닛이 접근성 설정 UI 를 막아 사용자가 직접 못 켜는 경우 대비. 실패해도 무해.
         if (BuildConfig.FLAVOR == "lab" && KeyCatcherService.instance == null && !a11yTried) {
@@ -994,6 +1020,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
         voice.start(
             onReady = {
                 beepStart()
+                ssVoice("listening")
                 if (sealion) sealionGuide().show("노래 제목을 말하세요")
                 showVoiceOverlay("🎙", "말씀하세요", "노래 제목이나 가수를 말하면 검색해요")
                 voiceLevel.visibility = View.VISIBLE
@@ -1002,6 +1029,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             },
             onProcessing = {
                 beepEnd()
+                ssVoice("processing")
                 if (sealion) sealionGuide().show("음성 인식 중…")
                 voiceLevel.visibility = View.GONE
                 voiceLevelHint.visibility = View.GONE
@@ -1009,6 +1037,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             },
             onResult = { text ->
                 if (sealion) sealionGuide().hide()
+                ssVoice(text, 5000)
                 resumeUsbIfPaused()
                 hideVoiceOverlay()
                 searchInput.setText(text)
@@ -1018,6 +1047,7 @@ class MainActivity : AppCompatActivity(), ScreenHost {
             },
             onError = {
                 if (sealion) sealionGuide().hide()
+                ssVoice(it.lineSequence().firstOrNull().orEmpty().ifBlank { "인식 실패" }, 6000)
                 resumeUsbIfPaused()
                 // 오류는 읽을 시간을 준다(예전엔 1.8초 만에 사라져 원인을 못 봤다). 탭하면 즉시 닫힘.
                 showVoiceOverlay("⚠️", "음성 검색 실패", "$it\n\n(화면을 누르면 닫힙니다)")

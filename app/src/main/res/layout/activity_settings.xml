@@ -476,6 +476,33 @@
                         android:layout_marginTop="4dp"
                         android:textColor="@color/tj_text_primary"
                         android:text="🎤 음성 검색 후 첫 곡 자동 재생" />
+
+                    <CheckBox
+                        android:id="@+id/chk_second_screen"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@color/tj_text_primary"
+                        android:visibility="gone"
+                        android:text="📱 뒷좌석 태블릿 화면 (세컨드스크린)" />
+
+                    <TextView
+                        android:id="@+id/txt_second_screen_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/tj_text_hint"
+                        android:paddingStart="8dp"
+                        android:visibility="gone"
+                        android:text="같은 WiFi(차 핫스팟)에 연결한 태블릿 브라우저로 지금 트는 영상을 뒷좌석에서 봅니다. 소리는 차량 스피커, 마이크·채점은 헤드유닛이 그대로 담당합니다.\n• 아래 '연결 방법(QR)'을 눌러 태블릿으로 주소를 여세요\n• 영상↔소리 어긋나면 태블릿 화면 ⚙에서 보정" />
+
+                    <Button
+                        android:id="@+id/btn_second_screen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone"
+                        android:text="📱 연결 방법 (QR)" />
                 </LinearLayout>
             </LinearLayout>
 

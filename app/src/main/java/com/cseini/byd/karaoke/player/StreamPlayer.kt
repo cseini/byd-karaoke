@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.VideoStream
 
@@ -107,6 +108,9 @@ class StreamPlayer(
     // 두 값을 원자적으로 갱신하기 위해 하나의 Pair 로 통합(비원자 읽기 방지).
     @Volatile private var cached: Pair<Long, Long> = 0L to 0L  // (cachedPositionMs, cachedAtNanos)
 
+    // 뒷좌석 태블릿 세컨드스크린에 넘길 progressive 스트림 URL. 추출 스레드(IO)에서 쓰고 티커(메인)에서 읽는다.
+    @Volatile private var tabletUrl: String? = null
+
     private val ticker = object : Runnable {
         override fun run() {
             if (exo.isPlaying) {
@@ -163,6 +167,7 @@ class StreamPlayer(
 
     override fun load(videoId: String) {
         val token = ++loadToken
+        tabletUrl = null  // 곡이 바뀌면 이전 URL 을 태블릿에 넘기지 않는다
         scope.launch {
             val source = withContext(Dispatchers.IO) {
                 runCatching { buildMediaSource(videoId) }.getOrNull()
@@ -195,6 +200,9 @@ class StreamPlayer(
             }
         }
         val dsf = DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT)
+
+        // 뒷좌석 태블릿엔 <video> 로 재생 가능한 단일 progressive URL 하나만 넘긴다(무음 재생).
+        if (!lowRes) tabletUrl = pickTabletStream(extractor)
 
         // 다시듣기(lowRes): 소리는 녹음 파일로 나가므로 오디오 트랙 없이 가장 낮은 화질 영상만.
         // 단일 트랙 progressive 라 병합(MergingMediaSource)·고화질 디코딩 부담이 없어 훨씬 부드럽다.
@@ -239,6 +247,21 @@ class StreamPlayer(
         throw IllegalStateException("재생 가능한 스트림 없음")
     }
 
+    /**
+     * 태블릿 <video> 는 단일 트랙 progressive URL 만 재생할 수 있다(DASH 분할·병합 불가).
+     * muxed(영상+소리) progressive 를 화질 상한 이하로 고르고, 없으면 video-only progressive.
+     * 소리는 태블릿에서 muted 로 버리고 차량 스피커로 듣는다.
+     */
+    private fun pickTabletStream(extractor: StreamExtractor): String? {
+        val muxed = runCatching { extractor.videoStreams }.getOrNull().orEmpty()
+            .filter { it.content.isNotEmpty() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+        (pickCapped(muxed) ?: muxed.firstOrNull())?.let { return it.content }
+        val videoOnly = runCatching { extractor.videoOnlyStreams }.getOrNull().orEmpty()
+            .filter { it.content.isNotEmpty() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+        (pickCapped(videoOnly) ?: videoOnly.firstOrNull())?.let { return it.content }
+        return null
+    }
+
     /** "720p60" 같은 문자열에서 화질 숫자만 뽑아 비교용으로. */
     private fun resolutionValue(res: String?): Int =
         res?.takeWhile { it.isDigit() }?.toIntOrNull() ?: 0
@@ -266,6 +289,9 @@ class StreamPlayer(
         exo.playbackParameters = PlaybackParameters(speed.coerceIn(0.5f, 1.5f), pitch)
     }
     override fun durationMs(): Long = exo.duration.let { if (it > 0) it else 0L }
+    override fun clock(): Pair<Long, Long> = cached
+    override fun speed(): Float = exo.playbackParameters.speed
+    override fun tabletStreamUrl(): String? = tabletUrl
     override fun currentPositionMs(): Long {
         val (pos, at) = cached
         if (at == 0L) return pos

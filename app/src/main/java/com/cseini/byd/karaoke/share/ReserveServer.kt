@@ -30,17 +30,25 @@ object ReserveServer {
         return if (slash >= 0) u.substring(slash) else "/"
     }
 
+    /** 뒷좌석 태블릿의 원격 명령(지금재생·일시정지·다음곡·정지·음소거·음성검색)을 헤드유닛에서 실행. */
+    interface Host {
+        fun runCommand(action: String, videoId: String, title: String)
+    }
+
     private var server: Http? = null
+    private var host: Host? = null
+    @Volatile private var alwaysOn = false   // 세컨드스크린 토글: 예약 다이얼로그 닫아도 서버 유지
     var url: String? = null
         private set
 
-    /** 서버 시작. 성공하면 접속 URL, 네트워크가 없으면 null. */
-    fun start(context: Context): String? {
+    /** 서버 시작. 성공하면 접속 URL(끝에 `/`), 네트워크가 없으면 null. host 는 원격 명령 라우팅용. */
+    fun start(context: Context, host: Host? = null): String? {
+        if (host != null) this.host = host
         if (server != null) return url
         val ip = localIpAddress() ?: return null
         val app = context.applicationContext
         for (port in intArrayOf(8080, 8081, 8090)) {
-            val s = Http(app, port)
+            val s = Http(app, port) { this.host }
             // 검색은 차가 대신 수행하므로 기본 5초(SOCKET_READ_TIMEOUT)로는 부족하다.
             // 차 네트워크가 느리면 연결이 끊겨 폰에 "검색 실패"만 뜨므로 넉넉히 잡는다.
             if (runCatching { s.start(60_000, false) }.isSuccess) {
@@ -52,13 +60,40 @@ object ReserveServer {
         return null
     }
 
+    /** 세컨드스크린 상시 모드로 시작. 예약 다이얼로그 dismiss 로 죽지 않는다. */
+    fun enableAlwaysOn(context: Context, host: Host): String? {
+        alwaysOn = true
+        SecondScreenState.enabled = true
+        return start(context, host)
+    }
+
+    /** 세컨드스크린 접속용 태블릿 화면 URL(…/screen). 서버가 안 떠 있으면 null. */
+    fun screenUrl(): String? = url?.let { it.trimEnd('/') + "/screen" }
+
+    /** 예약 다이얼로그 dismiss 용 — 상시 모드면 유지한다. */
     fun stop() {
+        if (alwaysOn) return
+        doStop()
+    }
+
+    /** 세컨드스크린 토글 off — 상시 모드 해제하고 실제로 내린다. */
+    fun stopForce() {
+        alwaysOn = false
+        SecondScreenState.enabled = false
+        doStop()
+    }
+
+    private fun doStop() {
         server?.let { runCatching { it.stop() } }
         server = null
         url = null
     }
 
-    private class Http(private val ctx: Context, port: Int) : NanoHTTPD(port) {
+    private class Http(
+        private val ctx: Context,
+        port: Int,
+        private val hostSupplier: () -> Host?,
+    ) : NanoHTTPD(port) {
         private val queue = QueueStore(ctx)
         private val repo = YouTubeRepository()
         private val settings = SettingsStore(ctx)
@@ -72,8 +107,36 @@ object ReserveServer {
                 uri.startsWith("/reserve") -> handleReserve(q("videoId"), q("title"), q("channel"))
                 uri.startsWith("/cancel") -> handleCancel(q("videoId"))
                 uri.startsWith("/queue") -> handleQueue()
+                uri.startsWith("/now") -> handleNow()
+                uri.startsWith("/cmd") -> handleCmd(q("action"), q("videoId"), q("title"))
+                uri.startsWith("/screen") -> json(Response.Status.OK, "text/html; charset=utf-8", SecondScreenPage.HTML)
                 else -> json(Response.Status.OK, "text/html; charset=utf-8", PAGE)
             }
+        }
+
+        /** 뒷좌석 태블릿 싱크용 현재 상태. 라이브 위치는 서버-상대 시간으로 보간해 내려준다. */
+        private fun handleNow(): Response {
+            val s = SecondScreenState.play
+            val live = SecondScreenState.livePositionMs(s, System.nanoTime())
+            val o = JSONObject()
+                .put("videoId", s.videoId)
+                .put("title", s.title)
+                .put("streamUrl", s.streamUrl ?: JSONObject.NULL)
+                .put("live", live)
+                .put("duration", s.durationMs)
+                .put("playing", s.isPlaying)
+                .put("speed", s.speed.toDouble())
+                .put("phase", s.phase)
+                .put("score", s.score)
+                .put("breakdown", s.breakdown)
+                .put("voice", SecondScreenState.voice)
+            return jsonBody(o.toString())
+        }
+
+        /** 태블릿 리모컨 명령 → 헤드유닛에서 실행(호스트가 메인스레드로 넘김). */
+        private fun handleCmd(action: String, videoId: String, title: String): Response {
+            if (action.isNotBlank()) runCatching { hostSupplier()?.runCommand(action, videoId, title) }
+            return jsonBody("{\"ok\":true}")
         }
 
         private fun handleSearch(query: String): Response {

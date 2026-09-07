@@ -74,6 +74,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("sync_offset_ms", -140)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
+    /** 뒷좌석 태블릿 세컨드스크린(상시 HTTP 서버로 영상 동기화+리모컨). lab 전용, 기본 꺼짐. */
+    var secondScreen: Boolean
+        get() = prefs.getBoolean("second_screen", false)
+        set(v) = prefs.edit().putBoolean("second_screen", v).apply()
+
     /** USB 마이크 물리버튼으로 앱 제어(길게=음성검색, 볼륨/짧게=노래방 패널). 기본 꺼짐 —
      *  마이크 기종마다 HID 코드가 달라 켜면 그 기기 기본 버튼이 안 먹을 수 있어 옵트인. */
     var micButtonControl: Boolean

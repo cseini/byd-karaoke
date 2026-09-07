@@ -21,6 +21,15 @@ interface KaraokePlayer {
     fun isPlaying(): Boolean
     /** 키(반음, -6~+6)와 속도(0.5~1.5) 조절. 템포·음정이 서로 영향 없이 각각 바뀐다. */
     fun setKeySpeed(semitones: Int, speed: Float) {}
+
+    /** 세컨드스크린 싱크용: (재생위치ms, 그 시점 System.nanoTime()) 원시값. 보간 전. */
+    fun clock(): Pair<Long, Long> = currentPositionMs() to System.nanoTime()
+
+    /** 현재 재생 속도(0.5~1.5). 세컨드스크린 싱크가 이 값을 중심으로 미세조정한다. */
+    fun speed(): Float = 1f
+
+    /** 뒷좌석 태블릿용 progressive 스트림 URL(최근 추출). 아직 없으면 null. */
+    fun tabletStreamUrl(): String? = null
 }
 
 /**

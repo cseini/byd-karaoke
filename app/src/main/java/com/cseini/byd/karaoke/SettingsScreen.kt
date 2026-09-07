@@ -57,6 +57,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val recordOptions: View = root.findViewById(R.id.record_options)
     private val startFullscreenCheck: CheckBox = root.findViewById(R.id.chk_start_fullscreen)
     private val autoplayCheck: CheckBox = root.findViewById(R.id.chk_autoplay)
+    private val secondScreenCheck: CheckBox = root.findViewById(R.id.chk_second_screen)
+    private val secondScreenDesc: TextView = root.findViewById(R.id.txt_second_screen_desc)
+    private val secondScreenBtn: Button = root.findViewById(R.id.btn_second_screen)
     private val wheelButtonCheck: CheckBox = root.findViewById(R.id.chk_wheel_button)
     private val sealionCheck: CheckBox = root.findViewById(R.id.chk_sealion)
     private val sealionDesc: TextView = root.findViewById(R.id.txt_sealion_desc)
@@ -135,6 +138,14 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         nativeMicCheck.isChecked = settings.nativeMicMode
         startFullscreenCheck.isChecked = settings.startFullscreen
         autoplayCheck.isChecked = settings.autoPlayVoiceFirst
+        // 뒷좌석 태블릿 세컨드스크린 — lab 전용 노출.
+        if (BuildConfig.FLAVOR == "lab") {
+            secondScreenCheck.visibility = View.VISIBLE
+            secondScreenDesc.visibility = View.VISIBLE
+            secondScreenBtn.visibility = View.VISIBLE
+            secondScreenCheck.isChecked = settings.secondScreen
+            secondScreenBtn.setOnClickListener { showSecondScreenQr() }
+        }
         setupMapSpinners()
         wheelButtonCheck.isChecked = settings.wheelButtonControl
 
@@ -190,6 +201,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         recordingCheck.isChecked, micSourceGroup.checkedRadioButtonId, voiceGainSeek.progress,
         accompGainSeek.progress, micButtonCheck.isChecked, nativeMicCheck.isChecked,
         startFullscreenCheck.isChecked, autoplayCheck.isChecked, wheelButtonCheck.isChecked,
+        secondScreenCheck.isChecked,
         sealionCheck.isChecked, storageGroup.checkedRadioButtonId,
         maxStorageInput.text, selectedMap(R.id.map_mic_long), selectedMap(R.id.map_mic_double),
         selectedMap(R.id.map_vol_up2), selectedMap(R.id.map_vol_down2),
@@ -259,6 +271,11 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.nativeMicMode = nativeMicCheck.isChecked
         settings.startFullscreen = startFullscreenCheck.isChecked
         settings.autoPlayVoiceFirst = autoplayCheck.isChecked
+        if (BuildConfig.FLAVOR == "lab") {
+            settings.secondScreen = secondScreenCheck.isChecked
+            // 끄면 즉시 상시 서버를 내린다(켜기는 홈으로 돌아갈 때 onResume 에서 host 와 함께 붙는다).
+            if (!secondScreenCheck.isChecked) com.cseini.byd.karaoke.share.ReserveServer.stopForce()
+        }
         settings.mapMicLong = selectedMap(R.id.map_mic_long)
         settings.mapMicDouble = selectedMap(R.id.map_mic_double)
         settings.mapVolUpDouble = selectedMap(R.id.map_vol_up2)
@@ -612,6 +629,35 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             .setView(view)
             .setPositiveButton("닫기", null)
             .setOnDismissListener { com.cseini.byd.karaoke.share.KeyEntryServer.stop() }
+            .show()
+    }
+
+    /** 뒷좌석 태블릿 세컨드스크린 접속 QR(.../screen). 상시 서버를 띄우고 host 를 연결한다. */
+    private fun showSecondScreenQr() {
+        if (!secondScreenCheck.isChecked) {
+            Toast.makeText(activity, "먼저 '뒷좌석 태블릿 화면'을 켜고 저장한 뒤 사용하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val hostRef = activity as? com.cseini.byd.karaoke.share.ReserveServer.Host
+        val url = if (hostRef != null) com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(activity, hostRef)
+        else com.cseini.byd.karaoke.share.ReserveServer.start(activity)
+        if (url == null) {
+            Toast.makeText(activity, "네트워크에 연결돼 있지 않습니다. 차 핫스팟/WiFi를 확인하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        com.cseini.byd.karaoke.media.KeepAliveService.start(activity)
+        val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_reserve, null)
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.reserve_qr),
+            view.findViewById(R.id.reserve_url),
+            view.findViewById(R.id.reserve_hint),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+            "screen",
+        )
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("📱 뒷좌석 태블릿 연결")
+            .setView(view)
+            .setPositiveButton("닫기", null)
             .show()
     }
 
