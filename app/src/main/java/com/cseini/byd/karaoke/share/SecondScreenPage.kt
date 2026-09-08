@@ -84,7 +84,6 @@ object SecondScreenPage {
 <div id="bar">
   <button class="btn" onclick="cmd('pause')" title="재생/일시정지">⏯</button>
   <button class="btn" onclick="cmd('stop')" title="정지">⏹</button>
-  <button class="btn" onclick="cmd('next')" title="다음곡">⏭</button>
   <button class="btn" onclick="cmd('mute')" title="반주 음소거">🔇</button>
   <button class="btn" onclick="cmd('voice')" title="음성검색">🎤</button>
   <button class="btn wide" onclick="togglePanel()">🔎 검색·예약</button>
@@ -119,7 +118,7 @@ object SecondScreenPage {
  var elTitle=document.getElementById('title'), elVoice=document.getElementById('voice');
  var elScore=document.getElementById('score'), elSN=document.getElementById('sn'), elSG=document.getElementById('sg'), elSD=document.getElementById('sd');
  var offInput=document.getElementById('off'), offVal=document.getElementById('offval');
- var panel=document.getElementById('panel'), manualHide=false;
+ var panel=document.getElementById('panel'), manualHide=false, scoreDismissed=false;
  var curVid='', started=false, rtt=[], barTimer=null, lastTarget=0;
  // 곡이 바뀌어 새 스트림을 load() 한 직후엔 메타데이터가 없어 seek 이 버려진다 → 준비되면 마지막 target 으로 한 번 더.
  video.addEventListener('loadedmetadata',function(){ try{ video.currentTime=lastTarget/1000; }catch(e){} });
@@ -157,6 +156,8 @@ object SecondScreenPage {
    elScore.style.display='flex';
  }
  function hideScore(){ elScore.style.display='none'; }
+ // 점수화면 아무 데나 터치 → 바로 검색화면으로.
+ elScore.addEventListener('click',function(){ scoreDismissed=true; hideScore(); manualHide=false; showPanel(false); });
 
  function applyVoice(v){
    if(!v||v==='idle'){ elVoice.style.display='none'; return; }
@@ -172,7 +173,8 @@ object SecondScreenPage {
 
    elTitle.textContent = d.title || (d.phase==='idle'?'헤드유닛에서 곡을 고르세요':'연결됨');
    applyVoice(d.voice);
-   if(d.phase==='scoring' && d.score>=0) showScore(d); else hideScore();
+   if(d.phase==='scoring' && d.score>=0){ if(!scoreDismissed) showScore(d); }
+   else { hideScore(); scoreDismissed=false; }
 
    // 곡이 바뀌었으면 새 스트림 로드
    var changed=false;
