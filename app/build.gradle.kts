@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 323
-        versionName = "6.87"
+        versionCode = 325
+        versionName = "6.89"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -55,6 +55,11 @@ android {
                 storePassword = pw
                 keyAlias = "ota"
                 keyPassword = pw
+                // v1(JAR) 서명 명시적 활성화 — minSdk>=24 면 AGP 기본값이 v1 을 꺼서 v2 전용 APK 가 나오는데,
+                // 일부 삼성 기기/보안정책(자동차단·OS 업데이트 후)이 v1 없는 사이드로드를 거부한다. v1+v2+v3 모두 켠다.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }

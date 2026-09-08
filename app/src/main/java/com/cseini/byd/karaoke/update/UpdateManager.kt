@@ -555,6 +555,13 @@ object UpdateManager {
     }
 
     fun setupGboard(context: Context, onProgress: (Int) -> Unit = {}): Boolean {
+        // 이미 Gboard 가 설치돼 있으면 80MB 다운로드·설치를 건너뛰고 기본키보드 지정만 한다.
+        val installed = runCatching { context.packageManager.getPackageInfo(GBOARD_PKG, 0); true }.getOrDefault(false)
+        if (installed) {
+            onProgress(100)
+            com.cseini.byd.karaoke.CrashLog.event(context, "gboard 이미 설치됨 → 다운로드·설치 생략, 기본키보드만 지정")
+            return ensureGboardDefault(context)
+        }
         val priv = java.io.File(context.filesDir, "adbkey")
         val pub = java.io.File(context.filesDir, "adbkey.pub")
         if (!priv.exists() || !pub.exists()) dadb.AdbKeyPair.generate(priv, pub)

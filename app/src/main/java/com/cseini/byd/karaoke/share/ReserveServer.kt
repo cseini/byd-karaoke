@@ -107,6 +107,8 @@ object ReserveServer {
                 uri.startsWith("/reserve") -> handleReserve(q("videoId"), q("title"), q("channel"))
                 uri.startsWith("/cancel") -> handleCancel(q("videoId"))
                 uri.startsWith("/queue") -> handleQueue()
+                uri.startsWith("/recent") -> handleRecent()
+                uri.startsWith("/ranking") -> handleRanking()
                 uri.startsWith("/now") -> handleNow()
                 uri.startsWith("/cmd") -> handleCmd(q("action"), q("videoId"), q("title"))
                 uri.startsWith("/screen") -> json(Response.Status.OK, "text/html; charset=utf-8", SecondScreenPage.HTML)
@@ -180,6 +182,26 @@ object ReserveServer {
             queue.reload()
             val arr = JSONArray()
             queue.all().forEach { arr.put(JSONObject().put("videoId", it.videoId).put("title", it.title)) }
+            return jsonBody(JSONObject().put("items", arr).toString())
+        }
+
+        /** 최근 부른 노래(재생 이력, 중복 곡은 최신 1개). 태블릿 검색화면 표시용. */
+        private fun handleRecent(): Response {
+            val ph = com.cseini.byd.karaoke.data.PlayHistoryStore(ctx).also { it.reload() }
+            val arr = JSONArray()
+            ph.all().sortedByDescending { it.at }.distinctBy { it.videoId }.take(30).forEach {
+                arr.put(JSONObject().put("videoId", it.videoId).put("title", it.title).put("score", it.score))
+            }
+            return jsonBody(JSONObject().put("items", arr).toString())
+        }
+
+        /** 랭킹(채점된 녹음, 점수 내림차순, 곡별 최고점 1개). */
+        private fun handleRanking(): Response {
+            val rs = com.cseini.byd.karaoke.data.RecordingStore(ctx)
+            val arr = JSONArray()
+            rs.all().filter { it.score >= 0 }.sortedByDescending { it.score }.distinctBy { it.videoId }.take(30).forEach {
+                arr.put(JSONObject().put("videoId", it.videoId).put("title", it.title).put("score", it.score))
+            }
             return jsonBody(JSONObject().put("items", arr).toString())
         }
 

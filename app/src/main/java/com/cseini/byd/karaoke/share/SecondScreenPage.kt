@@ -35,14 +35,18 @@ object SecondScreenPage {
  #off{width:100%}
  #offval{color:#ffd23f;font-weight:700}
  /* 검색·예약 패널 */
- #panel{position:fixed;top:0;right:0;bottom:0;width:min(460px,86%);background:#0b0f1d;z-index:8;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
- #panel.show{transform:translateX(0)}
- #panel header{padding:14px;background:#12162a;font-size:18px;font-weight:800;color:#41e0ff;display:flex;align-items:center;gap:10px}
- #panel header .x{margin-left:auto;background:#33334a;border:none;color:#fff;border-radius:10px;width:44px;height:44px;font-size:20px}
- .pwrap{padding:14px;overflow-y:auto;flex:1}
- .srow{display:flex;gap:8px;margin-bottom:12px}
- .srow input{flex:1;padding:14px;border:none;border-radius:10px;font-size:16px}
- .srow button{border:none;border-radius:10px;background:#2b6cff;color:#fff;font-size:16px;font-weight:700;padding:0 18px}
+ /* 대기모드 검색화면 = 풀스크린. 재생 중 검색은 .slide(영상 옆 오른쪽 패널). */
+ #panel{position:fixed;inset:0;background:#0b0f1d;z-index:8;display:none;flex-direction:column}
+ #panel.show{display:flex}
+ #panel.slide{left:auto;width:min(480px,88%);box-shadow:-8px 0 30px rgba(0,0,0,.55)}
+ #panel header{padding:16px 20px;background:#12162a;font-size:20px;font-weight:800;color:#41e0ff;display:flex;align-items:center;gap:10px}
+ #panel header .x{margin-left:auto;background:#33334a;border:none;color:#fff;border-radius:10px;width:48px;height:48px;font-size:22px}
+ .pwrap{padding:16px 20px;overflow-y:auto;flex:1}
+ .srow{display:flex;gap:10px;margin-bottom:14px;position:sticky;top:0;background:#0b0f1d;padding-bottom:4px;z-index:2}
+ .srow input{flex:1;padding:16px;border:none;border-radius:12px;font-size:18px}
+ .srow button{border:none;border-radius:12px;background:#2b6cff;color:#fff;font-size:18px;font-weight:700;padding:0 24px}
+ .lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start}
+ .lists section{background:#0d1120;border-radius:14px;padding:12px}
  .item{background:#161c30;border-radius:12px;padding:12px;margin-bottom:8px}
  .item .t{font-size:15px;line-height:1.35;margin-bottom:8px}
  .item .c{font-size:12px;color:#8ab}
@@ -50,12 +54,10 @@ object SecondScreenPage {
  .item .row button{flex:1;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700}
  .play{background:#00b368;color:#fff}
  .res{background:#ff3b8b;color:#fff}
- h3{color:#ffcf3f;margin:16px 0 8px;font-size:16px}
- .q{background:#141a2c;border-left:4px solid #41e0ff;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:15px;display:flex;align-items:center;gap:8px}
- .q .qt{flex:1}
- .q button{background:#33334a;color:#ffb3b3;border:none;border-radius:8px;padding:8px 12px;font-size:13px}
+ .badge{display:inline-block;background:#2a3350;color:#ffd23f;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800;margin-left:6px}
+ h3{color:#ffcf3f;margin:4px 0 10px;font-size:17px}
  .empty{color:#889;font-size:14px;padding:8px 0}
- .num{min-width:22px;color:#41e0ff;font-weight:800}
+ .num{display:inline-block;min-width:22px;color:#41e0ff;font-weight:800}
  /* 점수 오버레이 */
  #score{position:fixed;inset:0;z-index:9;background:rgba(6,8,18,.92);display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
  #score .n{font-size:120px;font-weight:900;color:#ffd23f;line-height:1}
@@ -74,13 +76,14 @@ object SecondScreenPage {
 <button id="gear">⚙</button>
 <div id="offbox">
   <h4>영상 ↔ 소리 맞추기</h4>
-  <div class="hint">영상이 소리보다 <b>빠르면 +</b>, <b>느리면 −</b> 쪽으로.<br>차량 스피커 지연을 보정합니다.</div>
-  <input id="off" type="range" min="-200" max="500" step="10">
+  <div class="hint">세컨드스크린은 헤드유닛보다 <b>항상 조금 느려요.</b><br>영상이 소리보다 <b>더 늦으면 숫자를 더 내리세요(−쪽 = 영상 앞당김).</b></div>
+  <input id="off" type="range" min="-400" max="0" step="10">
   <div style="text-align:center;margin-top:6px">보정 <span id="offval">0</span> ms</div>
 </div>
 
 <div id="bar">
   <button class="btn" onclick="cmd('pause')" title="재생/일시정지">⏯</button>
+  <button class="btn" onclick="cmd('stop')" title="정지">⏹</button>
   <button class="btn" onclick="cmd('next')" title="다음곡">⏭</button>
   <button class="btn" onclick="cmd('mute')" title="반주 음소거">🔇</button>
   <button class="btn" onclick="cmd('voice')" title="음성검색">🎤</button>
@@ -88,15 +91,18 @@ object SecondScreenPage {
 </div>
 
 <div id="panel">
-  <header>🎤 검색·예약<button class="x" onclick="togglePanel()">✕</button></header>
+  <header>🎤 노래 검색<button class="x" onclick="hidePanel()">✕ 닫기</button></header>
   <div class="pwrap">
     <div class="srow">
       <input id="q" placeholder="노래 제목·가수 검색" enterkeyhint="search">
       <button onclick="doSearch()">검색</button>
     </div>
     <div id="results"></div>
-    <h3>🎫 예약된 곡</h3>
-    <div id="queue"><div class="empty">아직 예약된 곡이 없어요.</div></div>
+    <div class="lists">
+      <section><h3>🎫 예약된 곡</h3><div id="queue"><div class="empty">아직 예약된 곡이 없어요.</div></div></section>
+      <section><h3>🕘 최근 부른 노래</h3><div id="recent"><div class="empty">아직 없어요.</div></div></section>
+      <section><h3>🏆 랭킹</h3><div id="ranking"><div class="empty">아직 없어요.</div></div></section>
+    </div>
   </div>
 </div>
 
@@ -113,12 +119,14 @@ object SecondScreenPage {
  var elTitle=document.getElementById('title'), elVoice=document.getElementById('voice');
  var elScore=document.getElementById('score'), elSN=document.getElementById('sn'), elSG=document.getElementById('sg'), elSD=document.getElementById('sd');
  var offInput=document.getElementById('off'), offVal=document.getElementById('offval');
+ var panel=document.getElementById('panel'), manualHide=false;
  var curVid='', started=false, rtt=[], barTimer=null, lastTarget=0;
  // 곡이 바뀌어 새 스트림을 load() 한 직후엔 메타데이터가 없어 seek 이 버려진다 → 준비되면 마지막 target 으로 한 번 더.
  video.addEventListener('loadedmetadata',function(){ try{ video.currentTime=lastTarget/1000; }catch(e){} });
 
- // 보정값(로컬 저장). +면 영상을 소리에 맞춰 앞으로, -면 뒤로.
- var userOffset=parseInt(localStorage.getItem('ss_offset')||'150',10);
+ // 보정값(로컬 저장). 세컨드는 항상 헤드유닛보다 느리므로 음수만 쓴다(더 낮출수록 영상을 앞당겨 따라잡음).
+ var userOffset=parseInt(localStorage.getItem('ss_offset')||'-200',10);
+ userOffset=Math.max(-400,Math.min(0,userOffset));   // 이전에 저장된 양수/범위밖 값 보정
  offInput.value=userOffset; offVal.textContent=userOffset;
  offInput.addEventListener('input',function(){ userOffset=parseInt(offInput.value,10); offVal.textContent=userOffset; localStorage.setItem('ss_offset',String(userOffset)); });
  document.getElementById('gear').onclick=function(){ var b=document.getElementById('offbox'); b.style.display=b.style.display==='block'?'none':'block'; };
@@ -170,10 +178,17 @@ object SecondScreenPage {
    var changed=false;
    if(d.videoId && d.streamUrl && curVid!==d.videoId){
      curVid=d.videoId; changed=true;
+     panel.classList.remove('show'); manualHide=false;   // 곡 시작 → 검색화면 닫고 영상
      video.src=d.streamUrl; video.muted=true;
      video.load(); if(started) video.play().catch(function(){});
    }
-   if(!d.videoId){ curVid=''; return; }
+   // 헤드유닛에서 곡을 끄면(idle) 세컨드도 멈추고, 대기모드=풀스크린 검색화면을 띄운다.
+   if(!d.videoId){
+     if(curVid!=='' || video.getAttribute('src')){ curVid=''; if(!video.paused)video.pause(); video.removeAttribute('src'); video.load(); }
+     hideScore();
+     if(!manualHide && !panel.classList.contains('show')) showPanel(false);   // 대기모드 = 풀스크린
+     return;
+   }
    if(!d.streamUrl){ elTitle.textContent=(d.title||'')+' — 불러오는 중…'; return; }
 
    if(d.playing && d.phase==='playing'){
@@ -192,8 +207,22 @@ object SecondScreenPage {
  }
  setInterval(tick,1000); tick();
 
- // ── 검색·예약 패널 ──
- function togglePanel(){ document.getElementById('panel').classList.toggle('show'); loadQueue(); }
+ // ── 풀스크린 검색화면(헤드유닛 검색화면처럼) ──
+ // slide=true → 재생 중 영상 옆 오른쪽 패널, false → 대기모드 풀스크린.
+ function showPanel(slide){ panel.classList.add('show'); if(slide) panel.classList.add('slide'); else panel.classList.remove('slide'); loadHome(); }
+ function hidePanel(){ panel.classList.remove('show'); manualHide=true; }
+ function togglePanel(){ if(panel.classList.contains('show')) hidePanel(); else { manualHide=false; showPanel(!!curVid); } }
+ function loadHome(){ loadQueue(); loadRecent(); loadRanking(); }
+
+ // 공용 곡 카드(지금 재생 / 예약). score>=0 이면 점수 배지.
+ function card(vid,title,sub,score){
+   var t=esc(title), v=esc(vid), ta=t.replace(/\'/g,"&#39;");
+   var badge=(score!=null&&score>=0)?'<span class="badge">'+score+'점</span>':'';
+   var subhtml=sub?'<div class="c">'+esc(sub)+'</div>':'';
+   return '<div class="item"><div class="t">'+t+badge+subhtml+'</div>'+
+     '<div class="row"><button class="play" onclick="playNow(\''+v+'\',\''+ta+'\')">지금 재생</button>'+
+     '<button class="res" onclick="reserve(this,\''+v+'\',\''+ta+'\')">예약</button></div></div>';
+ }
  async function doSearch(){
    var q=document.getElementById('q').value.trim(); if(!q)return;
    var el=document.getElementById('results'); el.innerHTML='<div class="empty">검색 중…</div>';
@@ -201,26 +230,31 @@ object SecondScreenPage {
      var res=await fetch('/search?q='+encodeURIComponent(q)); var d=await res.json();
      if(d.error){ el.innerHTML='<div class="empty">'+esc(d.error)+'</div>'; return; }
      if(!d.items.length){ el.innerHTML='<div class="empty">결과가 없어요.</div>'; return; }
-     el.innerHTML=d.items.map(function(it){
-       var t=esc(it.title), v=esc(it.videoId), c=esc(it.channel);
-       return '<div class="item"><div class="t">'+t+'<div class="c">'+c+'</div></div>'+
-         '<div class="row"><button class="play" onclick="playNow(\''+v+'\',\''+t.replace(/\'/g,"&#39;")+'\')">지금 재생</button>'+
-         '<button class="res" onclick="reserve(this,\''+v+'\',\''+t.replace(/\'/g,"&#39;")+'\')">예약</button></div></div>';
-     }).join('');
+     el.innerHTML='<h3>🔎 검색 결과</h3>'+d.items.map(function(it){ return card(it.videoId,it.title,it.channel,-1); }).join('');
    }catch(e){ el.innerHTML='<div class="empty">차에 연결하지 못했습니다.</div>'; }
  }
- function playNow(vid,title){ cmd('play',vid,title); document.getElementById('panel').classList.remove('show'); }
+ function playNow(vid,title){ cmd('play',vid,title); panel.classList.remove('show'); manualHide=false; }
  async function reserve(btn,vid,title){ btn.disabled=true; btn.textContent='예약됨'; try{ await fetch('/reserve?videoId='+encodeURIComponent(vid)+'&title='+encodeURIComponent(title)); loadQueue(); }catch(e){ btn.disabled=false; btn.textContent='예약'; } }
  async function loadQueue(){
    try{
      var res=await fetch('/queue'); var d=await res.json(); var el=document.getElementById('queue');
      if(!d.items.length){ el.innerHTML='<div class="empty">아직 예약된 곡이 없어요.</div>'; return; }
-     el.innerHTML=d.items.map(function(it,i){ return '<div class="q"><span class="num">'+(i+1)+'</span><span class="qt">'+esc(it.title)+'</span><button onclick="cancelRes(\''+esc(it.videoId)+'\')">취소</button></div>'; }).join('');
+     el.innerHTML=d.items.map(function(it,i){ return '<div class="item"><div class="t"><span class="num">'+(i+1)+'</span> '+esc(it.title)+'</div><div class="row"><button class="res" style="background:#33334a" onclick="cancelRes(\''+esc(it.videoId)+'\')">취소</button></div></div>'; }).join('');
+   }catch(e){}
+ }
+ async function loadRecent(){
+   try{ var d=await (await fetch('/recent')).json(); var el=document.getElementById('recent');
+     el.innerHTML = d.items.length ? d.items.map(function(it){ return card(it.videoId,it.title,'',it.score); }).join('') : '<div class="empty">아직 없어요.</div>';
+   }catch(e){}
+ }
+ async function loadRanking(){
+   try{ var d=await (await fetch('/ranking')).json(); var el=document.getElementById('ranking');
+     el.innerHTML = d.items.length ? d.items.map(function(it){ return card(it.videoId,it.title,'',it.score); }).join('') : '<div class="empty">아직 없어요.</div>';
    }catch(e){}
  }
  async function cancelRes(vid){ try{ await fetch('/cancel?videoId='+encodeURIComponent(vid)); loadQueue(); }catch(e){} }
  document.getElementById('q').addEventListener('keydown',function(e){ if(e.key==='Enter')doSearch(); });
- setInterval(function(){ if(document.getElementById('panel').classList.contains('show')) loadQueue(); },3000);
+ setInterval(function(){ if(panel.classList.contains('show')) loadQueue(); },3000);
 </script></body></html>
 """.trimIndent()
 }
