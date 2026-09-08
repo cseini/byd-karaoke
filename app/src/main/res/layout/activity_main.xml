@@ -390,6 +390,22 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- (lab) 하단 오른쪽 구석 '연결' — 예약 서버 QR + 세컨드스크린 QR 을 하나로 묶음. 검색화면에서만
+         보이게 embed_overlay 보다 앞(아래 z-order)에 둔다(재생 중엔 플레이어가 덮음). -->
+    <Button
+        android:id="@+id/btn_connect"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="14dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingHorizontal="16dp"
+        android:visibility="gone"
+        android:text="🔗 연결" />
+
     <!-- (테스트 앱 전용) 메인 화면 안에서 재생 — 분할화면 유지용 임베드 플레이어 -->
     <FrameLayout
         android:id="@+id/embed_overlay"

@@ -473,6 +473,14 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         embedScreen = findViewById(R.id.embed_screen)
         // 네비바(녹음함/랭킹/설정)는 Activity 대신 화면 안 오버레이로 전환 → 분할화면 유지.
         NavBar.wireEmbedded(window.decorView, "search") { onNavigate(it) }
+        // lab: 상단 '예약' 버튼을 숨기고, 하단 구석 '🔗 연결' 하나로 [예약 서버 / 세컨드스크린] 묶기.
+        if (BuildConfig.FLAVOR == "lab") {
+            findViewById<Button>(R.id.btn_reserve_server)?.visibility = View.GONE
+            findViewById<Button>(R.id.btn_connect)?.apply {
+                visibility = View.VISIBLE
+                setOnClickListener { showConnectMenu() }
+            }
+        }
 
         val btnClear = findViewById<Button>(R.id.btn_clear)
         btnClear.setOnClickListener {
@@ -646,7 +654,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         refreshVoiceUi()
-        // 뒷좌석 태블릿 세컨드스크린(lab): 켜져 있으면 상시 서버 기동 + 명령 host 연결 + 프로세스 보호 FGS.
+        // 뒷좌석 태블릿 세컨드스크린(lab): 한번 켠 적 있으면(버튼 사용) 상시 서버 기동 + host 연결 + 프로세스 보호 FGS.
         if (BuildConfig.FLAVOR == "lab" && settings.secondScreen) {
             com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
             com.cseini.byd.karaoke.media.KeepAliveService.start(this)
@@ -892,6 +900,37 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         autoPlayRunnable = null
         pendingAutoPlay = false
         if (::autoplayOverlay.isInitialized) hideAutoplayOverlay()
+    }
+
+    /** 하단 '🔗 연결' → 예약 서버 / 세컨드스크린 중 선택(둘 다 QR 팝업). */
+    private fun showConnectMenu() {
+        AlertDialog.Builder(this)
+            .setTitle("🔗 연결")
+            .setItems(
+                arrayOf("📱 예약 서버 (승객 폰으로 검색·예약)", "🖥 세컨드스크린 (뒷좌석 태블릿 영상)"),
+            ) { _, which -> if (which == 0) showReserveServer() else showSecondScreenConnect() }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
+
+    /** 세컨드스크린 접속 QR(…/screen). 서버·host·FGS 보장. */
+    private fun showSecondScreenConnect() {
+        settings.secondScreen = true   // 버튼 한 번으로 켜짐 유지(다음 실행에도 자동 기동)
+        val url = com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
+        if (url == null) { toast("네트워크에 연결돼 있지 않습니다. 차 핫스팟/WiFi를 확인하세요."); return }
+        com.cseini.byd.karaoke.media.KeepAliveService.start(this)
+        val view = layoutInflater.inflate(R.layout.dialog_reserve, null)
+        com.cseini.byd.karaoke.share.QrSwitcher.bind(
+            view.findViewById(R.id.reserve_qr),
+            view.findViewById(R.id.reserve_url),
+            view.findViewById(R.id.reserve_hint),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+            "screen",
+        )
+        AlertDialog.Builder(this)
+            .setView(view)
+            .setPositiveButton("닫기", null)
+            .show()
     }
 
     /** 예약 서버를 켜고 접속 QR을 띄운다(끄기 버튼 포함). 예약 목록 관리는 재생 화면에서. */
