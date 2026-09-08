@@ -27,6 +27,7 @@ object SecondScreenState {
         val phase: String = "idle",   // idle | playing | scoring | replay
         val score: Int = -1,
         val breakdown: String = "",
+        val countdown: String = "",   // "N초 후 다음 예약곡…" 등 자동진행 카운트(없으면 빈 문자열)
     )
 
     @Volatile var play: PlaySnap = PlaySnap()

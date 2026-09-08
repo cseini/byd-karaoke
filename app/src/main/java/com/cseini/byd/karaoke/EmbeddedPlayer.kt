@@ -103,6 +103,7 @@ class EmbeddedPlayer(
     private var extractFails = 0   // 연속 스트림 추출 실패 수(재생 성공 시 0)
     private var lastScore = -1          // 세컨드스크린 노출용: 마지막 채점 점수(-1=미채점)
     private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
+    private var lastCountdown = ""      // 세컨드스크린 노출용: 자동진행 카운트다운 문구
 
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
@@ -455,12 +456,14 @@ class EmbeddedPlayer(
         statusView.text = text
         scoreNextInfo.text = text
         scoreNextInfo.visibility = View.VISIBLE
+        lastCountdown = text; publishSnapshot()   // 태블릿에도 카운트다운 미러링
     }
 
     private fun cancelCountdown() {
         countdown?.let { ui.removeCallbacks(it) }
         countdown = null
         scoreNextInfo.visibility = View.GONE
+        if (lastCountdown.isNotEmpty()) { lastCountdown = ""; publishSnapshot() }
     }
 
     // ── 재생 위치 seek 바 갱신(실제 재생 중일 때만 — 정지 후 보간으로 계속 흐르는 것 방지) ──
@@ -504,6 +507,7 @@ class EmbeddedPlayer(
                 phase = phase,
                 score = lastScore,
                 breakdown = lastBreakdown,
+                countdown = lastCountdown,
             ),
         )
     }

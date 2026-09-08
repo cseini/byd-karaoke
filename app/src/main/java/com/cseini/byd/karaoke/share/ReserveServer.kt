@@ -131,6 +131,7 @@ object ReserveServer {
                 .put("phase", s.phase)
                 .put("score", s.score)
                 .put("breakdown", s.breakdown)
+                .put("countdown", s.countdown)
                 .put("voice", SecondScreenState.voice)
             return jsonBody(o.toString())
         }

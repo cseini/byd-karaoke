@@ -63,6 +63,14 @@ object SecondScreenPage {
  #score .n{font-size:120px;font-weight:900;color:#ffd23f;line-height:1}
  #score .g{font-size:30px;font-weight:800;margin:8px 0 14px}
  #score .d{font-size:17px;color:#cdd;white-space:pre-line;line-height:1.6}
+ /* 음성검색 화면(헤드유닛 미러) */
+ @keyframes vpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.7}}
+ #voicescreen{position:fixed;inset:0;z-index:15;background:rgba(6,8,18,.93);display:none;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
+ #voicescreen .vi{font-size:110px;line-height:1;animation:vpulse 1.1s ease-in-out infinite}
+ #voicescreen .vt{font-size:36px;font-weight:900;color:#ffd23f;margin:16px 0 8px}
+ #voicescreen .vs{font-size:19px;color:#9ab}
+ /* 자동재생 카운트다운(헤드유닛 미러) */
+ #countdown{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#41e0ff;padding:12px 26px;border-radius:26px;font-size:22px;font-weight:800;z-index:10;display:none;white-space:nowrap}
  /* 시작 게이트 */
  #gate{position:fixed;inset:0;z-index:20;background:#06080f;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
  #gate h1{color:#41e0ff;font-size:34px;margin:0 0 10px}
@@ -106,6 +114,9 @@ object SecondScreenPage {
 </div>
 
 <div id="score"><div class="n" id="sn">0</div><div class="g" id="sg"></div><div class="d" id="sd"></div></div>
+
+<div id="voicescreen"><div class="vi" id="vi">🎙</div><div class="vt" id="vt"></div><div class="vs" id="vs"></div></div>
+<div id="countdown"></div>
 
 <div id="gate">
   <h1>🎤 뒷좌석 노래방 화면</h1>
@@ -159,10 +170,15 @@ object SecondScreenPage {
  // 점수화면 아무 데나 터치 → 바로 검색화면으로.
  elScore.addEventListener('click',function(){ scoreDismissed=true; hideScore(); manualHide=false; showPanel(false); });
 
+ // 헤드유닛 음성검색 화면을 그대로 미러링(말씀하세요 / 인식 중… / 결과·오류).
  function applyVoice(v){
-   if(!v||v==='idle'){ elVoice.style.display='none'; return; }
-   elVoice.style.display='block';
-   elVoice.textContent = v==='listening'?'🎤 듣는 중…' : v==='processing'?'⏳ 인식 중…' : ('🔎 '+v);
+   var el=document.getElementById('voicescreen');
+   if(!v||v==='idle'){ el.style.display='none'; return; }
+   var vi=document.getElementById('vi'), vt=document.getElementById('vt'), vs=document.getElementById('vs');
+   if(v==='listening'){ vi.textContent='🎙'; vt.textContent='말씀하세요'; vs.textContent='노래 제목이나 가수를 말하면 검색해요'; }
+   else if(v==='processing'){ vi.textContent='🌀'; vt.textContent='인식 중…'; vs.textContent='잠시만 기다려주세요'; }
+   else { vi.textContent='🔎'; vt.textContent=v; vs.textContent=''; }
+   el.style.display='flex';
  }
 
  async function tick(){
@@ -173,6 +189,8 @@ object SecondScreenPage {
 
    elTitle.textContent = d.title || (d.phase==='idle'?'헤드유닛에서 곡을 고르세요':'연결됨');
    applyVoice(d.voice);
+   var cd=document.getElementById('countdown');
+   if(d.countdown){ cd.textContent=d.countdown; cd.style.display='block'; } else cd.style.display='none';
    if(d.phase==='scoring' && d.score>=0){ if(!scoreDismissed) showScore(d); }
    else { hideScore(); scoreDismissed=false; }
 
