@@ -105,6 +105,10 @@ class EmbeddedPlayer(
     private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
     private var lastCountdown = ""      // 세컨드스크린 노출용: 자동진행 카운트다운 문구
 
+    // 일반 유튜브 영상 모드에선 노래방 기능(녹음·채점)을 끈다 — 그냥 영상 재생만.
+    private val recordingOn get() = settings.recordingEnabled && !settings.generalYoutube
+    private val scoringOn get() = settings.scoringEnabled && !settings.generalYoutube
+
     private val queueAdapter = EmbedQueueAdapter(
         onPlay = { playReserved(it) },
         onDelete = { queue.removeByVideoId(it.videoId); refreshQueueSide() },
@@ -249,11 +253,11 @@ class EmbeddedPlayer(
         if (recordStarted || scored) return
         if (!playLogged) {
             playLogged = true
-            playHistory.add(currentVideoId, titleView.text.toString(), System.currentTimeMillis())
+            playHistory.add(currentVideoId, titleView.text.toString(), System.currentTimeMillis(), settings.generalYoutube)
         }
         // 녹음(저장) 또는 채점 중 하나라도 켜져 있으면 마이크를 캡처한다.
         // 채점만 켜진 경우엔 곡이 끝나며 파일을 지워 저장은 남기지 않는다.
-        if (!settings.recordingEnabled && !settings.scoringEnabled) {
+        if (!recordingOn && !scoringOn) {
             statusView.text = "🎵 재생 중 (녹음·채점 꺼짐)"
             CrashLog.event(activity, "rec skip: 설정 꺼짐")
             return
@@ -294,7 +298,7 @@ class EmbeddedPlayer(
             // 녹음·채점을 켰어도 마이크를 못 열었거나(권한·장치) 시작에 실패했으면 여기로 온다.
             // 예전엔 이 경우 아무것도 안 하고 return 해 다음곡 진행이 영구히 멈췄다.
             scored = true
-            statusView.text = if (!settings.recordingEnabled && !settings.scoringEnabled) "🎵 재생 완료"
+            statusView.text = if (!recordingOn && !scoringOn) "🎵 재생 완료"
                 else "🎵 재생 완료 (마이크를 못 열어 녹음·채점 없음)"
             scheduleAfterSong()
             return
@@ -303,11 +307,11 @@ class EmbeddedPlayer(
         val file = recorder?.stop()
         if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
         // 채점만 켜진 경우(녹음 저장 off) 파일을 남기지 않으므로 다시듣기도 없다.
-        val keepRecording = settings.recordingEnabled
+        val keepRecording = recordingOn
         lastRecording = if (keepRecording) file else null
         showPostSong()
         val rec = recorder
-        if (!settings.scoringEnabled) {
+        if (!scoringOn) {
             saveRecording(file, -1)
             statusView.text = "🎵 녹음 저장됨 — 다시듣기로 들어보세요"
             scheduleAfterSong()

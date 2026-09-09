@@ -40,7 +40,7 @@ object SecondScreenPage {
  #panel.show{display:flex}
  #panel.slide{left:auto;width:min(480px,88%);box-shadow:-8px 0 30px rgba(0,0,0,.55)}
  #panel header{padding:16px 20px;background:#12162a;font-size:20px;font-weight:800;color:#41e0ff;display:flex;align-items:center;gap:10px}
- #panel header .x{margin-left:auto;background:#33334a;border:none;color:#fff;border-radius:10px;width:48px;height:48px;font-size:22px}
+ #panel header .x{margin-left:auto;background:#33334a;border:none;color:#fff;border-radius:10px;height:48px;padding:0 16px;font-size:18px;white-space:nowrap;line-height:48px}
  .pwrap{padding:16px 20px;overflow-y:auto;flex:1}
  .srow{display:flex;gap:10px;margin-bottom:14px;position:sticky;top:0;background:#0b0f1d;padding-bottom:4px;z-index:2}
  .srow input{flex:1;padding:16px;border:none;border-radius:12px;font-size:18px}
@@ -71,6 +71,10 @@ object SecondScreenPage {
  #voicescreen .vs{font-size:19px;color:#9ab}
  /* 자동재생 카운트다운(헤드유닛 미러) */
  #countdown{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#41e0ff;padding:12px 26px;border-radius:26px;font-size:22px;font-weight:800;z-index:10;display:none;white-space:nowrap}
+ /* '지금 재생' 후 헤드유닛이 영상 준비할 때까지 로딩 화면 */
+ #loading{position:fixed;inset:0;z-index:12;background:#000;display:none;flex-direction:column;justify-content:center;align-items:center;color:#9ab}
+ #loading .li{font-size:66px;animation:vpulse 1.1s ease-in-out infinite}
+ #loading .lt{font-size:26px;font-weight:800;color:#41e0ff;margin-top:16px}
  /* 시작 게이트 */
  #gate{position:fixed;inset:0;z-index:20;background:#06080f;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
  #gate h1{color:#41e0ff;font-size:34px;margin:0 0 10px}
@@ -91,7 +95,7 @@ object SecondScreenPage {
 
 <div id="bar">
   <button class="btn" onclick="cmd('pause')" title="재생/일시정지">⏯</button>
-  <button class="btn" onclick="cmd('stop')" title="정지">⏹</button>
+  <button class="btn" onclick="stopToSearch()" title="정지·검색으로">⏹</button>
   <button class="btn" onclick="cmd('mute')" title="반주 음소거">🔇</button>
   <button class="btn" onclick="cmd('voice')" title="음성검색">🎤</button>
   <button class="btn wide" onclick="togglePanel()">🔎 검색·예약</button>
@@ -102,6 +106,7 @@ object SecondScreenPage {
   <div class="pwrap">
     <div class="srow">
       <input id="q" placeholder="노래 제목·가수 검색" enterkeyhint="search">
+      <button onclick="cmd('voice')" title="음성검색">🎤</button>
       <button onclick="doSearch()">검색</button>
     </div>
     <div id="results"></div>
@@ -117,6 +122,7 @@ object SecondScreenPage {
 
 <div id="voicescreen"><div class="vi" id="vi">🎙</div><div class="vt" id="vt"></div><div class="vs" id="vs"></div></div>
 <div id="countdown"></div>
+<div id="loading"><div class="li">⏳</div><div class="lt">로딩 중…</div></div>
 
 <div id="gate">
   <h1>🎤 뒷좌석 노래방 화면</h1>
@@ -129,7 +135,9 @@ object SecondScreenPage {
  var elTitle=document.getElementById('title'), elVoice=document.getElementById('voice');
  var elScore=document.getElementById('score'), elSN=document.getElementById('sn'), elSG=document.getElementById('sg'), elSD=document.getElementById('sd');
  var offInput=document.getElementById('off'), offVal=document.getElementById('offval');
- var panel=document.getElementById('panel'), manualHide=false, scoreDismissed=false;
+ var panel=document.getElementById('panel'), manualHide=false, scoreDismissed=false, loadingPlay=false, loadingAt=0;
+ function showLoading(){ document.getElementById('loading').style.display='flex'; }
+ function hideLoading(){ document.getElementById('loading').style.display='none'; }
  var curVid='', started=false, rtt=[], barTimer=null, lastTarget=0;
  // 곡이 바뀌어 새 스트림을 load() 한 직후엔 메타데이터가 없어 seek 이 버려진다 → 준비되면 마지막 target 으로 한 번 더.
  video.addEventListener('loadedmetadata',function(){ try{ video.currentTime=lastTarget/1000; }catch(e){} });
@@ -146,12 +154,15 @@ object SecondScreenPage {
    document.getElementById('gate').style.display='none';
    video.play().catch(function(){});
    var r=document.documentElement; if(r.requestFullscreen) r.requestFullscreen().catch(function(){});
+   showPanel(false);   // 실행 시 검색화면을 메인으로(재생 중이면 다음 tick 이 닫고 영상으로 전환)
  }
  // 화면 아무 곳이나 탭하면 하단 리모컨 바를 잠깐 보여준다.
  document.addEventListener('click',function(){ var bar=document.getElementById('bar'); bar.classList.add('show'); if(barTimer)clearTimeout(barTimer); barTimer=setTimeout(function(){bar.classList.remove('show')},3500); });
 
  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
  function cmd(a,vid,title){ var u='/cmd?action='+encodeURIComponent(a); if(vid)u+='&videoId='+encodeURIComponent(vid); if(title)u+='&title='+encodeURIComponent(title); fetch(u).catch(function(){}); }
+ // 중지 → 헤드유닛도 검색화면으로(close), 태블릿도 검색화면으로.
+ function stopToSearch(){ cmd('close'); loadingPlay=false; hideLoading(); hideScore(); manualHide=false; showPanel(false); }
 
  // 싱크 결정(헤드유닛 SecondScreenState.syncDecision 미러링)
  function syncDecision(targetMs,videoMs,speed,changed){
@@ -167,16 +178,29 @@ object SecondScreenPage {
    elScore.style.display='flex';
  }
  function hideScore(){ elScore.style.display='none'; }
- // 점수화면 아무 데나 터치 → 바로 검색화면으로.
- elScore.addEventListener('click',function(){ scoreDismissed=true; hideScore(); manualHide=false; showPanel(false); });
+ // 점수화면 아무 데나 터치 → 헤드유닛도 같이 스킵(검색으로, 카운트다운 취소) + 태블릿도 검색화면.
+ elScore.addEventListener('click',function(){
+   scoreDismissed=true; hideScore();
+   cmd('back');                                            // 헤드유닛: 채점화면 닫고 검색으로(카운트다운 취소)
+   document.getElementById('countdown').style.display='none';
+   manualHide=false; showPanel(false);
+ });
 
- // 헤드유닛 음성검색 화면을 그대로 미러링(말씀하세요 / 인식 중… / 결과·오류).
+ // 헤드유닛 음성검색을 태블릿에 미러링. 결과(q:)가 오면 태블릿에서 자동 검색해 결과를 보여줘 뒷좌석이 고르게 한다.
+ var lastVoiceQ='';
  function applyVoice(v){
    var el=document.getElementById('voicescreen');
-   if(!v||v==='idle'){ el.style.display='none'; return; }
+   if(!v||v==='idle'){ el.style.display='none'; lastVoiceQ=''; return; }
+   if(v.indexOf('q:')===0){   // 인식 결과 → 태블릿 검색화면에 결과 표시
+     el.style.display='none';
+     var q=v.slice(2);
+     if(q && q!==lastVoiceQ){ lastVoiceQ=q; manualHide=false; showPanel(false); document.getElementById('q').value=q; doSearch(); }
+     return;
+   }
    var vi=document.getElementById('vi'), vt=document.getElementById('vt'), vs=document.getElementById('vs');
    if(v==='listening'){ vi.textContent='🎙'; vt.textContent='말씀하세요'; vs.textContent='노래 제목이나 가수를 말하면 검색해요'; }
    else if(v==='processing'){ vi.textContent='🌀'; vt.textContent='인식 중…'; vs.textContent='잠시만 기다려주세요'; }
+   else if(v.indexOf('e:')===0){ vi.textContent='⚠️'; vt.textContent='음성 검색 실패'; vs.textContent=v.slice(2); }
    else { vi.textContent='🔎'; vt.textContent=v; vs.textContent=''; }
    el.style.display='flex';
  }
@@ -196,20 +220,23 @@ object SecondScreenPage {
 
    // 곡이 바뀌었으면 새 스트림 로드
    var changed=false;
+   if(loadingPlay && Date.now()-loadingAt>20000){ loadingPlay=false; hideLoading(); }   // 안전장치: 20초 넘으면 로딩 해제
    if(d.videoId && d.streamUrl && curVid!==d.videoId){
      curVid=d.videoId; changed=true;
+     loadingPlay=false; hideLoading();   // 영상 준비됨 → 로딩 끝
      panel.classList.remove('show'); manualHide=false;   // 곡 시작 → 검색화면 닫고 영상
      video.src=d.streamUrl; video.muted=true;
      video.load(); if(started) video.play().catch(function(){});
    }
    // 헤드유닛에서 곡을 끄면(idle) 세컨드도 멈추고, 대기모드=풀스크린 검색화면을 띄운다.
    if(!d.videoId){
+     if(loadingPlay){ hideScore(); showLoading(); return; }   // '지금 재생' 후 헤드유닛 준비 전 — 로딩 유지, 검색화면 안 띄움
      if(curVid!=='' || video.getAttribute('src')){ curVid=''; if(!video.paused)video.pause(); video.removeAttribute('src'); video.load(); }
      hideScore();
      if(!manualHide && !panel.classList.contains('show')) showPanel(false);   // 대기모드 = 풀스크린
      return;
    }
-   if(!d.streamUrl){ elTitle.textContent=(d.title||'')+' — 불러오는 중…'; return; }
+   if(!d.streamUrl){ if(loadingPlay) showLoading(); else elTitle.textContent=(d.title||'')+' — 불러오는 중…'; return; }
 
    if(d.playing && d.phase==='playing'){
      var speed=d.speed||1;
@@ -253,7 +280,7 @@ object SecondScreenPage {
      el.innerHTML='<h3>🔎 검색 결과</h3>'+d.items.map(function(it){ return card(it.videoId,it.title,it.channel,-1); }).join('');
    }catch(e){ el.innerHTML='<div class="empty">차에 연결하지 못했습니다.</div>'; }
  }
- function playNow(vid,title){ cmd('play',vid,title); panel.classList.remove('show'); manualHide=false; }
+ function playNow(vid,title){ loadingPlay=true; loadingAt=Date.now(); cmd('play',vid,title); panel.classList.remove('show'); manualHide=false; showLoading(); }
  async function reserve(btn,vid,title){ btn.disabled=true; btn.textContent='예약됨'; try{ await fetch('/reserve?videoId='+encodeURIComponent(vid)+'&title='+encodeURIComponent(title)); loadQueue(); }catch(e){ btn.disabled=false; btn.textContent='예약'; } }
  async function loadQueue(){
    try{

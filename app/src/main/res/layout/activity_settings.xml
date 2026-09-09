@@ -503,6 +503,25 @@
                         android:layout_marginTop="8dp"
                         android:visibility="gone"
                         android:text="📱 연결 방법 (QR)" />
+
+                    <CheckBox
+                        android:id="@+id/chk_general_youtube"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@color/tj_text_primary"
+                        android:visibility="gone"
+                        android:text="🎬 일반 유튜브 검색 (노래방 외 영상)" />
+
+                    <TextView
+                        android:id="@+id/txt_general_youtube_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/tj_text_hint"
+                        android:paddingStart="8dp"
+                        android:visibility="gone"
+                        android:text="검색어에 '노래방'을 안 붙이고 일반 유튜브처럼 검색합니다. 결과는 썸네일 카드로 나오고, 이 모드에선 채점·녹음과 홈의 최근/랭킹은 표시하지 않아요(영상 재생만). 아이 영상·일반 영상 보기용." />
                 </LinearLayout>
             </LinearLayout>
 

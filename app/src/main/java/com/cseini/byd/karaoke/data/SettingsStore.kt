@@ -74,10 +74,20 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("sync_offset_ms", -140)
         set(v) = prefs.edit().putInt("sync_offset_ms", v).apply()
 
-    /** 뒷좌석 태블릿 세컨드스크린(상시 HTTP 서버로 영상 동기화+리모컨). lab 전용, 기본 꺼짐. */
+    /** 뒷좌석 태블릿 세컨드스크린(상시 HTTP 서버로 영상 동기화+리모컨). 기본 꺼짐(옵트인). */
     var secondScreen: Boolean
         get() = prefs.getBoolean("second_screen", false)
         set(v) = prefs.edit().putBoolean("second_screen", v).apply()
+
+    /** 일반 유튜브 검색(검색어에 '노래방' 안 붙임 + 결과를 썸네일 카드로). 기본 꺼짐. */
+    var generalYoutube: Boolean
+        get() = prefs.getBoolean("general_youtube", false)
+        set(v) = prefs.edit().putBoolean("general_youtube", v).apply()
+
+    /** 앱 시작 시 업데이트 안내를 이미 띄운 버전. 같은 버전은 매 실행마다 다시 안 띄운다(긴급 제외). */
+    var lastPromptedUpdate: String
+        get() = prefs.getString("last_prompted_update", "") ?: ""
+        set(v) = prefs.edit().putString("last_prompted_update", v).apply()
 
     /** USB 마이크 물리버튼으로 앱 제어(길게=음성검색, 볼륨/짧게=노래방 패널). 기본 꺼짐 —
      *  마이크 기종마다 HID 코드가 달라 켜면 그 기기 기본 버튼이 안 먹을 수 있어 옵트인. */

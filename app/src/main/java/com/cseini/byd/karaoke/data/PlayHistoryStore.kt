@@ -11,6 +11,7 @@ data class PlayHistoryItem(
     val at: Long = 0L,
     val score: Int = -1, // -1 = 채점 없음
     val breakdown: String? = null, // 채점 심사평(항목별) — 점수 탭 시 표시
+    val general: Boolean = false, // true=일반 유튜브 영상 모드에서 재생(노래방 최근곡과 분리)
 )
 
 /**
@@ -37,10 +38,10 @@ class PlayHistoryStore(context: Context) {
     }
 
     /** 부른 노래 기록(같은 곡은 맨 앞으로 갱신). 새 시도라 점수는 초기화. */
-    fun add(videoId: String, title: String, at: Long) {
+    fun add(videoId: String, title: String, at: Long, general: Boolean = false) {
         reload()
         items.removeAll { it.videoId == videoId }
-        items.add(0, PlayHistoryItem(videoId, title, at, -1))
+        items.add(0, PlayHistoryItem(videoId, title, at, -1, null, general))
         while (items.size > MAX) items.removeAt(items.size - 1)
         persist()
     }

@@ -59,6 +59,8 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val autoplayCheck: CheckBox = root.findViewById(R.id.chk_autoplay)
     private val secondScreenCheck: CheckBox = root.findViewById(R.id.chk_second_screen)
     private val secondScreenDesc: TextView = root.findViewById(R.id.txt_second_screen_desc)
+    private val generalYoutubeCheck: CheckBox = root.findViewById(R.id.chk_general_youtube)
+    private val generalYoutubeDesc: TextView = root.findViewById(R.id.txt_general_youtube_desc)
     private val secondScreenBtn: Button = root.findViewById(R.id.btn_second_screen)
     private val wheelButtonCheck: CheckBox = root.findViewById(R.id.chk_wheel_button)
     private val sealionCheck: CheckBox = root.findViewById(R.id.chk_sealion)
@@ -138,13 +140,16 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         nativeMicCheck.isChecked = settings.nativeMicMode
         startFullscreenCheck.isChecked = settings.startFullscreen
         autoplayCheck.isChecked = settings.autoPlayVoiceFirst
-        // 뒷좌석 태블릿 세컨드스크린 — lab 전용 노출.
-        if (BuildConfig.FLAVOR == "lab") {
+        // 뒷좌석 태블릿 세컨드스크린 + 일반 유튜브 검색 — 노출.
+        run {
             secondScreenCheck.visibility = View.VISIBLE
             secondScreenDesc.visibility = View.VISIBLE
             secondScreenBtn.visibility = View.VISIBLE
             secondScreenCheck.isChecked = settings.secondScreen
             secondScreenBtn.setOnClickListener { showSecondScreenQr() }
+            generalYoutubeCheck.visibility = View.VISIBLE
+            generalYoutubeDesc.visibility = View.VISIBLE
+            generalYoutubeCheck.isChecked = settings.generalYoutube
         }
         setupMapSpinners()
         wheelButtonCheck.isChecked = settings.wheelButtonControl
@@ -201,7 +206,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         recordingCheck.isChecked, micSourceGroup.checkedRadioButtonId, voiceGainSeek.progress,
         accompGainSeek.progress, micButtonCheck.isChecked, nativeMicCheck.isChecked,
         startFullscreenCheck.isChecked, autoplayCheck.isChecked, wheelButtonCheck.isChecked,
-        secondScreenCheck.isChecked,
+        secondScreenCheck.isChecked, generalYoutubeCheck.isChecked,
         sealionCheck.isChecked, storageGroup.checkedRadioButtonId,
         maxStorageInput.text, selectedMap(R.id.map_mic_long), selectedMap(R.id.map_mic_double),
         selectedMap(R.id.map_vol_up2), selectedMap(R.id.map_vol_down2),
@@ -271,11 +276,10 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.nativeMicMode = nativeMicCheck.isChecked
         settings.startFullscreen = startFullscreenCheck.isChecked
         settings.autoPlayVoiceFirst = autoplayCheck.isChecked
-        if (BuildConfig.FLAVOR == "lab") {
-            settings.secondScreen = secondScreenCheck.isChecked
-            // 끄면 즉시 상시 서버를 내린다(켜기는 홈으로 돌아갈 때 onResume 에서 host 와 함께 붙는다).
-            if (!secondScreenCheck.isChecked) com.cseini.byd.karaoke.share.ReserveServer.stopForce()
-        }
+        settings.secondScreen = secondScreenCheck.isChecked
+        settings.generalYoutube = generalYoutubeCheck.isChecked
+        // 끄면 즉시 상시 서버를 내린다(켜기는 홈으로 돌아갈 때 onResume 에서 host 와 함께 붙는다).
+        if (!secondScreenCheck.isChecked) com.cseini.byd.karaoke.share.ReserveServer.stopForce()
         settings.mapMicLong = selectedMap(R.id.map_mic_long)
         settings.mapMicDouble = selectedMap(R.id.map_mic_double)
         settings.mapVolUpDouble = selectedMap(R.id.map_vol_up2)

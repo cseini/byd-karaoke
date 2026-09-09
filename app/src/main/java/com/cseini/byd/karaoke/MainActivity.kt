@@ -150,6 +150,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         runOnUiThread {
             when (action) {
                 "play" -> if (videoId.isNotBlank()) { cancelAutoPlay(); embeddedPlayer?.play(videoId, title.ifBlank { "재생곡" }) }
+                "close" -> embeddedPlayer?.close()   // 중지 → 헤드유닛도 검색화면으로
                 "voice" -> startVoiceGated("tablet", settings.sealionMode)
                 else -> runMappedFunction(action)   // pause / next / stop / mute
             }
@@ -391,7 +392,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         homeQueueAdapter.submit(items.take(6))
         homeQueueTitle.text = if (items.size > 6) "🎫 예약된 곡 ${items.size} (다음 6곡)"
             else "🎫 예약된 곡 ${items.size}"
-        homeQueueSection.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+        val general = settings.generalYoutube
+        homeQueueSection.visibility = if (items.isEmpty() || general) View.GONE else View.VISIBLE
     }
 
 
@@ -473,13 +475,11 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         embedScreen = findViewById(R.id.embed_screen)
         // 네비바(녹음함/랭킹/설정)는 Activity 대신 화면 안 오버레이로 전환 → 분할화면 유지.
         NavBar.wireEmbedded(window.decorView, "search") { onNavigate(it) }
-        // lab: 상단 '예약' 버튼을 숨기고, 하단 구석 '🔗 연결' 하나로 [예약 서버 / 세컨드스크린] 묶기.
-        if (BuildConfig.FLAVOR == "lab") {
-            findViewById<Button>(R.id.btn_reserve_server)?.visibility = View.GONE
-            findViewById<Button>(R.id.btn_connect)?.apply {
-                visibility = View.VISIBLE
-                setOnClickListener { showConnectMenu() }
-            }
+        // 상단 '예약' 버튼을 숨기고, 하단 구석 '🔗 연결' 하나로 [예약 서버 / 세컨드스크린] 묶기.
+        findViewById<Button>(R.id.btn_reserve_server)?.visibility = View.GONE
+        findViewById<Button>(R.id.btn_connect)?.apply {
+            visibility = View.VISIBLE
+            setOnClickListener { showConnectMenu() }
         }
 
         val btnClear = findViewById<Button>(R.id.btn_clear)
@@ -582,6 +582,9 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             // 긴급(유튜브 재생 깨짐 등) 여부 확인 — 랜딩 min.json 기준
             val min = UpdateManager.fetchMinVersion()
             val urgent = UpdateManager.isBelow(min?.minVersion)
+            // 이미 이 버전을 안내했으면(설치가 안 붙는 유닛 등) 매 실행마다 다시 띄우지 않는다. 긴급이면 항상.
+            if (!urgent && release.version == settings.lastPromptedUpdate) return@launch
+            settings.lastPromptedUpdate = release.version
             val b = androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
                 .setTitle(if (urgent) "⚠ 필수 업데이트 v${release.version}" else "🔔 새 버전 v${release.version}")
                 .setMessage(
@@ -655,7 +658,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         refreshVoiceUi()
         // 뒷좌석 태블릿 세컨드스크린(lab): 한번 켠 적 있으면(버튼 사용) 상시 서버 기동 + host 연결 + 프로세스 보호 FGS.
-        if (BuildConfig.FLAVOR == "lab" && settings.secondScreen) {
+        if (settings.secondScreen) {
             com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
             com.cseini.byd.karaoke.media.KeepAliveService.start(this)
         }
@@ -769,7 +772,9 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     /** 최근 부른 노래(재생 기록 기반, 녹음과 분리). 녹음을 꺼도·지워도 남는다. */
     private fun refreshHistory() {
         playHistory.reload()
-        val recent = playHistory.all()
+        // 일반 유튜브 영상과 노래방 최근곡은 분리해서 보여준다.
+        val general = settings.generalYoutube
+        val recent = playHistory.all().filter { it.general == general }
         historyAdapter.submit(recent)
         historyEmpty.visibility = if (recent.isEmpty()) View.VISIBLE else View.GONE
 
@@ -787,6 +792,11 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private fun showHistory() {
         results.visibility = View.GONE
         historySection.visibility = View.VISIBLE
+        // 일반 유튜브 영상 모드: 랭킹·예약은 숨기고 '최근 재생한 영상'만 보여준다.
+        val general = settings.generalYoutube
+        findViewById<View>(R.id.ranking_section).visibility = if (general) View.GONE else View.VISIBLE
+        findViewById<TextView>(R.id.history_title).text = if (general) "최근 재생한 영상" else "최근 부른 노래"
+        if (general && ::homeQueueSection.isInitialized) homeQueueSection.visibility = View.GONE
     }
 
     /** 재생/채점 후 검색 홈으로 복귀: 검색어 초기화 + 최근 부른 노래 + 키보드 내림. */
@@ -829,12 +839,17 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         autoPlayAfterSearch = wantAutoPlay   // 새 검색을 시작하니 직전 검색의 자동재생 의도는 버린다
         inFlightQuery = q
         val startedAt = System.currentTimeMillis()
+        val general = settings.generalYoutube
         searchJob = lifecycleScope.launch {
-            val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
+            val r = repo.search(q, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch, general)
             inFlightQuery = null
             logSearchTiming(q, System.currentTimeMillis() - startedAt, r)
             when (r) {
                 is YouTubeRepository.Result.Ok -> {
+                    // 일반 유튜브 모드면 썸네일 카드 2열 그리드, 아니면 목록형.
+                    results.layoutManager = if (general) GridLayoutManager(this@MainActivity, 2)
+                    else LinearLayoutManager(this@MainActivity)
+                    adapter.setGeneral(general)
                     adapter.submit(r.items)
                     showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
@@ -1076,7 +1091,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             },
             onResult = { text ->
                 if (sealion) sealionGuide().hide()
-                ssVoice(text, 5000)
+                ssVoice("q:$text", 8000)   // 태블릿이 이 인식결과로 자동 검색해 결과를 표시(q: = query)
                 resumeUsbIfPaused()
                 hideVoiceOverlay()
                 searchInput.setText(text)
@@ -1086,7 +1101,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             },
             onError = {
                 if (sealion) sealionGuide().hide()
-                ssVoice(it.lineSequence().firstOrNull().orEmpty().ifBlank { "인식 실패" }, 6000)
+                ssVoice("e:" + it.lineSequence().firstOrNull().orEmpty().ifBlank { "인식 실패" }, 6000)
                 resumeUsbIfPaused()
                 // 오류는 읽을 시간을 준다(예전엔 1.8초 만에 사라져 원인을 못 봤다). 탭하면 즉시 닫힘.
                 showVoiceOverlay("⚠️", "음성 검색 실패", "$it\n\n(화면을 누르면 닫힙니다)")

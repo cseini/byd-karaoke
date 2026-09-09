@@ -112,6 +112,7 @@ object ReserveServer {
                 uri.startsWith("/now") -> handleNow()
                 uri.startsWith("/cmd") -> handleCmd(q("action"), q("videoId"), q("title"))
                 uri.startsWith("/screen") -> json(Response.Status.OK, "text/html; charset=utf-8", SecondScreenPage.HTML)
+                    .apply { addHeader("Cache-Control", "no-store, must-revalidate") }   // 태블릿이 항상 최신 페이지를 받게(캐시 잔상 방지)
                 else -> json(Response.Status.OK, "text/html; charset=utf-8", PAGE)
             }
         }
@@ -147,7 +148,7 @@ object ReserveServer {
             // 실패해도 반드시 JSON 으로 이유를 돌려준다(폰에 "검색 실패"만 뜨지 않도록).
             val result = runCatching {
                 runBlocking {
-                    repo.search(query, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch)
+                    repo.search(query, settings.youtubeApiKey, System.currentTimeMillis(), settings.keylessSearch, settings.generalYoutube)
                 }
             }.getOrElse { e ->
                 // 원본 exception은 서버 로그에만, 폰에는 일반 메시지만 반환
@@ -190,7 +191,8 @@ object ReserveServer {
         private fun handleRecent(): Response {
             val ph = com.cseini.byd.karaoke.data.PlayHistoryStore(ctx).also { it.reload() }
             val arr = JSONArray()
-            ph.all().sortedByDescending { it.at }.distinctBy { it.videoId }.take(30).forEach {
+            ph.all().filter { it.general == settings.generalYoutube }
+                .sortedByDescending { it.at }.distinctBy { it.videoId }.take(30).forEach {
                 arr.put(JSONObject().put("videoId", it.videoId).put("title", it.title).put("score", it.score))
             }
             return jsonBody(JSONObject().put("items", arr).toString())

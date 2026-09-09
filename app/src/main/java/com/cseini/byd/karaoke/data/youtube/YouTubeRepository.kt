@@ -60,23 +60,24 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
         }
 
     /** keyless=true 면 API 키 없이 검색 결과 페이지를 파싱한다. */
-    suspend fun search(rawQuery: String, apiKey: String, nowMs: Long, keyless: Boolean): Result {
+    suspend fun search(rawQuery: String, apiKey: String, nowMs: Long, keyless: Boolean, general: Boolean = false): Result {
         val q = rawQuery.trim()
         if (q.isEmpty()) return Result.Error("검색어를 입력하세요")
         if (!keyless && apiKey.isBlank())
             return Result.Error("API 키가 없습니다 — [설정]에서 키를 넣거나 '키 없이 검색'을 켜세요")
 
-        val cacheKey = "${if (keyless) "k" else "a"}:${normalize(q)}"
+        val cacheKey = "${if (keyless) "k" else "a"}:${if (general) "g" else "n"}:${normalize(q)}"
         cache[cacheKey]?.let { if (nowMs - it.at < ttlMs) return Result.Ok(it.items) }
 
-        val effective = if (q.contains("노래방") || q.contains("karaoke", ignoreCase = true)) q else "$q 노래방"
+        // 일반 유튜브 검색 모드면 '노래방' 접미어를 붙이지 않고 그대로 검색한다.
+        val effective = if (general || q.contains("노래방") || q.contains("karaoke", ignoreCase = true)) q else "$q 노래방"
 
         return withContext(Dispatchers.IO) {
             try {
                 val primary = rawSearch(effective, apiKey, keyless)
 
-                // 결과가 적으면(오타 등) 원 검색어로 한 번 더 찾아 유사도순으로 보충한다.
-                val merged = if (primary.size >= 5) {
+                // 결과가 적으면(오타 등) 원 검색어로 한 번 더 찾아 유사도순으로 보충한다.(일반 모드는 보충 없이 그대로)
+                val merged = if (general || primary.size >= 5) {
                     primary
                 } else {
                     val fallback = runCatching { rawSearch(q, apiKey, keyless) }.getOrDefault(emptyList())
@@ -85,7 +86,7 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
                 }
 
                 if (merged.isEmpty()) {
-                    Result.Error("반주를 찾지 못했습니다 — 곡명이나 가수명을 바꿔보세요")
+                    Result.Error(if (general) "검색 결과가 없어요 — 다른 검색어로 시도해보세요" else "반주를 찾지 못했습니다 — 곡명이나 가수명을 바꿔보세요")
                 } else {
                     cache[cacheKey] = Cached(nowMs, merged)
                     Result.Ok(merged)

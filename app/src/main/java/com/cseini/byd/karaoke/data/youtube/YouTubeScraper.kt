@@ -117,27 +117,49 @@ object YouTubeScraper {
 
     private fun parseVideos(root: JSONObject): List<QueueItem> {
         val out = ArrayList<QueueItem>()
+        val seen = HashSet<String>()
+        // 1) 정규 경로(관련도순 상위)
         val sections = root
             .optJSONObject("contents")
             ?.optJSONObject("twoColumnSearchResultsRenderer")
             ?.optJSONObject("primaryContents")
             ?.optJSONObject("sectionListRenderer")
-            ?.optJSONArray("contents") ?: return out
-        for (i in 0 until sections.length()) {
-            val items = sections.optJSONObject(i)
-                ?.optJSONObject("itemSectionRenderer")
-                ?.optJSONArray("contents") ?: continue
-            for (j in 0 until items.length()) {
-                val vr = items.optJSONObject(j)?.optJSONObject("videoRenderer") ?: continue
-                val vid = vr.optString("videoId", "")
-                if (vid.isEmpty()) continue
-                val title = firstRunText(vr.optJSONObject("title"))
-                val channel = firstRunText(vr.optJSONObject("ownerText"))
-                    .ifEmpty { firstRunText(vr.optJSONObject("longBylineText")) }
-                out.add(QueueItem(vid, title.ifEmpty { "(제목 없음)" }, channel))
+            ?.optJSONArray("contents")
+        if (sections != null) {
+            for (i in 0 until sections.length()) {
+                val items = sections.optJSONObject(i)
+                    ?.optJSONObject("itemSectionRenderer")
+                    ?.optJSONArray("contents") ?: continue
+                for (j in 0 until items.length()) {
+                    addVideoRenderer(items.optJSONObject(j)?.optJSONObject("videoRenderer"), out, seen)
+                }
             }
         }
+        // 2) 쇼츠 shelf·richItem 등 중첩에 묻힌 영상도 재귀로 보충(일반 검색은 상당수가 여기 있음)
+        collectDeep(root, out, seen)
         return out
+    }
+
+    private fun addVideoRenderer(vr: JSONObject?, out: MutableList<QueueItem>, seen: MutableSet<String>) {
+        if (vr == null) return
+        val vid = vr.optString("videoId", "")
+        if (vid.isEmpty() || !seen.add(vid)) return
+        val title = firstRunText(vr.optJSONObject("title"))
+        val channel = firstRunText(vr.optJSONObject("ownerText"))
+            .ifEmpty { firstRunText(vr.optJSONObject("longBylineText")) }
+        out.add(QueueItem(vid, title.ifEmpty { "(제목 없음)" }, channel))
+    }
+
+    /** ytInitialData 전체를 훑어 아직 안 담은 videoRenderer 를 순서대로 추가. */
+    private fun collectDeep(node: Any?, out: MutableList<QueueItem>, seen: MutableSet<String>) {
+        when (node) {
+            is JSONObject -> {
+                addVideoRenderer(node.optJSONObject("videoRenderer"), out, seen)
+                val keys = node.keys()
+                while (keys.hasNext()) collectDeep(node.opt(keys.next()), out, seen)
+            }
+            is org.json.JSONArray -> for (i in 0 until node.length()) collectDeep(node.opt(i), out, seen)
+        }
     }
 
     private fun firstRunText(o: JSONObject?): String {
