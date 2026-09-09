@@ -13,6 +13,7 @@ import com.cseini.byd.karaoke.data.PlayHistoryItem
 class HistoryAdapter(
     val onPlay: (PlayHistoryItem) -> Unit,
     val onScore: (PlayHistoryItem) -> Unit,
+    val onDelete: ((PlayHistoryItem) -> Unit)? = null,   // 길게 누르면 삭제(있을 때만)
 ) : RecyclerView.Adapter<HistoryAdapter.VH>() {
 
     private val items = ArrayList<PlayHistoryItem>()
@@ -48,6 +49,7 @@ class HistoryAdapter(
             holder.score.visibility = View.GONE
         }
         holder.itemView.setOnClickListener { onPlay(item) }
+        holder.itemView.setOnLongClickListener { onDelete?.invoke(item); onDelete != null }
         val density = holder.itemView.resources.displayMetrics.density
         val lp = holder.itemView.layoutParams
         lp.width = if (fixedWidthDp > 0) (fixedWidthDp * density).toInt()

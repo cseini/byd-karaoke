@@ -265,7 +265,21 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         }
         // 설정에서 바꾼 값(물리버튼·API 키 등)을 닫는 즉시 화면에 반영한다.
         syncPhysicalButtons()
-        if (::settings.isInitialized) refreshVoiceUi()
+        if (::settings.isInitialized) {
+            refreshVoiceUi()
+            // 일반/노래방 모드를 바꿔 저장했으면 검색 결과 카드·홈 목록을 즉시 전환.
+            refreshHistory(); refreshHomeQueue(); applySearchMode()
+        }
+    }
+
+    /** 설정의 일반/노래방 모드를 검색 결과 형식·홈 섹션에 즉시 반영. */
+    private fun applySearchMode() {
+        if (!::settings.isInitialized || !::results.isInitialized) return
+        val general = settings.generalYoutube
+        adapter.setGeneral(general)
+        results.layoutManager = if (general) GridLayoutManager(this, 2) else LinearLayoutManager(this)
+        findViewById<View>(R.id.ranking_section).visibility = if (general) View.GONE else View.VISIBLE
+        findViewById<TextView>(R.id.history_title).text = if (general) "최근 재생한 영상" else "최근 부른 노래"
     }
 
     private lateinit var settings: SettingsStore
@@ -325,6 +339,14 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private val historyAdapter = HistoryAdapter(
         onPlay = { pickPlayOrReplay(it) },
         onScore = { showScoreReview(it) },
+        onDelete = { item ->
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("최근 목록에서 삭제")
+                .setMessage("'${item.title}'을(를) 최근 목록에서 지울까요?")
+                .setPositiveButton("삭제") { _, _ -> playHistory.removeByVideoId(item.videoId); refreshHistory() }
+                .setNegativeButton("취소", null)
+                .show()
+        },
     )
     // 랭킹(홈 하단): 채점된 녹음을 점수순으로. 카드 탭=부르기.
     private val rankingAdapter = HistoryAdapter(
