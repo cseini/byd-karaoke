@@ -60,6 +60,16 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
         }
 
     /** keyless=true 면 API 키 없이 검색 결과 페이지를 파싱한다. */
+    // 노래방 결과 필터용 — 공식/가사 채널명 키워드 + 제목 키워드. 아마추어 커버를 걸러낸다.
+    private val karaokeChannels = listOf("TJ", "태진", "금영", "KY", "KUMYOUNG", "슬랴", "Charreve", "웅키")
+    private val karaokeTitleWords = listOf("가사", "lyrics")
+
+    private fun keepKaraoke(item: QueueItem): Boolean {
+        val t = item.title.lowercase()
+        if (karaokeTitleWords.any { t.contains(it) }) return true
+        return karaokeChannels.any { item.channel.contains(it, ignoreCase = true) }
+    }
+
     suspend fun search(rawQuery: String, apiKey: String, nowMs: Long, keyless: Boolean, general: Boolean = false): Result {
         val q = rawQuery.trim()
         if (q.isEmpty()) return Result.Error("검색어를 입력하세요")
@@ -85,11 +95,18 @@ class YouTubeRepository(private val api: YouTubeApi = YouTubeApi.create()) {
                     primary + sortBySimilarity(fallback, q)
                 }
 
-                if (merged.isEmpty()) {
+                // 노래방 모드(일반영상 아님)면 무조건 필터: 공식(TJ/금영)·가사 채널·제목에 가사/lyrics 인 것만.
+                // 다 걸러지면 원본(빈 결과 방지).
+                val filtered = if (!general) {
+                    val f = merged.filter { keepKaraoke(it) }
+                    f.ifEmpty { merged }
+                } else merged
+
+                if (filtered.isEmpty()) {
                     Result.Error(if (general) "검색 결과가 없어요 — 다른 검색어로 시도해보세요" else "반주를 찾지 못했습니다 — 곡명이나 가수명을 바꿔보세요")
                 } else {
-                    cache[cacheKey] = Cached(nowMs, merged)
-                    Result.Ok(merged)
+                    cache[cacheKey] = Cached(nowMs, filtered)
+                    Result.Ok(filtered)
                 }
             } catch (e: retrofit2.HttpException) {
                 val code = e.code()
