@@ -58,6 +58,7 @@ class KeepAliveService : Service() {
             .setOngoing(true)
             .build()
         startForeground(NOTIF_ID, n)
-        return START_NOT_STICKY
+        // 메모리 압박으로 시스템이 이 FGS 를 죽여도 다시 살려 프로세스를 유지한다(세컨드스크린 유지·백그라운드 복귀 시 종료 완화).
+        return START_STICKY
     }
 }
