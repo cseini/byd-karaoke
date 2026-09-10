@@ -138,9 +138,13 @@ object SecondScreenPage {
  var panel=document.getElementById('panel'), manualHide=false, scoreDismissed=false, loadingPlay=false, loadingAt=0;
  function showLoading(){ document.getElementById('loading').style.display='flex'; }
  function hideLoading(){ document.getElementById('loading').style.display='none'; }
- var curVid='', started=false, rtt=[], barTimer=null, lastTarget=0;
+ var curVid='', started=false, rtt=[], barTimer=null, lastTarget=0, videoProxyTried=false;
  // 곡이 바뀌어 새 스트림을 load() 한 직후엔 메타데이터가 없어 seek 이 버려진다 → 준비되면 마지막 target 으로 한 번 더.
  video.addEventListener('loadedmetadata',function(){ try{ video.currentTime=lastTarget/1000; }catch(e){} });
+ // 직접 재생이 실패하면(차 핫스팟이라 태블릿 인터넷 없음/403 등) 헤드유닛 중계(프록시)로 한 번 자동 폴백.
+ video.addEventListener('error',function(){
+   if(!videoProxyTried && curVid){ videoProxyTried=true; video.src='/vid?v='+encodeURIComponent(curVid); video.muted=true; video.load(); if(started) video.play().catch(function(){}); }
+ });
 
  // 보정값(로컬 저장). 세컨드는 항상 헤드유닛보다 느리므로 음수만 쓴다(더 낮출수록 영상을 앞당겨 따라잡음).
  var userOffset=parseInt(localStorage.getItem('ss_offset')||'-200',10);
@@ -225,7 +229,8 @@ object SecondScreenPage {
      curVid=d.videoId; changed=true;
      loadingPlay=false; hideLoading();   // 영상 준비됨 → 로딩 끝
      panel.classList.remove('show'); manualHide=false;   // 곡 시작 → 검색화면 닫고 영상
-     video.src='/vid?v='+encodeURIComponent(d.videoId); video.muted=true;   // 헤드유닛 중계(프록시) — 태블릿 인터넷 불필요
+     videoProxyTried=false;
+     video.src=d.streamUrl; video.muted=true;   // 우선 직접 재생(기존 와이파이·태블릿 인터넷 있으면 그대로)
      video.load(); if(started) video.play().catch(function(){});
    }
    // 헤드유닛에서 곡을 끄면(idle) 세컨드도 멈추고, 대기모드=풀스크린 검색화면을 띄운다.
