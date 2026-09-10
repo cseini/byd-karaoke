@@ -110,6 +110,7 @@ object ReserveServer {
                 uri.startsWith("/recent") -> handleRecent()
                 uri.startsWith("/ranking") -> handleRanking()
                 uri.startsWith("/now") -> handleNow()
+                uri.startsWith("/vid") -> handleVid(session, q("v"))
                 uri.startsWith("/cmd") -> handleCmd(q("action"), q("videoId"), q("title"))
                 uri.startsWith("/screen") -> json(Response.Status.OK, "text/html; charset=utf-8", SecondScreenPage.HTML)
                     .apply { addHeader("Cache-Control", "no-store, must-revalidate") }   // 태블릿이 항상 최신 페이지를 받게(캐시 잔상 방지)
@@ -135,6 +136,47 @@ object ReserveServer {
                 .put("countdown", s.countdown)
                 .put("voice", SecondScreenState.voice)
             return jsonBody(o.toString())
+        }
+
+        // 스트림 프록시용 — 태블릿이 차 핫스팟(인터넷 없음)에 붙어도 영상이 나오게, 헤드유닛이 중계한다.
+        private val proxyClient by lazy {
+            okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
+
+        /**
+         * 현재 재생 영상 스트림을 헤드유닛이 유튜브에서 받아 태블릿에 그대로 중계(Range 지원).
+         * 태블릿은 인터넷 없이 로컬(/vid)로 영상을 받는다. 추출과 같은 egress 라 403 도 회피.
+         */
+        private fun handleVid(session: IHTTPSession, videoId: String): Response {
+            val snap = SecondScreenState.play
+            val url = snap.streamUrl
+            if (url.isNullOrBlank() || (videoId.isNotBlank() && snap.videoId != videoId)) {
+                return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "no stream")
+            }
+            val range = session.headers["range"]
+            val rb = okhttp3.Request.Builder().url(url)
+                .header("User-Agent", com.cseini.byd.karaoke.player.YouTubeDownloader.USER_AGENT)
+            if (!range.isNullOrBlank()) rb.header("Range", range)
+            val up = runCatching { proxyClient.newCall(rb.build()).execute() }.getOrElse {
+                CrashLog.event(ctx, "vid proxy 실패: ${it.message}")
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "upstream fail")
+            }
+            val body = up.body
+            if (!up.isSuccessful || body == null) {
+                val code = up.code; up.close()
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "upstream $code")
+            }
+            val mime = body.contentType()?.toString() ?: "video/mp4"
+            val len = body.contentLength()
+            val status = if (up.code == 206) Response.Status.PARTIAL_CONTENT else Response.Status.OK
+            val resp = if (len >= 0) newFixedLengthResponse(status, mime, body.byteStream(), len)
+            else newChunkedResponse(status, mime, body.byteStream())
+            up.header("Content-Range")?.let { resp.addHeader("Content-Range", it) }
+            resp.addHeader("Accept-Ranges", "bytes")
+            return resp
         }
 
         /** 태블릿 리모컨 명령 → 헤드유닛에서 실행(호스트가 메인스레드로 넘김). */

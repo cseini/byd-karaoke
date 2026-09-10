@@ -225,7 +225,7 @@ object SecondScreenPage {
      curVid=d.videoId; changed=true;
      loadingPlay=false; hideLoading();   // 영상 준비됨 → 로딩 끝
      panel.classList.remove('show'); manualHide=false;   // 곡 시작 → 검색화면 닫고 영상
-     video.src=d.streamUrl; video.muted=true;
+     video.src='/vid?v='+encodeURIComponent(d.videoId); video.muted=true;   // 헤드유닛 중계(프록시) — 태블릿 인터넷 불필요
      video.load(); if(started) video.play().catch(function(){});
    }
    // 헤드유닛에서 곡을 끄면(idle) 세컨드도 멈추고, 대기모드=풀스크린 검색화면을 띄운다.
