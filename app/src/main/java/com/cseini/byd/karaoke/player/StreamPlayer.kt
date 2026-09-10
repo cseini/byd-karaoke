@@ -109,7 +109,8 @@ class StreamPlayer(
     @Volatile private var cached: Pair<Long, Long> = 0L to 0L  // (cachedPositionMs, cachedAtNanos)
 
     // 뒷좌석 태블릿 세컨드스크린에 넘길 progressive 스트림 URL. 추출 스레드(IO)에서 쓰고 티커(메인)에서 읽는다.
-    @Volatile private var tabletUrl: String? = null
+    @Volatile private var tabletUrl: String? = null      // 직접재생용(고화질)
+    @Volatile private var tabletUrlLow: String? = null   // 프록시 중계용(저화질)
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -202,7 +203,7 @@ class StreamPlayer(
         val dsf = DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT)
 
         // 뒷좌석 태블릿엔 <video> 로 재생 가능한 단일 progressive URL 하나만 넘긴다(무음 재생).
-        if (!lowRes) tabletUrl = pickTabletStream(extractor)
+        if (!lowRes) { tabletUrl = pickTabletStream(extractor); tabletUrlLow = pickTabletStreamLow(extractor) }
 
         // 다시듣기(lowRes): 소리는 녹음 파일로 나가므로 오디오 트랙 없이 가장 낮은 화질 영상만.
         // 단일 트랙 progressive 라 병합(MergingMediaSource)·고화질 디코딩 부담이 없어 훨씬 부드럽다.
@@ -252,15 +253,24 @@ class StreamPlayer(
      * muxed(영상+소리) progressive 를 화질 상한 이하로 고르고, 없으면 video-only progressive.
      * 소리는 태블릿에서 muted 로 버리고 차량 스피커로 듣는다.
      */
-    private fun pickTabletStream(extractor: StreamExtractor): String? {
+    // 직접재생용(WiFi·폰 핫스팟, 태블릿 인터넷 있음): 720p 이하 최고화질.
+    private fun pickTabletStream(extractor: StreamExtractor): String? = pickTabletStreamBy(extractor, false)
+    // 프록시 중계용(차 핫스팟, 헤드유닛 LTE 로 자기 재생분과 2배 대역폭): 가장 낮은 화질(보통 360p) → 끊김 방지.
+    private fun pickTabletStreamLow(extractor: StreamExtractor): String? = pickTabletStreamBy(extractor, true)
+
+    private fun pickTabletStreamBy(extractor: StreamExtractor, lowest: Boolean): String? {
         val muxed = runCatching { extractor.videoStreams }.getOrNull().orEmpty()
             .filter { it.content.isNotEmpty() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-        (pickCapped(muxed) ?: muxed.firstOrNull())?.let { return it.content }
+        (pick(muxed, lowest) ?: muxed.firstOrNull())?.let { return it.content }
         val videoOnly = runCatching { extractor.videoOnlyStreams }.getOrNull().orEmpty()
             .filter { it.content.isNotEmpty() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-        (pickCapped(videoOnly) ?: videoOnly.firstOrNull())?.let { return it.content }
+        (pick(videoOnly, lowest) ?: videoOnly.firstOrNull())?.let { return it.content }
         return null
     }
+
+    private fun pick(list: List<VideoStream>, lowest: Boolean): VideoStream? =
+        if (lowest) list.filter { resolutionValue(it.resolution) > 0 }.minByOrNull { resolutionValue(it.resolution) }
+        else pickCapped(list)
 
     /** "720p60" 같은 문자열에서 화질 숫자만 뽑아 비교용으로. */
     private fun resolutionValue(res: String?): Int =
@@ -292,6 +302,7 @@ class StreamPlayer(
     override fun clock(): Pair<Long, Long> = cached
     override fun speed(): Float = exo.playbackParameters.speed
     override fun tabletStreamUrl(): String? = tabletUrl
+    override fun tabletStreamUrlLow(): String? = tabletUrlLow
     override fun currentPositionMs(): Long {
         val (pos, at) = cached
         if (at == 0L) return pos

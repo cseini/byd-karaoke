@@ -30,6 +30,7 @@ interface KaraokePlayer {
 
     /** 뒷좌석 태블릿용 progressive 스트림 URL(최근 추출). 아직 없으면 null. */
     fun tabletStreamUrl(): String? = null
+    fun tabletStreamUrlLow(): String? = null
 }
 
 /**

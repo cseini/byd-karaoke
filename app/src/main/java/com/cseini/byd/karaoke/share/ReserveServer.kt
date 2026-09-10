@@ -152,7 +152,8 @@ object ReserveServer {
          */
         private fun handleVid(session: IHTTPSession, videoId: String): Response {
             val snap = SecondScreenState.play
-            val url = snap.streamUrl
+            // 프록시 중계는 저화질 URL 우선(헤드유닛 LTE 로 자기 재생분과 동시에 나가 대역폭이 2배라 끊김 방지).
+            val url = snap.streamUrlLow ?: snap.streamUrl
             if (url.isNullOrBlank() || (videoId.isNotBlank() && snap.videoId != videoId)) {
                 return newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "no stream")
             }

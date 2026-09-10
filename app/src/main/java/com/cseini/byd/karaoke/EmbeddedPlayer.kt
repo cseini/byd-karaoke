@@ -503,6 +503,7 @@ class EmbeddedPlayer(
                 videoId = currentVideoId,
                 title = titleView.text.toString(),
                 streamUrl = p?.tabletStreamUrl(),
+                streamUrlLow = p?.tabletStreamUrlLow(),
                 positionMs = pos,
                 atNanos = at,
                 durationMs = p?.durationMs() ?: 0L,

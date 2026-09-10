@@ -18,7 +18,8 @@ object SecondScreenState {
     data class PlaySnap(
         val videoId: String = "",
         val title: String = "",
-        val streamUrl: String? = null,
+        val streamUrl: String? = null,      // 직접재생용(고화질)
+        val streamUrlLow: String? = null,   // 프록시 중계용(저화질)
         val positionMs: Long = 0L,
         val atNanos: Long = 0L,
         val durationMs: Long = 0L,
