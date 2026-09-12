@@ -47,7 +47,8 @@ object ReserveServer {
         if (server != null) return url
         val ip = localIpAddress() ?: return null
         val app = context.applicationContext
-        for (port in intArrayOf(8080, 8081, 8090)) {
+        // 8080/8090 은 다른 플레이어·프록시가 자주 선점해 경합(무한로딩) 원인 → 거의 안 쓰는 8770대 사용.
+        for (port in intArrayOf(8770, 8771, 8772)) {
             val s = Http(app, port) { this.host }
             // 검색은 차가 대신 수행하므로 기본 5초(SOCKET_READ_TIMEOUT)로는 부족하다.
             // 차 네트워크가 느리면 연결이 끊겨 폰에 "검색 실패"만 뜨므로 넉넉히 잡는다.

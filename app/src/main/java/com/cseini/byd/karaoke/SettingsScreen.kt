@@ -655,7 +655,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             view.findViewById(R.id.reserve_qr),
             view.findViewById(R.id.reserve_url),
             view.findViewById(R.id.reserve_hint),
-            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8770),
             "screen",
         )
         androidx.appcompat.app.AlertDialog.Builder(activity)

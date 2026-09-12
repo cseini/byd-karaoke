@@ -961,7 +961,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             view.findViewById(R.id.reserve_qr),
             view.findViewById(R.id.reserve_url),
             view.findViewById(R.id.reserve_hint),
-            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8770),
             "screen",
         )
         AlertDialog.Builder(this)
@@ -983,7 +983,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             view.findViewById(R.id.reserve_qr),
             view.findViewById(R.id.reserve_url),
             view.findViewById(R.id.reserve_hint),
-            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8080),
+            com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8770),
         )
         AlertDialog.Builder(this)
             .setView(view)

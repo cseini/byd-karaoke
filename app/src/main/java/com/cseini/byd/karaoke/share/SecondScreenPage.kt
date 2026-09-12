@@ -216,6 +216,8 @@ object SecondScreenPage {
 
  async function tick(){
    var t0=performance.now(), d;
+   // 안전장치는 fetch 앞에 — /now 폴링이 계속 실패해도(연결 끊김·엉뚱한 서버) 20초 뒤 로딩을 풀어 무한로딩을 막는다.
+   if(loadingPlay && Date.now()-loadingAt>20000){ loadingPlay=false; hideLoading(); }
    try{ var r=await fetch('/now',{cache:'no-store'}); d=await r.json(); }catch(e){ return; }
    var ms=performance.now()-t0; rtt.push(ms); if(rtt.length>8)rtt.shift();
    var minRtt=Math.min.apply(null,rtt);
@@ -229,7 +231,6 @@ object SecondScreenPage {
 
    // 곡이 바뀌었으면 새 스트림 로드
    var changed=false;
-   if(loadingPlay && Date.now()-loadingAt>20000){ loadingPlay=false; hideLoading(); }   // 안전장치: 20초 넘으면 로딩 해제
    if(d.videoId && d.streamUrl && curVid!==d.videoId){
      curVid=d.videoId; changed=true;
      loadingPlay=false; hideLoading();   // 영상 준비됨 → 로딩 끝
