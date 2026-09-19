@@ -20,7 +20,7 @@
 에서 아직 처리 안 된 곡(사용자 실재생 상위)을 가져와 처리하고, 성공/실패 무관하게
 처리완료로 마킹(재시도 방지)한 뒤 landing 을 자동 재배포한다. launchd(주기 실행) 용.
 """
-import json, os, subprocess, sys, tempfile, urllib.request
+import json, os, subprocess, sys, tempfile, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -32,7 +32,8 @@ INTRO_URL_FILE = "/tmp/intro_url.txt"
 LEAD_SEC = 1.5   # 가사 시작보다 이만큼 일찍 점프(너무 늦게 떨어지면 첫 소절을 놓침)
 INTRO_SCAN_SEC = 30
 FPS = 2
-QUEUE_LIMIT = 10   # 한 번 실행에서 처리할 최대 곡 수(맥미니 부하 제한)
+TIME_BUDGET_SEC = 3600   # 하루 실행 시간 예산(곡 수 고정 대신 — 곡당 ~1분, 남으면 다음날 이어서)
+FETCH_CHUNK = 20         # 큐에서 한 번에 가져올 개수(서버 최대 50)
 
 sys.path.insert(0, HERE)
 from detect import first_lyric_onset  # noqa: E402
@@ -154,31 +155,48 @@ def deploy_landing():
 
 
 def run_queue():
+    """1시간 시간 예산 동안 큐(재생 많은 순)를 계속 가져와 처리. 곡 수 고정 안 함 —
+    다 처리하고도 시간이 남으면 그날은 그걸로 끝, 시간이 부족하면 남은 곡은 서버에
+    processed=0 로 남아 다음 실행(다음날) 때 이어서 처리된다(유실 없음)."""
     secret = load_secret()
     if not secret:
         print(f"비밀키 없음({SECRET_FILE}) — --queue 모드 사용 불가")
         sys.exit(1)
-    try:
-        queue = http_json(f"{QUEUE_URL}?limit={QUEUE_LIMIT}", secret)
-    except Exception as e:
-        print(f"큐 조회 실패: {e}")
-        sys.exit(1)
-    if not queue:
-        print("처리할 곡 없음(모두 처리됨 또는 재생 기록 없음)")
-        return
+
     db = load_db()
+    start = time.time()
+    total_attempted = 0
     changed = False
-    for item in queue:
-        vid = item["video_id"]
-        ok = process_one(vid, db)
-        if ok:
-            save_db(db)
-            changed = True
-        mark_processed(vid, secret)  # 성공/실패 무관 — 재시도 방지(다음 재생 시 다시 큐에 안 들어옴)
+
+    while time.time() - start < TIME_BUDGET_SEC:
+        try:
+            chunk = http_json(f"{QUEUE_URL}?limit={FETCH_CHUNK}", secret)
+        except Exception as e:
+            print(f"큐 조회 실패: {e}")
+            break
+        if not chunk:
+            print("처리할 곡 없음(모두 처리됨 또는 재생 기록 없음) — 종료")
+            break
+        for item in chunk:
+            if time.time() - start >= TIME_BUDGET_SEC:
+                print(f"시간 예산({TIME_BUDGET_SEC}s) 소진 — 남은 곡은 다음 실행에서 이어감")
+                break
+            vid = item["video_id"]
+            ok = process_one(vid, db)
+            total_attempted += 1
+            if ok:
+                save_db(db)
+                changed = True
+            mark_processed(vid, secret)  # 성공/실패 무관 — 재시도 방지
+        else:
+            continue  # for 를 끝까지 돌았으면(중간에 break 안 했으면) 다음 chunk 계속
+        break  # for 안에서 시간초과로 break 했으면 while 도 종료
+
     if changed:
         print("landing 재배포 중…")
         deploy_landing()
-    print(f"큐 처리 완료. {len(queue)}곡 시도, DB 총 {len(db)}곡 → {LANDING_JSON}")
+    elapsed = round(time.time() - start, 1)
+    print(f"큐 처리 완료. {total_attempted}곡 시도({elapsed}s), DB 총 {len(db)}곡 → {LANDING_JSON}")
 
 
 def main():
