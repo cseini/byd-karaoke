@@ -68,6 +68,7 @@ class EmbeddedPlayer(
     private val replaySeek: SeekBar = activity.findViewById(R.id.embed_replay_seek)
     private val replayPlay: Button = activity.findViewById(R.id.embed_replay_play)
     private val stopBtn: Button = activity.findViewById(R.id.embed_stop)
+    private val introJumpBtn: Button = activity.findViewById(R.id.embed_intro_jump)
     private val tuneRow: View = activity.findViewById(R.id.embed_tune_row)
     private val retryBtn: Button = activity.findViewById(R.id.embed_retry)
     private val replayBtn: Button = activity.findViewById(R.id.embed_replay)
@@ -134,6 +135,7 @@ class EmbeddedPlayer(
         retryBtn.setOnClickListener { currentVideoId.takeIf { it.isNotBlank() }?.let { load(it, titleView.text.toString()) } }
         replayBtn.setOnClickListener { startReplay() }
         nextBtn.setOnClickListener { playNext() }
+        introJumpBtn.setOnClickListener { remoteIntroJump() }
         activity.findViewById<Button>(R.id.embed_close).setOnClickListener { close() }
         // 점수 화면 빈 곳 탭 → 검색으로(임베드 닫기). 버튼은 각자 소비.
         scoreOverlay.setOnClickListener { close() }
@@ -206,6 +208,8 @@ class EmbeddedPlayer(
         replayRow.visibility = View.GONE
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
+        // 데이터화된 곡만(맥미니 배치가 검출한 TJ/금영) 간주점프 버튼 노출.
+        introJumpBtn.visibility = if (com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(videoId) != null) View.VISIBLE else View.GONE
         seekRow.visibility = View.VISIBLE
         tuneRow.visibility = View.VISIBLE
         stopBtn.visibility = View.VISIBLE
@@ -400,6 +404,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = if (lastRecording != null) View.VISIBLE else View.GONE
         queue.reload()
         nextBtn.visibility = if (queue.size() > 0) View.VISIBLE else View.GONE
+        introJumpBtn.visibility = View.GONE   // 곡 끝난 뒤(채점 화면)엔 점프 의미 없음
     }
 
     private fun stopSong() {
@@ -513,6 +518,7 @@ class EmbeddedPlayer(
                 score = lastScore,
                 breakdown = lastBreakdown,
                 countdown = lastCountdown,
+                hasIntroJump = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(currentVideoId) != null,
             ),
         )
     }
@@ -594,6 +600,7 @@ class EmbeddedPlayer(
         stopBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
         replayBtn.visibility = View.GONE
+        introJumpBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         scoreOverlay.visibility = View.GONE
         player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
@@ -684,6 +691,13 @@ class EmbeddedPlayer(
         stopSong()
     }
 
+    /** 간주점프: 데이터가 있는 곡만(introJumpBtn 이 보일 때만) 그 지점으로 seek. */
+    fun remoteIntroJump() {
+        if (!isPlayingSong) return
+        val jumpSec = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(currentVideoId) ?: return
+        player?.seekTo((jumpSec * 1000).toLong())
+    }
+
     /**
      * 뒤로(마이크 버튼 더블탭): 채점 화면이면 검색으로 닫고 true.
      * 노래 재생 중이면 실수로 곡이 꺼지지 않게 무시하고 true(소비만).
@@ -729,6 +743,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
+        introJumpBtn.visibility = View.GONE
         seekRow.visibility = View.GONE
         tuneRow.visibility = View.GONE   // 다시듣기 — 키·속도·종료 숨김
         stopBtn.visibility = View.GONE

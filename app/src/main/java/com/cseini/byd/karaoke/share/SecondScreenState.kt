@@ -29,6 +29,7 @@ object SecondScreenState {
         val score: Int = -1,
         val breakdown: String = "",
         val countdown: String = "",   // "N초 후 다음 예약곡…" 등 자동진행 카운트(없으면 빈 문자열)
+        val hasIntroJump: Boolean = false,   // 이 곡에 간주점프 데이터가 있으면 태블릿에도 버튼 노출
     )
 
     @Volatile var play: PlaySnap = PlaySnap()

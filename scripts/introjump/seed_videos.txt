@@ -1,0 +1,7 @@
+# 간주점프 시드 목록 — TJ/금영 공식 채널 videoId 만. 한 줄에 하나, #은 주석.
+# 검증 완료(5/5 정확 적중, intro-jump-detection 메모):
+HtzFBF_mWCI
+D67jNiKLWC8
+hEQyYQUOBMU
+fgX_dhxYyig
+d5HrBgR0-94

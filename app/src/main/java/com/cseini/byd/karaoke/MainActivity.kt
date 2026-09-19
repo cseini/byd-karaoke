@@ -140,6 +140,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             "next" -> embeddedPlayer?.remoteNext()
             "stop" -> embeddedPlayer?.remoteStop()
             "pause" -> embeddedPlayer?.remotePauseToggle()
+            "introjump" -> embeddedPlayer?.remoteIntroJump()
             "panel" -> usbMic?.sendPanelToggle()
             // "none" → 아무것도 안 함
         }

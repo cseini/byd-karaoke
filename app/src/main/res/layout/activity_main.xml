@@ -685,10 +685,20 @@
                     android:paddingTop="6dp">
 
                     <Button
+                        android:id="@+id/embed_intro_jump"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/tj_orange"
+                        android:text="⏭ 간주점프" />
+
+                    <Button
                         android:id="@+id/embed_stop"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:layout_marginStart="6dp"
                         app:backgroundTint="@color/tj_red"
                         android:text="⏹ 종료" />
 

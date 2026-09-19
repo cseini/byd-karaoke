@@ -97,6 +97,7 @@ object SecondScreenPage {
   <button class="btn" onclick="cmd('pause')" title="재생/일시정지">⏯</button>
   <button class="btn" onclick="stopToSearch()" title="정지·검색으로">⏹</button>
   <button class="btn" onclick="cmd('mute')" title="반주 음소거">🔇</button>
+  <button class="btn" id="btnIntroJump" style="display:none" onclick="cmd('introjump')" title="간주점프">⏭</button>
   <button class="btn" onclick="cmd('voice')" title="음성검색">🎤</button>
   <button class="btn wide" onclick="togglePanel()">🔎 검색·예약</button>
 </div>
@@ -228,6 +229,7 @@ object SecondScreenPage {
    if(d.countdown){ cd.textContent=d.countdown; cd.style.display='block'; } else cd.style.display='none';
    if(d.phase==='scoring' && d.score>=0){ if(!scoreDismissed) showScore(d); }
    else { hideScore(); scoreDismissed=false; }
+   document.getElementById('btnIntroJump').style.display=(d.hasIntroJump && d.phase==='playing')?'':'none';
 
    // 곡이 바뀌었으면 새 스트림 로드
    var changed=false;

@@ -136,6 +136,7 @@ object ReserveServer {
                 .put("breakdown", s.breakdown)
                 .put("countdown", s.countdown)
                 .put("voice", SecondScreenState.voice)
+                .put("hasIntroJump", s.hasIntroJump)
             return jsonBody(o.toString())
         }
 
