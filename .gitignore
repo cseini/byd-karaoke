@@ -15,6 +15,7 @@
 /keystore/ota.keystore
 scripts/autodeploy.log
 scripts/autodeploy.launchd.log
+scripts/introjump/.secret
 .DS_Store
 landing/functions/
 landing/wrangler.toml
