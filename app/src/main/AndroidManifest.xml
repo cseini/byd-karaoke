@@ -54,13 +54,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- USB 마이크 연결 시 노래방 담당 등록 → "항상" 체크 시 재부팅 후에도 권한 자동. -->
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-                android:resource="@xml/usb_device_filter" />
         </activity>
 
         <!-- 재생·녹음함·랭킹·설정은 모두 MainActivity 안의 임베드 화면이라 별도 Activity 가 없다
