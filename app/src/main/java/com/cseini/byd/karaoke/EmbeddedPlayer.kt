@@ -69,6 +69,9 @@ class EmbeddedPlayer(
     private val replayPlay: Button = activity.findViewById(R.id.embed_replay_play)
     private val stopBtn: Button = activity.findViewById(R.id.embed_stop)
     private val introJumpWrap: View = activity.findViewById(R.id.embed_intro_jump_wrap)
+    // 하단 컨트롤 바(비-전체화면)의 원래 자리 — 전체화면 해제 시 여기로 되돌린다.
+    private val introJumpNormalParent: ViewGroup = introJumpWrap.parent as ViewGroup
+    private val introJumpNormalIndex: Int = introJumpNormalParent.indexOfChild(introJumpWrap)
     private val introJumpBtn: Button = activity.findViewById(R.id.embed_intro_jump)
     private val introJumpBadge: View = activity.findViewById(R.id.embed_intro_jump_badge)
     private var introJumpPulse: android.animation.ObjectAnimator? = null
@@ -79,6 +82,7 @@ class EmbeddedPlayer(
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val floatToolbar: View = activity.findViewById(R.id.embed_float_toolbar)
+    private val floatIntroSlot: FrameLayout = activity.findViewById(R.id.embed_float_intro_slot)
     private val floatKeyVal: TextView = activity.findViewById(R.id.embed_float_key_val)
     private val floatSpeedVal: TextView = activity.findViewById(R.id.embed_float_speed_val)
     private val floatStopBtn: Button = activity.findViewById(R.id.embed_float_stop)
@@ -431,7 +435,11 @@ class EmbeddedPlayer(
         cancelCountdown()
         if (replaying) { endReplay(); onSongEnd(); return }
         player?.pause()
-        if (recordStarted && !scored) onEnded() else { showPostSong(); onSongEnd() }
+        // 녹음·채점이 켜져 있었고 실제로 녹음이 시작됐으면 채점 화면으로(onEnded).
+        // 그게 아니면(녹음·채점 꺼짐 등) 종료 버튼은 곧장 검색화면으로 나간다 —
+        // 예전엔 showPostSong() 으로 재생화면에 머물러 '종료를 눌러도 검색으로 안 간다'는
+        // 문제가 있었다.
+        if (recordStarted && !scored) onEnded() else { onSongEnd(); close() }
     }
 
     private fun playNext() {
@@ -581,8 +589,26 @@ class EmbeddedPlayer(
         } else {
             floatToolbar.visibility = View.GONE
         }
+        moveIntroJumpTo(fullscreen)
         applySystemBars()
         refreshQueueSide()
+    }
+
+    /** 간주점프 버튼을 전체화면 여부에 맞는 자리로 옮긴다(뷰 하나를 재사용 — 배지·펄스
+     * 애니메이션·클릭리스너가 그대로 유지됨). 부모 타입이 달라 LayoutParams 를 다시 잡아준다. */
+    private fun moveIntroJumpTo(toFloat: Boolean) {
+        (introJumpWrap.parent as? ViewGroup)?.removeView(introJumpWrap)
+        if (toFloat) {
+            introJumpWrap.layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            floatIntroSlot.addView(introJumpWrap)
+        } else {
+            introJumpWrap.layoutParams = android.widget.LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
+            )
+            introJumpNormalParent.addView(introJumpWrap, introJumpNormalIndex.coerceAtMost(introJumpNormalParent.childCount))
+        }
     }
 
     /** 저장된 비율 위치를 실제 픽셀 좌표로 변환해 플로팅 툴바에 적용(화면 크기 무관하게 동작). */

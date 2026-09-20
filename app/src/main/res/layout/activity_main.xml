@@ -684,11 +684,42 @@
                     android:orientation="horizontal"
                     android:paddingTop="6dp">
 
+                    <FrameLayout
+                        android:id="@+id/embed_intro_jump_wrap"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:visibility="gone">
+
+                        <Button
+                            android:id="@+id/embed_intro_jump"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:backgroundTint="@color/tj_orange"
+                            android:text="간주점프" />
+
+                        <!-- 새 기능 배지 — 한 번 눌러보면 다시 안 뜬다(SettingsStore.introJumpUsed). -->
+                        <TextView
+                            android:id="@+id/embed_intro_jump_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_margin="2dp"
+                            android:background="@drawable/badge_new_bg"
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="1dp"
+                            android:text="NEW"
+                            android:textColor="#ffffff"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+
                     <Button
                         android:id="@+id/embed_stop"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:layout_marginStart="6dp"
                         app:backgroundTint="@color/tj_red"
                         android:text="⏹ 종료" />
 
@@ -852,38 +883,15 @@
                 android:textSize="13sp"
                 android:text="+" />
 
+            <!-- 간주점프 버튼(embed_intro_jump_wrap)이 전체화면일 때 여기로 옮겨와 앉는 자리.
+                 실제 뷰는 하단 컨트롤 바에 정의돼 있고, EmbeddedPlayer.toggleFullscreen() 이
+                 전체화면 진입/해제마다 이 슬롯 ↔ 원래 자리로 reparent 한다(둘 다에서 쓸 수 있게 —
+                 배지·펄스 애니메이션·클릭리스너를 뷰 하나로 유지). -->
             <FrameLayout
-                android:id="@+id/embed_intro_jump_wrap"
+                android:id="@+id/embed_float_intro_slot"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:visibility="gone">
-
-                <Button
-                    android:id="@+id/embed_intro_jump"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="12dp"
-                    android:textSize="13sp"
-                    app:backgroundTint="@color/tj_orange"
-                    android:text="간주점프" />
-
-                <!-- 새 기능 배지 — 한 번 눌러보면 다시 안 뜬다(SettingsStore.introJumpUsed). -->
-                <TextView
-                    android:id="@+id/embed_intro_jump_badge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="top|end"
-                    android:layout_margin="2dp"
-                    android:background="@drawable/badge_new_bg"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="1dp"
-                    android:text="NEW"
-                    android:textColor="#ffffff"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </FrameLayout>
+                android:layout_marginStart="10dp" />
 
             <Button
                 android:id="@+id/embed_float_stop"
