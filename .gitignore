@@ -19,5 +19,4 @@ scripts/introjump/.secret
 scripts/introjump/__pycache__/
 scripts/introjump/queue.launchd.log
 .DS_Store
-landing/functions/
 landing/wrangler.toml
