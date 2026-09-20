@@ -97,7 +97,7 @@ object SecondScreenPage {
   <button class="btn" onclick="cmd('pause')" title="재생/일시정지">⏯</button>
   <button class="btn" onclick="stopToSearch()" title="정지·검색으로">⏹</button>
   <button class="btn" onclick="cmd('mute')" title="반주 음소거">🔇</button>
-  <button class="btn" id="btnIntroJump" style="display:none" onclick="cmd('introjump')" title="간주점프">⏭</button>
+  <button class="btn wide" id="btnIntroJump" style="display:none;position:relative" onclick="introJumpClick()">간주점프<span id="introJumpBadge" style="position:absolute;top:-6px;right:-6px;background:#d9645a;color:#fff;font-size:10px;font-weight:800;padding:1px 5px;border-radius:8px">NEW</span></button>
   <button class="btn" onclick="cmd('voice')" title="음성검색">🎤</button>
   <button class="btn wide" onclick="togglePanel()">🔎 검색·예약</button>
 </div>
@@ -171,6 +171,8 @@ object SecondScreenPage {
 
  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
  function cmd(a,vid,title){ var u='/cmd?action='+encodeURIComponent(a); if(vid)u+='&videoId='+encodeURIComponent(vid); if(title)u+='&title='+encodeURIComponent(title); fetch(u).catch(function(){}); }
+ function introJumpUsed(){ try{ return localStorage.getItem('ss_intro_jump_used')==='1'; }catch(e){ return false; } }
+ function introJumpClick(){ try{ localStorage.setItem('ss_intro_jump_used','1'); }catch(e){} document.getElementById('introJumpBadge').style.display='none'; cmd('introjump'); }
  // 중지 → 헤드유닛도 검색화면으로(close), 태블릿도 검색화면으로.
  function stopToSearch(){ cmd('close'); loadingPlay=false; hideLoading(); hideScore(); manualHide=false; showPanel(false); }
 
@@ -230,6 +232,7 @@ object SecondScreenPage {
    if(d.phase==='scoring' && d.score>=0){ if(!scoreDismissed) showScore(d); }
    else { hideScore(); scoreDismissed=false; }
    document.getElementById('btnIntroJump').style.display=(d.hasIntroJump && d.phase==='playing')?'':'none';
+   document.getElementById('introJumpBadge').style.display=introJumpUsed()?'none':'';
 
    // 곡이 바뀌었으면 새 스트림 로드
    var changed=false;

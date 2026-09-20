@@ -29,7 +29,7 @@ LANDING_JSON = os.path.join(LANDING_DIR, "introjumps.json")
 SECRET_FILE = os.path.join(HERE, ".secret")
 QUEUE_URL = "https://karaoke.usenu.kr/api/introjump-queue"
 INTRO_URL_FILE = "/tmp/intro_url.txt"
-LEAD_SEC = 1.5   # 가사 시작보다 이만큼 일찍 점프(너무 늦게 떨어지면 첫 소절을 놓침)
+LEAD_SEC = 2.0   # 가사 시작보다 이만큼 일찍 점프(너무 늦게 떨어지면 첫 소절을 놓침)
 INTRO_SCAN_SEC = 30
 FPS = 2
 TIME_BUDGET_SEC = 3600   # 하루 실행 시간 예산(곡 수 고정 대신 — 곡당 ~1분, 남으면 다음날 이어서)
@@ -69,11 +69,19 @@ def extract_stream_url(video_id):
     return title, (video_only_480 or muxed)
 
 
+# app/.../player/YouTubeDownloader.kt 의 USER_AGENT 와 동일 — googlevideo 는 이 UA 로
+# 스트림 URL 을 발급했는데 다른(또는 없는) UA 로 받으러 오면 간헐적으로 403 을 낸다.
+# 이게 빠져 있으면 검출 실패("첫가사 미검출")가 사실 프레임을 아예 못 뽑은 것일 수 있다.
+STREAM_USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+
 def extract_frames(stream_url, out_dir):
     ff = get_ffmpeg()
     os.makedirs(out_dir, exist_ok=True)
     subprocess.run(
-        [ff, "-y", "-loglevel", "error", "-t", str(INTRO_SCAN_SEC), "-i", stream_url,
+        [ff, "-y", "-loglevel", "error", "-user_agent", STREAM_USER_AGENT,
+         "-t", str(INTRO_SCAN_SEC), "-i", stream_url,
          "-vf", f"fps={FPS},scale=640:-1", os.path.join(out_dir, "f_%03d.png")],
         check=False,
     )
@@ -183,6 +191,12 @@ def run_queue():
                 break
             vid = item["video_id"]
             ok = process_one(vid, db)
+            if not ok:
+                # 실측: 연속 처리 중 부하·타임아웃으로 실패한 곡을 곧바로 재시도하면
+                # 대부분 성공한다(가시·Vitamin ME 등 "미검출"이 재실행 시 바로 잡힘,
+                # 알고리즘 결함이 아니라 일시적 처리 실패였음) — 1회만 더 시도.
+                print(f"[{vid}] 재시도…")
+                ok = process_one(vid, db)
             total_attempted += 1
             if ok:
                 save_db(db)

@@ -84,6 +84,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("general_youtube", false)
         set(v) = prefs.edit().putBoolean("general_youtube", v).apply()
 
+    /** 간주점프 버튼을 한 번이라도 눌러봤는지 — 눌러보면 'NEW' 배지·강조 애니메이션을 그만 보여준다. */
+    var introJumpUsed: Boolean
+        get() = prefs.getBoolean("intro_jump_used", false)
+        set(v) = prefs.edit().putBoolean("intro_jump_used", v).apply()
+
     /** 앱 시작 시 업데이트 안내를 이미 띄운 버전. 같은 버전은 매 실행마다 다시 안 띄운다(긴급 제외). */
     var lastPromptedUpdate: String
         get() = prefs.getString("last_prompted_update", "") ?: ""

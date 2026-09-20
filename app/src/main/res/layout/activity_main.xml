@@ -684,14 +684,35 @@
                     android:orientation="horizontal"
                     android:paddingTop="6dp">
 
-                    <Button
-                        android:id="@+id/embed_intro_jump"
+                    <FrameLayout
+                        android:id="@+id/embed_intro_jump_wrap"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:visibility="gone"
-                        app:backgroundTint="@color/tj_orange"
-                        android:text="⏭ 간주점프" />
+                        android:visibility="gone">
+
+                        <Button
+                            android:id="@+id/embed_intro_jump"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:backgroundTint="@color/tj_orange"
+                            android:text="간주점프" />
+
+                        <!-- 새 기능 배지 — 한 번 눌러보면 다시 안 뜬다(SettingsStore.introJumpUsed). -->
+                        <TextView
+                            android:id="@+id/embed_intro_jump_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_margin="2dp"
+                            android:background="@drawable/badge_new_bg"
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="1dp"
+                            android:text="NEW"
+                            android:textColor="#ffffff"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
 
                     <Button
                         android:id="@+id/embed_stop"

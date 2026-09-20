@@ -68,7 +68,10 @@ class EmbeddedPlayer(
     private val replaySeek: SeekBar = activity.findViewById(R.id.embed_replay_seek)
     private val replayPlay: Button = activity.findViewById(R.id.embed_replay_play)
     private val stopBtn: Button = activity.findViewById(R.id.embed_stop)
+    private val introJumpWrap: View = activity.findViewById(R.id.embed_intro_jump_wrap)
     private val introJumpBtn: Button = activity.findViewById(R.id.embed_intro_jump)
+    private val introJumpBadge: View = activity.findViewById(R.id.embed_intro_jump_badge)
+    private var introJumpPulse: android.animation.ObjectAnimator? = null
     private val tuneRow: View = activity.findViewById(R.id.embed_tune_row)
     private val retryBtn: Button = activity.findViewById(R.id.embed_retry)
     private val replayBtn: Button = activity.findViewById(R.id.embed_replay)
@@ -209,7 +212,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         // 데이터화된 곡만(맥미니 배치가 검출한 TJ/금영) 간주점프 버튼 노출.
-        introJumpBtn.visibility = if (com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(videoId) != null) View.VISIBLE else View.GONE
+        showIntroJumpIfAvailable(videoId)
         seekRow.visibility = View.VISIBLE
         tuneRow.visibility = View.VISIBLE
         stopBtn.visibility = View.VISIBLE
@@ -406,7 +409,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = if (lastRecording != null) View.VISIBLE else View.GONE
         queue.reload()
         nextBtn.visibility = if (queue.size() > 0) View.VISIBLE else View.GONE
-        introJumpBtn.visibility = View.GONE   // 곡 끝난 뒤(채점 화면)엔 점프 의미 없음
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()   // 곡 끝난 뒤(채점 화면)엔 점프 의미 없음
     }
 
     private fun stopSong() {
@@ -602,7 +605,7 @@ class EmbeddedPlayer(
         stopBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
         replayBtn.visibility = View.GONE
-        introJumpBtn.visibility = View.GONE
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()
         nextBtn.visibility = View.GONE
         scoreOverlay.visibility = View.GONE
         player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
@@ -693,11 +696,41 @@ class EmbeddedPlayer(
         stopSong()
     }
 
-    /** 간주점프: 데이터가 있는 곡만(introJumpBtn 이 보일 때만) 그 지점으로 seek. */
+    /** 간주점프: 데이터가 있는 곡만(introJumpWrap 이 보일 때만) 그 지점으로 seek. */
     fun remoteIntroJump() {
         if (!isPlayingSong) return
         val jumpSec = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(currentVideoId) ?: return
         player?.seekTo((jumpSec * 1000).toLong())
+        // 한 번이라도 써봤으면 새 기능 안내는 그만 — 배지·강조 애니메이션 영구 종료.
+        if (!settings.introJumpUsed) {
+            settings.introJumpUsed = true
+            stopIntroJumpPulse()
+            introJumpBadge.visibility = View.GONE
+        }
+    }
+
+    /** 데이터 있는 곡이면 버튼 노출. 아직 안 써본 사용자에겐 배지+살짝 튀는 강조 애니메이션으로 새 기능임을 알린다. */
+    private fun showIntroJumpIfAvailable(videoId: String) {
+        val available = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(videoId) != null
+        introJumpWrap.visibility = if (available) View.VISIBLE else View.GONE
+        stopIntroJumpPulse()
+        if (!available) return
+        if (settings.introJumpUsed) {
+            introJumpBadge.visibility = View.GONE
+            return
+        }
+        introJumpBadge.visibility = View.VISIBLE
+        introJumpPulse = android.animation.ObjectAnimator.ofFloat(introJumpBtn, "scaleX", 1f, 1.12f, 1f).apply {
+            duration = 500; repeatCount = 5; startDelay = 400; start()
+        }
+        android.animation.ObjectAnimator.ofFloat(introJumpBtn, "scaleY", 1f, 1.12f, 1f).apply {
+            duration = 500; repeatCount = 5; startDelay = 400; start()
+        }
+    }
+
+    private fun stopIntroJumpPulse() {
+        introJumpPulse?.cancel(); introJumpPulse = null
+        introJumpBtn.scaleX = 1f; introJumpBtn.scaleY = 1f
     }
 
     /**
@@ -745,7 +778,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
-        introJumpBtn.visibility = View.GONE
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()
         seekRow.visibility = View.GONE
         tuneRow.visibility = View.GONE   // 다시듣기 — 키·속도·종료 숨김
         stopBtn.visibility = View.GONE
