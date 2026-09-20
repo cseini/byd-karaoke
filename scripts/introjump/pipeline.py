@@ -44,16 +44,26 @@ def get_ffmpeg():
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+GRADLE_TIMEOUT_SEC = 90   # 이 맥미니에서 다른 프로젝트 세션이 동시에 gradle 을 쓰면(예: 다른
+# 세션이 --stop 을 호출) 데몬이 죽거나 응답 없어져 subprocess 가 무한정 걸릴 수 있다(실측:
+# 새벽 자동실행이 3시간 넘게 멈춰있었음) — 반드시 타임아웃을 걸어 한 곡 실패로 국한시킨다.
+
+
 def extract_stream_url(video_id):
     """Gradle IntroFrameDumpTest 로 NewPipe 추출 → /tmp/intro_url.txt 파싱."""
     if os.path.exists(INTRO_URL_FILE):
         os.remove(INTRO_URL_FILE)
     env = dict(os.environ, RUN_YT_SMOKE="1", SMOKE_VIDEO=video_id)
-    subprocess.run(
-        ["./gradlew", ":app:testProdReleaseUnitTest",
-         "--tests", "com.cseini.byd.karaoke.IntroFrameDumpTest", "--rerun", "-q"],
-        cwd=REPO_ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    try:
+        subprocess.run(
+            ["./gradlew", ":app:testProdReleaseUnitTest",
+             "--tests", "com.cseini.byd.karaoke.IntroFrameDumpTest", "--rerun", "-q"],
+            cwd=REPO_ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=GRADLE_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"[{video_id}] gradle 응답 없음({GRADLE_TIMEOUT_SEC}s 초과, 다른 세션과 데몬 충돌 등) — 이 곡만 건너뜀")
+        return None, None
     if not os.path.exists(INTRO_URL_FILE):
         return None, None
     title, video_only_480, muxed = None, None, None
@@ -175,6 +185,8 @@ def run_queue():
     start = time.time()
     total_attempted = 0
     changed = False
+    consecutive_timeouts = 0   # gradle 이 죽어있으면(다른 세션과 충돌 등) 매 곡 GRADLE_TIMEOUT_SEC
+    # 근처로 걸린다 — 연속 3번이면 오늘은 포기하고 조기 종료(무한정 시간만 날리는 것 방지).
 
     while time.time() - start < TIME_BUDGET_SEC:
         try:
@@ -190,6 +202,7 @@ def run_queue():
                 print(f"시간 예산({TIME_BUDGET_SEC}s) 소진 — 남은 곡은 다음 실행에서 이어감")
                 break
             vid = item["video_id"]
+            t0 = time.time()
             ok = process_one(vid, db)
             if not ok:
                 # 실측: 연속 처리 중 부하·타임아웃으로 실패한 곡을 곧바로 재시도하면
@@ -197,14 +210,22 @@ def run_queue():
                 # 알고리즘 결함이 아니라 일시적 처리 실패였음) — 1회만 더 시도.
                 print(f"[{vid}] 재시도…")
                 ok = process_one(vid, db)
+            elapsed_one = time.time() - t0
             total_attempted += 1
             if ok:
                 save_db(db)
                 changed = True
             mark_processed(vid, secret)  # 성공/실패 무관 — 재시도 방지
+            if not ok and elapsed_one >= GRADLE_TIMEOUT_SEC * 1.5:
+                consecutive_timeouts += 1
+                if consecutive_timeouts >= 3:
+                    print("gradle 이 연속으로 응답 없음 — 오늘은 여기서 포기(다음 실행에서 재시도)")
+                    break
+            else:
+                consecutive_timeouts = 0
         else:
             continue  # for 를 끝까지 돌았으면(중간에 break 안 했으면) 다음 chunk 계속
-        break  # for 안에서 시간초과로 break 했으면 while 도 종료
+        break  # for 안에서 시간초과/연속타임아웃으로 break 했으면 while 도 종료
 
     if changed:
         print("landing 재배포 중…")
