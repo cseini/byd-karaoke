@@ -1,4 +1,9 @@
 {
+ "-AgMMSu7eHE": {
+  "jump_sec": 7.0,
+  "onset_sec": 9.0,
+  "title": "[TJ노래방] 내가저지른사랑 - 임창정 / TJ Karaoke"
+ },
  "-DJGFs_Q-1I": {
   "jump_sec": 0.5,
   "onset_sec": 2.5,
@@ -34,6 +39,11 @@
   "onset_sec": 24.0,
   "title": "[TJ노래방] 나는반딧불 - 황가람 / TJ Karaoke"
  },
+ "1PBuvfxQwRc": {
+  "jump_sec": 3.0,
+  "onset_sec": 5.0,
+  "title": "[TJ노래방] 그날처럼 - 장덕철 / TJ Karaoke"
+ },
  "1gmleC0dOYY": {
   "jump_sec": 6.0,
   "onset_sec": 8.0,
@@ -49,10 +59,25 @@
   "onset_sec": 16.5,
   "title": "[TJ노래방] 소문의낙원 - AKMU(악뮤) / TJ Karaoke"
  },
+ "2_FqTO6Ee5o": {
+  "jump_sec": 20.0,
+  "onset_sec": 22.0,
+  "title": "[TJ노래방] 나를사랑했던사람아 - 허각 / TJ Karaoke"
+ },
+ "2oe_mM-bzig": {
+  "jump_sec": 16.5,
+  "onset_sec": 18.5,
+  "title": "[TJ노래방] 내머리가나빠서(드라마'꽃보다남자'OST) - SS501 / TJ Karaoke"
+ },
  "38-3teK0ruY": {
   "jump_sec": 1.5,
   "onset_sec": 3.5,
   "title": "[TJ노래방 / 멜로디제거] Pop Off Pop Off - KiiiKiii(키키) / TJ Karaoke"
+ },
+ "3k6A9mMEqec": {
+  "jump_sec": 21.0,
+  "onset_sec": 23.0,
+  "title": "[TJ노래방] 그런일은 - 박화요비 / TJ Karaoke"
  },
  "3sQ4zDmrWGs": {
   "jump_sec": 4.0,
@@ -64,10 +89,25 @@
   "onset_sec": 3.0,
   "title": "[TJ노래방] like JENNIE - 제니(JENNIE) / TJ Karaoke"
  },
+ "4MG-KnVC-bs": {
+  "jump_sec": 26.5,
+  "onset_sec": 28.5,
+  "title": "[TJ노래방] 이미슬픈사랑 - 야다 / TJ Karaoke"
+ },
  "5H6im1RsqeE": {
   "jump_sec": 4.5,
   "onset_sec": 6.5,
   "title": "[TJ노래방] LEMONADE - 에스파(aespa) / TJ Karaoke"
+ },
+ "5Jx5qlAD0mA": {
+  "jump_sec": 16.0,
+  "onset_sec": 18.0,
+  "title": "[TJ노래방] 지나오다 - 닐로 / TJ Karaoke"
+ },
+ "5ljdm4X9xog": {
+  "jump_sec": 6.5,
+  "onset_sec": 8.5,
+  "title": "[TJ노래방] 비행기 - 거북이 / TJ Karaoke"
  },
  "6Dg4-MQUORU": {
   "jump_sec": 11.0,
@@ -89,10 +129,30 @@
   "onset_sec": 12.5,
   "title": "[TJ노래방] Lemon Tang - Hearts2Hearts(하츠투하츠) / TJ Karaoke"
  },
+ "8kvA5vDII1U": {
+  "jump_sec": 18.5,
+  "onset_sec": 20.5,
+  "title": "[TJ노래방] Hello - 허각 / TJ Karaoke"
+ },
+ "8n9OUfkTAdg": {
+  "jump_sec": 9.5,
+  "onset_sec": 11.5,
+  "title": "[TJ노래방] My Love(And) - 버즈 / TJ Karaoke"
+ },
+ "9JmtJaTOFgg": {
+  "jump_sec": 21.0,
+  "onset_sec": 23.0,
+  "title": "[TJ노래방] 애상 - 쿨 / TJ Karaoke"
+ },
  "AkNi2Fh9CZ8": {
   "jump_sec": 11.0,
   "onset_sec": 13.0,
   "title": "[TJ노래방] 소나기(선재업고튀어OST) - 이클립스 / TJ Karaoke"
+ },
+ "B6mxTgH2WBU": {
+  "jump_sec": 16.5,
+  "onset_sec": 18.5,
+  "title": "[TJ노래방] 사랑한만큼 - Tim / TJ Karaoke"
  },
  "BBbjqz6rwSY": {
   "jump_sec": 7.5,
@@ -103,6 +163,11 @@
   "jump_sec": 15.0,
   "onset_sec": 17.0,
   "title": "[TJ노래방] Drowning - WOODZ(조승연) / TJ Karaoke"
+ },
+ "COrHYpqYI5I": {
+  "jump_sec": 26.5,
+  "onset_sec": 28.5,
+  "title": "[TJ노래방] 눈사람 - 정승환 / TJ Karaoke"
  },
  "CiGqmlsL4YI": {
   "jump_sec": 5.0,
@@ -129,10 +194,20 @@
   "onset_sec": 3.5,
   "title": "[TJ노래방] 생각을멈추다보면 - 최유리 / TJ Karaoke"
  },
+ "DiYKLCa7ypQ": {
+  "jump_sec": 10.0,
+  "onset_sec": 12.0,
+  "title": "[TJ노래방] 꿈속에너 - 에이치코드(Feat.전상근) / TJ Karaoke"
+ },
  "E84K5X25DwM": {
   "jump_sec": 10.5,
   "onset_sec": 12.5,
   "title": "[TJ노래방] HOME SWEET HOME - G-DRAGON(Feat.태양,대성) / TJ Karaoke"
+ },
+ "EP4Fc97YfI4": {
+  "jump_sec": 28.0,
+  "onset_sec": 30.0,
+  "title": "[TJ노래방] 사랑의바보 - The Nuts / TJ Karaoke"
  },
  "F8NK24y5q7A": {
   "jump_sec": 5.0,
@@ -144,15 +219,40 @@
   "onset_sec": 6.5,
   "title": "[TJ노래방] Blue Valentine - 엔믹스(NMIXX) / TJ Karaoke"
  },
+ "GARUCylSeE4": {
+  "jump_sec": 15.5,
+  "onset_sec": 17.5,
+  "title": "[TJ노래방] 소녀(응답하라1988 OST) - 오혁 / TJ Karaoke"
+ },
+ "GBwzd2YwKxk": {
+  "jump_sec": 12.0,
+  "onset_sec": 14.0,
+  "title": "[TJ노래방] 당신을위하여 - 더 크로스 / TJ Karaoke"
+ },
+ "GJEDpYI8JuU": {
+  "jump_sec": 5.5,
+  "onset_sec": 7.5,
+  "title": "[TJ노래방] 좋니 - 윤종신 / TJ Karaoke / 1000만뷰"
+ },
  "GS8hlI0Vevo": {
   "jump_sec": 4.5,
   "onset_sec": 6.5,
   "title": "[TJ노래방] 404(New Era) - KiiiKiii(키키) / TJ Karaoke"
  },
+ "GnmCx12QvzE": {
+  "jump_sec": 8.0,
+  "onset_sec": 10.0,
+  "title": "[TJ노래방] 그대라는사치 - 한동근 / TJ Karaoke"
+ },
  "HDj00g35nGA": {
   "jump_sec": 0.0,
   "onset_sec": 2.0,
   "title": "[TJ노래방] 봄내음보다너를 - 김나영 / TJ Karaoke"
+ },
+ "HO83PFAOaMM": {
+  "jump_sec": 18.5,
+  "onset_sec": 20.5,
+  "title": "[TJ노래방] 사랑합니다 - 팀 / TJ Karaoke"
  },
  "Hp6VNKQzHLI": {
   "jump_sec": 0.0,
@@ -184,25 +284,70 @@
   "onset_sec": 3.0,
   "title": "[TJ노래방] Love Love Love - 에픽하이(Feat.융진(캐스커)) / TJ Karaoke"
  },
+ "Iusd3j8CsJE": {
+  "jump_sec": 4.0,
+  "onset_sec": 6.0,
+  "title": "[TJ노래방] 행복한나를 - 허각(Feat.존박) / TJ Karaoke"
+ },
  "Iy5_OaH72Ys": {
   "jump_sec": 2.5,
   "onset_sec": 4.5,
   "title": "[TJ노래방] 우리들의블루스(우리들의블루스OST) - 임영웅 / TJ Karaoke"
+ },
+ "KQUGe-LYXsw": {
+  "jump_sec": 25.0,
+  "onset_sec": 27.0,
+  "title": "[TJ노래방] 다시만난세계 - 소녀시대 / TJ Karaoke"
+ },
+ "Kd67wWXS59o": {
+  "jump_sec": 5.5,
+  "onset_sec": 7.5,
+  "title": "[TJ노래방] 가을타나봐 - 바이브 / TJ Karaoke"
  },
  "L2vCogmqKQ0": {
   "jump_sec": 26.5,
   "onset_sec": 28.5,
   "title": "[TJ노래방] Love wins all - IU / TJ Karaoke"
  },
+ "L4rnAgmB6oM": {
+  "jump_sec": 5.5,
+  "onset_sec": 7.5,
+  "title": "[TJ노래방] 잔혹한 천사의 테제 - 한로로 / TJ Karaoke"
+ },
  "M-onHh_7qgg": {
   "jump_sec": 7.5,
   "onset_sec": 9.5,
   "title": "[TJ노래방] 다정히내이름을부르면 - 경서예지,전건호 / TJ Karaoke"
  },
+ "MEtmTy-TUKM": {
+  "jump_sec": 0.0,
+  "onset_sec": 1.0,
+  "title": "[KY ENTERTAINMENT] 내 모든 것 - 서태지와 아이들 (KY.1381) / KY Karaoke"
+ },
+ "MKf9CK1Y2-s": {
+  "jump_sec": 14.5,
+  "onset_sec": 16.5,
+  "title": "[TJ노래방] 거리에서 - 성시경 / TJ Karaoke"
+ },
+ "MMgr01eV_yo": {
+  "jump_sec": 19.5,
+  "onset_sec": 21.5,
+  "title": "[TJ노래방] 체념 - 빅마마 / TJ Karaoke"
+ },
+ "MZAoer8MWok": {
+  "jump_sec": 18.0,
+  "onset_sec": 20.0,
+  "title": "[TJ노래방] 떠나가요,떠나지마요 - 더크로스 (The CROSS) / TJ Karaoke"
+ },
  "O33kzpp0mxY": {
   "jump_sec": 0.5,
   "onset_sec": 2.5,
   "title": "[TJ노래방] 캐치 캐치 - YENA(최예나) / TJ Karaoke"
+ },
+ "OOtKkUsWgsA": {
+  "jump_sec": 25.0,
+  "onset_sec": 27.0,
+  "title": "[TJ노래방] 진이 - 하이디 / TJ Karaoke"
  },
  "O_7-aEaM354": {
   "jump_sec": 10.0,
@@ -224,6 +369,11 @@
   "onset_sec": 16.0,
   "title": "주님은 산 같아서 - 마커스(함부영,황귀.. (KY.57074) / KY KARAOKE"
  },
+ "PB2rzhkEcN0": {
+  "jump_sec": 14.0,
+  "onset_sec": 16.0,
+  "title": "[TJ노래방] 참다행이야 - SPAPA / TJ Karaoke"
+ },
  "PRmlvCG4xsI": {
   "jump_sec": 0.0,
   "onset_sec": 1.5,
@@ -238,6 +388,21 @@
   "jump_sec": 20.0,
   "onset_sec": 22.0,
   "title": "[TJ노래방] 한페이지가될수있게 - 데이식스 / TJ Karaoke"
+ },
+ "Qf0_yIjyTWc": {
+  "jump_sec": 5.5,
+  "onset_sec": 7.5,
+  "title": "[TJ노래방] 붉은노을 - 빅뱅(BIGBANG) / TJ Karaoke"
+ },
+ "QgkaTkfjpqc": {
+  "jump_sec": 8.5,
+  "onset_sec": 10.5,
+  "title": "[TJ노래방] 사랑참... - 디셈버 / TJ Karaoke"
+ },
+ "QssOhIB5_g4": {
+  "jump_sec": 8.5,
+  "onset_sec": 10.5,
+  "title": "[TJ노래방] 응급실(쾌걸춘향OST) - izi / TJ Karaoke"
  },
  "SKn65zLyBEw": {
   "jump_sec": 0.5,
@@ -258,6 +423,21 @@
   "jump_sec": 14.0,
   "onset_sec": 16.0,
   "title": "[TJ노래방] 혜성 - 윤하 / TJ Karaoke"
+ },
+ "UYCE9ivmOM4": {
+  "jump_sec": 13.5,
+  "onset_sec": 15.5,
+  "title": "[TJ노래방] 형(兄) - 노라조 / TJ Karaoke"
+ },
+ "Uuptw1uHXmo": {
+  "jump_sec": 0.0,
+  "onset_sec": 0.5,
+  "title": "[TJ노래방] 말리꽃(비천무OST) - 이승철 / TJ Karaoke"
+ },
+ "UyPIgeabjLE": {
+  "jump_sec": 7.5,
+  "onset_sec": 9.5,
+  "title": "[TJ노래방] 잊었니(신들의만찬OST) - 이승철 / TJ Karaoke"
  },
  "V2X6_ZKCiNk": {
   "jump_sec": 11.0,
@@ -284,25 +464,75 @@
   "onset_sec": 13.5,
   "title": "[TJ노래방] IDOL - 방탄소년단 / TJ Karaoke"
  },
+ "YN55jsLI92s": {
+  "jump_sec": 15.0,
+  "onset_sec": 17.0,
+  "title": "[TJ노래방] 심(心) - DK(디셈버) / TJ Karaoke"
+ },
+ "YWnn_VcQ1hk": {
+  "jump_sec": 16.5,
+  "onset_sec": 18.5,
+  "title": "[TJ노래방] 기다리다 - 윤하 / TJ Karaoke"
+ },
  "ZaxSxYOAcjQ": {
   "jump_sec": 9.5,
   "onset_sec": 11.5,
   "title": "[TJ노래방] 또또 - 임영웅 / TJ Karaoke"
+ },
+ "Zemyq7gRTCA": {
+  "jump_sec": 14.0,
+  "onset_sec": 16.0,
+  "title": "[TJ노래방] All For You(응답하라1997 OST) - 서인국,정은지 / TJ Karaoke"
  },
  "_E2mEqqkHtU": {
   "jump_sec": 19.0,
   "onset_sec": 21.0,
   "title": "[TJ노래방] 청춘만화 - 이무진 / TJ Karaoke"
  },
+ "_I7KzalK5-A": {
+  "jump_sec": 20.5,
+  "onset_sec": 22.5,
+  "title": "[TJ노래방] 중독된사랑 - 조장혁 / TJ Karaoke"
+ },
+ "_lRXoiIzbAw": {
+  "jump_sec": 11.0,
+  "onset_sec": 13.0,
+  "title": "[TJ노래방] 행복하지 말아요 - DK(디셈버) / TJ Karaoke"
+ },
+ "aEPDm4VDPSY": {
+  "jump_sec": 14.0,
+  "onset_sec": 16.0,
+  "title": "[TJ노래방] 여전히아름다운지 - 토이 / TJ Karaoke"
+ },
  "aXQqTffjiAs": {
   "jump_sec": 7.5,
   "onset_sec": 9.5,
   "title": "[TJ노래방] 너에게닿기를 - 10cm / TJ Karaoke"
  },
+ "aijbwHlm4mU": {
+  "jump_sec": 13.5,
+  "onset_sec": 15.5,
+  "title": "[TJ노래방 / 멜로디제거] 이소설의끝을다시써보려해 - 한동근 / TJ Karaoke"
+ },
+ "b0Bt1X31vXk": {
+  "jump_sec": 28.0,
+  "onset_sec": 30.0,
+  "title": "[TJ노래방] 숙녀에게 - 변진섭 / TJ Karaoke"
+ },
  "bFzi2pwH-t0": {
   "jump_sec": 19.0,
   "onset_sec": 21.0,
   "title": "[TJ노래방] 모르시나요 - 조째즈(Prod.로코베리) / TJ Karaoke"
+ },
+ "bP8Kbz3y-s4": {
+  "jump_sec": 7.5,
+  "onset_sec": 9.5,
+  "title": "[TJ노래방] One love - MC THE MAX / TJ Karaoke"
+ },
+ "cQ5Dl8VhLB0": {
+  "jump_sec": 14.5,
+  "onset_sec": 16.5,
+  "title": "[TJ노래방] 까만안경 - 이루 / TJ Karaoke"
  },
  "cggBvu6YVMg": {
   "jump_sec": 7.5,
@@ -334,6 +564,26 @@
   "onset_sec": 2.5,
   "title": "[TJ노래방] Dynamite - 방탄소년단(BTS) / TJ Karaoke"
  },
+ "dJue1gj4nx8": {
+  "jump_sec": 9.0,
+  "onset_sec": 11.0,
+  "title": "[TJ노래방] 첫눈처럼너에게가겠다(도깨비OST) - 에일리 / TJ Karaoke"
+ },
+ "dT_h9y_28zs": {
+  "jump_sec": 3.5,
+  "onset_sec": 5.5,
+  "title": "[TJ노래방] 서울의달 - 김건모 / TJ Karaoke"
+ },
+ "d__CIgL0mYg": {
+  "jump_sec": 13.0,
+  "onset_sec": 15.0,
+  "title": "[TJ노래방] 죽일놈(Guilty) - 다이나믹듀오 / TJ Karaoke"
+ },
+ "dc6D3fYw--k": {
+  "jump_sec": 0.0,
+  "onset_sec": 2.0,
+  "title": "[TJ노래방] 오르막길 - 윤종신 / TJ Karaoke"
+ },
  "drJFHUirsEU": {
   "jump_sec": 8.0,
   "onset_sec": 10.0,
@@ -354,6 +604,11 @@
   "onset_sec": 4.0,
   "title": "[TJ노래방] 오늘만 I LOVE YOU - BOYNEXTDOOR / TJ Karaoke"
  },
+ "f9R_cnQu4eY": {
+  "jump_sec": 2.5,
+  "onset_sec": 4.5,
+  "title": "[TJ노래방] 너였다면(또오해영OST) - 정승환 / TJ Karaoke"
+ },
  "fgX_dhxYyig": {
   "jump_sec": 11.5,
   "onset_sec": 13.5,
@@ -369,10 +624,20 @@
   "onset_sec": 2.0,
   "title": "[TJ노래방] 헤어지자말해요 - 박재정 / TJ Karaoke"
  },
+ "i-GFnYvi2zY": {
+  "jump_sec": 2.0,
+  "onset_sec": 4.0,
+  "title": "[TJ노래방] 슬픈초대장 - 순순희(지환) / TJ Karaoke"
+ },
  "i2nSERHnNzQ": {
   "jump_sec": 6.5,
   "onset_sec": 8.5,
   "title": "[TJ노래방] Seven(Clean Ver.) - 정국(Feat.Latto) / TJ Karaoke"
+ },
+ "irHUV8U7h4Y": {
+  "jump_sec": 9.0,
+  "onset_sec": 11.0,
+  "title": "[TJ노래방] 가을안부 - 먼데이키즈 / TJ Karaoke"
  },
  "jC7V-rkiu14": {
   "jump_sec": 22.5,
@@ -383,6 +648,16 @@
   "jump_sec": 9.0,
   "onset_sec": 11.0,
   "title": "[TJ노래방 / 멜로디제거] BiiiG - 빅뱅 / TJ Karaoke"
+ },
+ "jhZYldgsjs0": {
+  "jump_sec": 11.0,
+  "onset_sec": 13.0,
+  "title": "[TJ노래방] 나였으면(황태자의첫사랑OST) - 나윤권 / TJ Karaoke"
+ },
+ "jy9Laj-o4zY": {
+  "jump_sec": 1.5,
+  "onset_sec": 3.5,
+  "title": "[TJ노래방] 시든꽃에물을주듯 - HYNN(박혜원) / TJ Karaoke"
  },
  "k4jHaOih2dE": {
   "jump_sec": 3.0,
@@ -399,6 +674,16 @@
   "onset_sec": 16.5,
   "title": "[TJ노래방] 너를보내고 - 윤도현밴드 / TJ Karaoke"
  },
+ "kKmG_rl1qZE": {
+  "jump_sec": 17.5,
+  "onset_sec": 19.5,
+  "title": "[TJ노래방] 아로하(슬기로운의사생활 OST) - 조정석 / TJ Karaoke"
+ },
+ "l-xbxtX79G4": {
+  "jump_sec": 3.0,
+  "onset_sec": 5.0,
+  "title": "[TJ노래방] 좋은밤좋은꿈 - 너드커넥션(Nerd Connection) / TJ Karaoke"
+ },
  "l9TmBcFOq6I": {
   "jump_sec": 4.5,
   "onset_sec": 6.5,
@@ -409,10 +694,25 @@
   "onset_sec": 4.5,
   "title": "[TJ노래방] 첫만남은계획대로되지않아 - TWS(투어스) / TJ Karaoke"
  },
+ "lISjjchl2Mc": {
+  "jump_sec": 24.5,
+  "onset_sec": 26.5,
+  "title": "[TJ노래방] 끝사랑 - 김범수 / TJ Karaoke"
+ },
+ "lvx5Su0vRrA": {
+  "jump_sec": 7.0,
+  "onset_sec": 9.0,
+  "title": "[TJ노래방] 바램 - 노사연 / TJ Karaoke"
+ },
  "mFmZcOMJCmw": {
   "jump_sec": 11.5,
   "onset_sec": 13.5,
   "title": "[TJ노래방] Monologue - 버즈 / TJ Karaoke"
+ },
+ "n2FzdvRGXNc": {
+  "jump_sec": 19.0,
+  "onset_sec": 21.0,
+  "title": "[TJ노래방] 나에게로떠나는여행 - 버즈 / TJ Karaoke"
  },
  "nTL2KONavNQ": {
   "jump_sec": 19.0,
@@ -424,15 +724,40 @@
   "onset_sec": 11.0,
   "title": "[TJ노래방] 그대만있다면(여름날우리 X 너드커넥션(Nerd Connection)) - 너드커넥션(Nerd Connection) / TJ Karaoke"
  },
+ "pE0eZJHKMxs": {
+  "jump_sec": 23.5,
+  "onset_sec": 25.5,
+  "title": "[TJ노래방] 삭제 - 이승기 / TJ Karaoke"
+ },
  "pVHA1lLiyLU": {
   "jump_sec": 2.5,
   "onset_sec": 4.5,
   "title": "[TJ노래방 / 멜로디제거] 사랑은늘도망가(신사와아가씨OST) - 임영웅 / TJ Karaoke"
  },
+ "pk-vzf6Q8tA": {
+  "jump_sec": 8.5,
+  "onset_sec": 10.5,
+  "title": "[TJ노래방] 포장마차 - 황인욱 / TJ Karaoke"
+ },
+ "qLcOyiaD-nI": {
+  "jump_sec": 6.5,
+  "onset_sec": 8.5,
+  "title": "[TJ노래방] 기억을걷는시간 - 넬 / TJ Karaoke"
+ },
  "qZAZurVITAA": {
   "jump_sec": 0.0,
   "onset_sec": 1.0,
   "title": "[TJ노래방] Heavy Serenade - 엔믹스(NMIXX) / TJ Karaoke"
+ },
+ "qZRsdMV0GLE": {
+  "jump_sec": 19.5,
+  "onset_sec": 21.5,
+  "title": "[TJ노래방] 가질수없는너 - 뱅크 / TJ Karaoke"
+ },
+ "rmqV1umCIqA": {
+  "jump_sec": 10.5,
+  "onset_sec": 12.5,
+  "title": "[TJ노래방] ...사랑했잖아...(2024) - 고경표 / TJ Karaoke"
  },
  "rt1EXAk8C9c": {
   "jump_sec": 5.0,
@@ -443,6 +768,21 @@
   "jump_sec": 2.0,
   "onset_sec": 4.0,
   "title": "[TJ노래방] 기쁨, 슬픔, 아름다운마음 - AKMU(악뮤) / TJ Karaoke"
+ },
+ "t6ZfW_pD2II": {
+  "jump_sec": 6.0,
+  "onset_sec": 8.0,
+  "title": "[TJ노래방] 남자를몰라 - 버즈 / TJ Karaoke"
+ },
+ "t7RyAgvI6L4": {
+  "jump_sec": 13.0,
+  "onset_sec": 15.0,
+  "title": "[TJ노래방] 술한잔해요 - 지아 / TJ Karaoke"
+ },
+ "tBU5XBgDFzQ": {
+  "jump_sec": 12.5,
+  "onset_sec": 14.5,
+  "title": "[TJ노래방] 버스안에서 - 자자 / TJ Karaoke"
  },
  "tq5ot3EvzMU": {
   "jump_sec": 10.0,
@@ -463,6 +803,16 @@
   "jump_sec": 14.0,
   "onset_sec": 16.0,
   "title": "[TJ노래방] Golden(KPop Demon Hunters OST) - HUNTR/X / TJ Karaoke"
+ },
+ "v_Br814aeYU": {
+  "jump_sec": 9.0,
+  "onset_sec": 11.0,
+  "title": "[TJ노래방] 눈, 코, 입 - 태양 / TJ Karaoke"
+ },
+ "vhGwHQyW6lM": {
+  "jump_sec": 20.5,
+  "onset_sec": 22.5,
+  "title": "[TJ노래방] 어디에도 - MC THE MAX / TJ Karaoke"
  },
  "w6laoIz-e1g": {
   "jump_sec": 6.0,
@@ -498,5 +848,10 @@
   "jump_sec": 18.0,
   "onset_sec": 20.0,
   "title": "[TJ노래방] 이 별로부터 - IU / TJ Karaoke"
+ },
+ "zcaeEgNczDM": {
+  "jump_sec": 9.0,
+  "onset_sec": 11.0,
+  "title": "[TJ노래방] 다시사랑한다면 - 김필 / TJ Karaoke"
  }
 }
