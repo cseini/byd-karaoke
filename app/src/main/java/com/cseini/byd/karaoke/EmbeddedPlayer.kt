@@ -78,6 +78,10 @@ class EmbeddedPlayer(
     private val nextBtn: Button = activity.findViewById(R.id.embed_next)
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
+    private val floatToolbar: View = activity.findViewById(R.id.embed_float_toolbar)
+    private val floatKeyVal: TextView = activity.findViewById(R.id.embed_float_key_val)
+    private val floatSpeedVal: TextView = activity.findViewById(R.id.embed_float_speed_val)
+    private val floatStopBtn: Button = activity.findViewById(R.id.embed_float_stop)
     private val queueSide: View = activity.findViewById(R.id.embed_queue_side)
     private val nextBanner: TextView = activity.findViewById(R.id.embed_next_banner)
     private val keyVal: TextView = activity.findViewById(R.id.embed_key_val)
@@ -108,6 +112,7 @@ class EmbeddedPlayer(
     private var lastScore = -1          // 세컨드스크린 노출용: 마지막 채점 점수(-1=미채점)
     private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
     private var lastCountdown = ""      // 세컨드스크린 노출용: 자동진행 카운트다운 문구
+    private var introJumpSec: Double? = null   // 현재 곡의 간주점프 지점(초) — 지나면 버튼 자동 숨김
 
     // 일반 유튜브 영상 모드에선 노래방 기능(녹음·채점)을 끈다 — 그냥 영상 재생만.
     private val recordingOn get() = settings.recordingEnabled && !settings.generalYoutube
@@ -159,6 +164,13 @@ class EmbeddedPlayer(
         activity.findViewById<Button>(R.id.embed_tune_reset).setOnClickListener {
             keySemitones = 0; speedRate = 1.0f; applyTune()
         }
+        // 전체화면 플로팅 미니툴바 — 음정·속도는 기존 조절 함수 재사용, 중지·간주점프는 각자 로직.
+        activity.findViewById<Button>(R.id.embed_float_key_down).setOnClickListener { changeKey(-1) }
+        activity.findViewById<Button>(R.id.embed_float_key_up).setOnClickListener { changeKey(+1) }
+        activity.findViewById<Button>(R.id.embed_float_speed_down).setOnClickListener { changeSpeed(-0.05f) }
+        activity.findViewById<Button>(R.id.embed_float_speed_up).setOnClickListener { changeSpeed(+0.05f) }
+        floatStopBtn.setOnClickListener { stopSong() }
+        setupFloatToolbarDrag()
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
         // 영상 영역 탭으로 전체화면 진입, 전체화면 중엔 탭으로 해제.
         val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
@@ -248,8 +260,10 @@ class EmbeddedPlayer(
     /** 플레이어에 키·속도 반영 + 표시 갱신. 곡을 새로 불러올 때도 다시 적용한다. */
     private fun applyTune() {
         player?.setKeySpeed(keySemitones, speedRate)
-        keyVal.text = if (keySemitones > 0) "+$keySemitones" else "$keySemitones"
-        speedVal.text = "%.2f".format(speedRate).trimEnd('0').trimEnd('.') + "x"
+        val keyText = if (keySemitones > 0) "+$keySemitones" else "$keySemitones"
+        val speedText = "%.2f".format(speedRate).trimEnd('0').trimEnd('.') + "x"
+        keyVal.text = keyText; speedVal.text = speedText
+        floatKeyVal.text = keyText; floatSpeedVal.text = speedText   // 전체화면 플로팅 툴바도 동기화
     }
 
     private fun hasMic() = ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) ==
@@ -409,7 +423,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = if (lastRecording != null) View.VISIBLE else View.GONE
         queue.reload()
         nextBtn.visibility = if (queue.size() > 0) View.VISIBLE else View.GONE
-        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()   // 곡 끝난 뒤(채점 화면)엔 점프 의미 없음
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse(); introJumpSec = null   // 곡 끝난 뒤(채점 화면)엔 점프 의미 없음
     }
 
     private fun stopSong() {
@@ -492,6 +506,12 @@ class EmbeddedPlayer(
                     timeView.text = "${fmt(pos.toInt())} / ${fmt(dur.toInt())}"
                 }
             }
+            // 간주점프 지점을 이미 지났으면(눌렀든 자연 재생으로 지나쳤든) 버튼을 자동으로 숨긴다.
+            val js = introJumpSec
+            if (!replaying && js != null && introJumpWrap.visibility == View.VISIBLE) {
+                val posSec = (player?.currentPositionMs() ?: 0L) / 1000.0
+                if (posSec >= js) { introJumpWrap.visibility = View.GONE; stopIntroJumpPulse() }
+            }
             publishSnapshot()   // 뒷좌석 태블릿 싱크용(재생·일시정지·채점 상태 모두)
             ui.postDelayed(this, 400)
         }
@@ -555,8 +575,54 @@ class EmbeddedPlayer(
         bottom.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenBtn.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenTap.visibility = if (fullscreen) View.VISIBLE else View.GONE
+        if (fullscreen) {
+            floatToolbar.visibility = View.VISIBLE
+            floatToolbar.post { applyFloatToolbarPosition() }   // 실제 크기 확정 후(post) 배치
+        } else {
+            floatToolbar.visibility = View.GONE
+        }
         applySystemBars()
         refreshQueueSide()
+    }
+
+    /** 저장된 비율 위치를 실제 픽셀 좌표로 변환해 플로팅 툴바에 적용(화면 크기 무관하게 동작). */
+    private fun applyFloatToolbarPosition() {
+        val parent = overlay as? ViewGroup ?: return
+        val maxX = (parent.width - floatToolbar.width).coerceAtLeast(0)
+        val maxY = (parent.height - floatToolbar.height).coerceAtLeast(0)
+        floatToolbar.x = (settings.floatToolbarXRatio * parent.width).coerceIn(0f, maxX.toFloat())
+        floatToolbar.y = (settings.floatToolbarYRatio * parent.height).coerceIn(0f, maxY.toFloat())
+    }
+
+    /** 드래그 손잡이(⠿)만 터치 대상 — 다른 버튼 클릭과 안 겹친다. 놓으면 위치를 비율로 저장. */
+    private fun setupFloatToolbarDrag() {
+        val handle = activity.findViewById<View>(R.id.embed_float_drag_handle)
+        var startRawX = 0f; var startRawY = 0f; var startX = 0f; var startY = 0f
+        handle.setOnTouchListener { _, e ->
+            val parent = overlay as? ViewGroup ?: return@setOnTouchListener false
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    startRawX = e.rawX; startRawY = e.rawY
+                    startX = floatToolbar.x; startY = floatToolbar.y
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val maxX = (parent.width - floatToolbar.width).coerceAtLeast(0)
+                    val maxY = (parent.height - floatToolbar.height).coerceAtLeast(0)
+                    floatToolbar.x = (startX + (e.rawX - startRawX)).coerceIn(0f, maxX.toFloat())
+                    floatToolbar.y = (startY + (e.rawY - startRawY)).coerceIn(0f, maxY.toFloat())
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    if (parent.width > 0 && parent.height > 0) {
+                        settings.floatToolbarXRatio = floatToolbar.x / parent.width
+                        settings.floatToolbarYRatio = floatToolbar.y / parent.height
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     /**
@@ -605,7 +671,7 @@ class EmbeddedPlayer(
         stopBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
         replayBtn.visibility = View.GONE
-        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse(); introJumpSec = null
         nextBtn.visibility = View.GONE
         scoreOverlay.visibility = View.GONE
         player?.setVolume(0f)                    // 영상 음소거(소리는 녹음 믹스로)
@@ -711,7 +777,9 @@ class EmbeddedPlayer(
 
     /** 데이터 있는 곡이면 버튼 노출. 아직 안 써본 사용자에겐 배지+살짝 튀는 강조 애니메이션으로 새 기능임을 알린다. */
     private fun showIntroJumpIfAvailable(videoId: String) {
-        val available = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(videoId) != null
+        val jumpSec = com.cseini.byd.karaoke.data.IntroJumps.jumpSecFor(videoId)
+        introJumpSec = jumpSec
+        val available = jumpSec != null
         introJumpWrap.visibility = if (available) View.VISIBLE else View.GONE
         stopIntroJumpPulse()
         if (!available) return
@@ -778,7 +846,7 @@ class EmbeddedPlayer(
         replayBtn.visibility = View.GONE
         nextBtn.visibility = View.GONE
         retryBtn.visibility = View.GONE
-        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse()
+        introJumpWrap.visibility = View.GONE; stopIntroJumpPulse(); introJumpSec = null
         seekRow.visibility = View.GONE
         tuneRow.visibility = View.GONE   // 다시듣기 — 키·속도·종료 숨김
         stopBtn.visibility = View.GONE

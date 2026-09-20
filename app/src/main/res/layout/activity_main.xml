@@ -684,42 +684,11 @@
                     android:orientation="horizontal"
                     android:paddingTop="6dp">
 
-                    <FrameLayout
-                        android:id="@+id/embed_intro_jump_wrap"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:visibility="gone">
-
-                        <Button
-                            android:id="@+id/embed_intro_jump"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            app:backgroundTint="@color/tj_orange"
-                            android:text="간주점프" />
-
-                        <!-- 새 기능 배지 — 한 번 눌러보면 다시 안 뜬다(SettingsStore.introJumpUsed). -->
-                        <TextView
-                            android:id="@+id/embed_intro_jump_badge"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="top|end"
-                            android:layout_margin="2dp"
-                            android:background="@drawable/badge_new_bg"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="1dp"
-                            android:text="NEW"
-                            android:textColor="#ffffff"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
-                    </FrameLayout>
-
                     <Button
                         android:id="@+id/embed_stop"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="6dp"
                         app:backgroundTint="@color/tj_red"
                         android:text="⏹ 종료" />
 
@@ -788,6 +757,157 @@
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone" />
+
+        <!-- 전체화면 전용 플로팅 미니툴바(템포·음정·간주점프·중지) — 드래그해서 옮길 수 있고
+             마지막 위치를 기억한다(SettingsStore.floatToolbarXRatio/YRatio). 전체화면일 때만 보임. -->
+        <LinearLayout
+            android:id="@+id/embed_float_toolbar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#CC12162A"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp"
+            android:elevation="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/tj_text_secondary"
+                android:text="음정" />
+
+            <Button
+                android:id="@+id/embed_float_key_down"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:layout_marginStart="2dp"
+                android:paddingHorizontal="10dp"
+                android:textSize="13sp"
+                android:text="−" />
+
+            <TextView
+                android:id="@+id/embed_float_key_val"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="26dp"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:text="0" />
+
+            <Button
+                android:id="@+id/embed_float_key_up"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:textSize="13sp"
+                android:text="+" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:textSize="11sp"
+                android:textColor="@color/tj_text_secondary"
+                android:text="속도" />
+
+            <Button
+                android:id="@+id/embed_float_speed_down"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:layout_marginStart="2dp"
+                android:paddingHorizontal="10dp"
+                android:textSize="13sp"
+                android:text="−" />
+
+            <TextView
+                android:id="@+id/embed_float_speed_val"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="34dp"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/tj_cyan"
+                android:text="1x" />
+
+            <Button
+                android:id="@+id/embed_float_speed_up"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:textSize="13sp"
+                android:text="+" />
+
+            <FrameLayout
+                android:id="@+id/embed_intro_jump_wrap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/embed_intro_jump"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp"
+                    android:textSize="13sp"
+                    app:backgroundTint="@color/tj_orange"
+                    android:text="간주점프" />
+
+                <!-- 새 기능 배지 — 한 번 눌러보면 다시 안 뜬다(SettingsStore.introJumpUsed). -->
+                <TextView
+                    android:id="@+id/embed_intro_jump_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="2dp"
+                    android:background="@drawable/badge_new_bg"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:text="NEW"
+                    android:textColor="#ffffff"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <Button
+                android:id="@+id/embed_float_stop"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:layout_marginStart="10dp"
+                android:paddingHorizontal="12dp"
+                android:textSize="13sp"
+                app:backgroundTint="@color/tj_red"
+                android:text="⏹" />
+
+            <!-- 드래그 손잡이(이 영역만 터치로 위치 이동, 다른 버튼 클릭과 안 겹치게) -->
+            <TextView
+                android:id="@+id/embed_float_drag_handle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:paddingHorizontal="6dp"
+                android:gravity="center"
+                android:textSize="16sp"
+                android:textColor="@color/tj_text_hint"
+                android:text="⠿" />
+        </LinearLayout>
 
         <!-- 점수 화면(채점 후) — 빈 곳 탭하면 검색으로 -->
         <FrameLayout

@@ -89,6 +89,16 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("intro_jump_used", false)
         set(v) = prefs.edit().putBoolean("intro_jump_used", v).apply()
 
+    // 전체화면 플로팅 미니툴바(템포·음정·간주점프·중지) 위치 — 화면 크기와 무관하게
+    // 0~1 비율로 저장(좌상단 기준). 기본값은 우하단 근처. 사용자가 드래그하면 갱신.
+    var floatToolbarXRatio: Float
+        get() = prefs.getFloat("float_toolbar_x", 0.62f)
+        set(v) = prefs.edit().putFloat("float_toolbar_x", v).apply()
+
+    var floatToolbarYRatio: Float
+        get() = prefs.getFloat("float_toolbar_y", 0.82f)
+        set(v) = prefs.edit().putFloat("float_toolbar_y", v).apply()
+
     /** 앱 시작 시 업데이트 안내를 이미 띄운 버전. 같은 버전은 매 실행마다 다시 안 띄운다(긴급 제외). */
     var lastPromptedUpdate: String
         get() = prefs.getString("last_prompted_update", "") ?: ""
