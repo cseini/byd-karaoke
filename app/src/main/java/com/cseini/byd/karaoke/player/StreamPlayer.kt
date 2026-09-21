@@ -5,6 +5,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -73,10 +75,23 @@ class StreamPlayer(
 
     private val appContext = context.applicationContext
     private val playerView = PlayerView(context)
+
+    // 오디오 포커스를 명시적으로 요청·처리한다 — 이전엔 이게 없어서(ExoPlayer 기본값은
+    // handleAudioFocus=false) 다른 앱이 오디오 스트림을 가져가도 우리는 통보를 못 받고
+    // "재생 중"으로 착각한 채 무음이 되는 문제가 있었다(헤드유닛 재부팅 전까지 복구 안 됨,
+    // 사용자 제보: "다른 프로그램 실행 후 노래방 소리가 안 남"). exo 초기화보다 먼저 선언
+    // 해야 한다(buildExo 안에서 참조).
+    private val audioAttrs = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
+
     private val exo = buildExo(context, accompProcessor)
 
     private fun buildExo(context: Context, proc: AudioProcessor?): ExoPlayer {
-        if (proc == null) return ExoPlayer.Builder(context).build()
+        if (proc == null) return ExoPlayer.Builder(context)
+            .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ true)
+            .build()
         // 반주 오디오를 합성 녹음(MixRecorder)에 넘기기 위해 오디오 처리 체인에 프로세서를 끼운다.
         // 키(피치)·속도 변경은 Sonic 이 처리하며, 우리 탭을 Sonic '뒤'에 두어
         // 녹음·채점이 실제로 들린 소리(키·속도 반영)와 같아지게 한다.
@@ -98,7 +113,10 @@ class StreamPlayer(
                 2500,
             )
             .build()
-        return ExoPlayer.Builder(context, renderers).setLoadControl(loadControl).build()
+        return ExoPlayer.Builder(context, renderers)
+            .setLoadControl(loadControl)
+            .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ true)
+            .build()
     }
     private val handler = Handler(Looper.getMainLooper())
     private var loadToken = 0
