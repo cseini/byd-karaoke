@@ -280,7 +280,7 @@ class EmbeddedPlayer(
             playLogged = true
             playHistory.add(currentVideoId, titleView.text.toString(), System.currentTimeMillis(), settings.generalYoutube)
             // 간주점프 자동화 입력: 노래방 모드(TJ/금영일 가능성)만 보고, 일반 유튜브는 대상 아님.
-            if (!settings.generalYoutube) PlayReporter.report(currentVideoId, titleView.text.toString())
+            if (!settings.generalYoutube) PlayReporter.report(activity, currentVideoId, titleView.text.toString())
         }
         // 녹음(저장) 또는 채점 중 하나라도 켜져 있으면 마이크를 캡처한다.
         // 채점만 켜진 경우엔 곡이 끝나며 파일을 지워 저장은 남기지 않는다.
