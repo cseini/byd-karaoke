@@ -545,11 +545,83 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // USB 마이크·휠 버튼 제어는 설정 옵션(기본 꺼짐). 실제 시작/중지는 onWindowFocusChanged 에서
         // 설정값에 따라 처리(권한 다이얼로그가 포커스 전이로 닫히는 문제 + 옵트인 즉시 반영).
 
+        // 카페 닉네임 필수 입력(닫기 불가 다이얼로그) — 미등록이면 여기서 게이트한다.
+        promptCafeNickIfNeeded()
+
         // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
-        if (intent?.action == KeyCatcherService.ACTION_VOICE) {
+        // 닉네임 모달이 떠 있으면 그 뒤에서 USB/마이크를 잡지 않도록 스킵한다.
+        if (intent?.action == KeyCatcherService.ACTION_VOICE && CafeNick.isRegistered(settings.cafeNick)) {
             val sealion = intent.getBooleanExtra("sealion", false)
             searchInput.post { startVoiceGated("a11y", sealion) }
         }
+    }
+
+    /**
+     * 앱 실행 시 카페 닉네임을 필수로 받는다. 저장된 닉이 "지역ll닉ll차종" 3분절이면 다시 묻지 않는다.
+     * 미동기화(오프라인 등록) 상태면 조용히 재전송만 시도한다.
+     */
+    private fun promptCafeNickIfNeeded() {
+        if (CafeNick.isRegistered(settings.cafeNick)) {
+            if (!settings.cafeNickSynced) {
+                CafeNick.send(this, settings.cafeNick) { ok -> if (ok) settings.cafeNickSynced = true }
+            }
+            return
+        }
+        val dp = { d: Int -> (d * resources.displayMetrics.density).toInt() }
+        fun field(hint: String): EditText = EditText(this).apply {
+            this.hint = hint
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        val etRegion = field("지역").apply { imeOptions = EditorInfo.IME_ACTION_NEXT }
+        val etNick = field("닉네임").apply { imeOptions = EditorInfo.IME_ACTION_NEXT }
+        val etCar = field("차종").apply { imeOptions = EditorInfo.IME_ACTION_DONE }
+        fun sep() = TextView(this).apply {
+            text = CafeNick.SEP
+            setPadding(dp(6), 0, dp(6), 0)
+        }
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(20), dp(12), dp(20), 0)
+            val lp = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(etRegion, lp)
+            addView(sep())
+            addView(etNick, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(sep())
+            addView(etCar, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("BYD 써드파티연구소 닉네임 등록")
+            .setMessage("BYD 써드파티연구소 카페 닉네임을 등록해 주세요. 세 칸을 모두 채워야 시작할 수 있어요.\n(구분자 ll·|| 등은 칸 안에 넣지 마세요)")
+            .setView(row)
+            .setPositiveButton("확인", null)   // 아래에서 유효성 통과 시에만 닫히도록 재정의
+            .setCancelable(false)
+            .create()
+        val valid = { CafeNick.isValidField(etRegion.text.toString()) &&
+            CafeNick.isValidField(etNick.text.toString()) &&
+            CafeNick.isValidField(etCar.text.toString()) }
+        dialog.setOnShowListener {
+            val ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            ok.isEnabled = valid()
+            val watch = { _: android.text.Editable? -> ok.isEnabled = valid(); Unit }
+            etRegion.doAfterTextChanged(watch)
+            etNick.doAfterTextChanged(watch)
+            etCar.doAfterTextChanged(watch)
+            ok.setOnClickListener {
+                if (!valid()) return@setOnClickListener
+                val combined = etRegion.text.toString().trim() + CafeNick.SEP +
+                    etNick.text.toString().trim() + CafeNick.SEP + etCar.text.toString().trim()
+                settings.cafeNick = combined
+                settings.cafeNickSynced = false
+                CafeNick.register(this, etRegion.text.toString(), etNick.text.toString(), etCar.text.toString()) { sent ->
+                    if (sent) settings.cafeNickSynced = true
+                    else CrashLog.event(this, "닉네임 등록 서버 전송 실패(오프라인?) — 다음 실행에 재전송")
+                }
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     /** 접근성 서비스(휠 버튼 감지)가 실제로 켜져 있는지. */
