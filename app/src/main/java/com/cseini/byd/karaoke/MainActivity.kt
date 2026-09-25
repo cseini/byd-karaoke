@@ -338,12 +338,16 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         onPlayNow = { item ->
             if (item.videoId.isBlank()) {
                 // 차트 목록(제목·가수만 있고 반주 videoId 는 아직 없음) — 골랐을 때 그제서야 검색한다.
-                // 목록 단계에서 전부 미리 검색하면 유튜브 검색 쿼터(하루 100회)를 금방 다 쓴다.
+                // 목록 단계에서 50곡을 한꺼번에 검색하면 짧은 시간에 요청이 몰려 유튜브에 봇으로
+                // 보일 위험이 있다(keyless 는 검색결과 페이지를 직접 긁는 방식이라).
+                chartAutoPlay = true   // 검색 결과가 오면 목록만 보여주지 말고 1위 곡을 바로 재생한다.
                 searchInput.setText(listOf(item.title, item.channel).filter { it.isNotBlank() }.joinToString(" "))
                 doSearch()
             } else playNow(item)
         },
     )
+    // 차트에서 고른 곡 검색 — 결과 목록만 보여주지 않고 최상위 결과를 바로 재생한다(doSearch 에서 소비).
+    private var chartAutoPlay = false
     private val historyAdapter = HistoryAdapter(
         onPlay = { pickPlayOrReplay(it) },
         onScore = { showScoreReview(it) },
@@ -943,6 +947,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         if (q.isEmpty()) { status.text = "검색어를 입력하세요."; return }
         val wantAutoPlay = pendingAutoPlay   // 이번 호출이 음성 트리거였는지 확정
         pendingAutoPlay = false
+        val wantChartPlay = chartAutoPlay    // 차트에서 고른 곡이면 결과 1위를 바로 재생
+        chartAutoPlay = false
         gboardVoicePending = false           // Gboard 음성 세션 종료(검색 실행됨)
         cancelAutoPlay()                     // 진행 중인 카운트다운은 중단
         if (wantAutoPlay) autoPlayAfterSearch = true
@@ -970,7 +976,10 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
                     adapter.submit(r.items)
                     showResults()
                     status.text = if (r.items.isEmpty()) "결과가 없습니다." else "결과 ${r.items.size}개"
-                    if (autoPlayAfterSearch && settings.autoPlayVoiceFirst && r.items.isNotEmpty()) {
+                    if (wantChartPlay && r.items.isNotEmpty()) {
+                        // 차트에서 고른 곡 — 사용자가 이미 특정 곡을 콕 집었으니 카운트다운 없이 바로 재생.
+                        playNow(r.items.first())
+                    } else if (autoPlayAfterSearch && settings.autoPlayVoiceFirst && r.items.isNotEmpty()) {
                         startAutoPlayCountdown(r.items.first())
                     }
                 }
