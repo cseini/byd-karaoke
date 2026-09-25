@@ -335,7 +335,14 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     }
     private val adapter = ResultAdapter(
         onReserve = { reserve(it) },
-        onPlayNow = { playNow(it) },
+        onPlayNow = { item ->
+            if (item.videoId.isBlank()) {
+                // 차트 목록(제목·가수만 있고 반주 videoId 는 아직 없음) — 골랐을 때 그제서야 검색한다.
+                // 목록 단계에서 전부 미리 검색하면 유튜브 검색 쿼터(하루 100회)를 금방 다 쓴다.
+                searchInput.setText(listOf(item.title, item.channel).filter { it.isNotBlank() }.joinToString(" "))
+                doSearch()
+            } else playNow(item)
+        },
     )
     private val historyAdapter = HistoryAdapter(
         onPlay = { pickPlayOrReplay(it) },
@@ -495,6 +502,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
         findViewById<Button>(R.id.btn_voice).setOnClickListener { startVoiceReleasingUsb() }
         findViewById<Button>(R.id.btn_reserve_server).setOnClickListener { showReserveServer() }
+        findViewById<Button>(R.id.btn_chart).setOnClickListener { showChartPicker() }
         embedScreen = findViewById(R.id.embed_screen)
         // 네비바(녹음함/랭킹/설정)는 Activity 대신 화면 안 오버레이로 전환 → 분할화면 유지.
         NavBar.wireEmbedded(window.decorView, "search") { onNavigate(it) }
@@ -903,6 +911,30 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private fun showResults() {
         historySection.visibility = View.GONE
         results.visibility = View.VISIBLE
+    }
+
+    /** "🎵 차트" — 진짜 노래방 기기처럼 최신곡·장르별 인기차트 버튼으로 목록을 고른다. */
+    private fun showChartPicker() {
+        val sources = com.cseini.byd.karaoke.data.KaraokeCharts.Source.values()
+        val labels = sources.map { it.label }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("최신곡 · 인기차트")
+            .setItems(labels) { _, i -> loadChart(sources[i]) }
+            .show()
+    }
+
+    private fun loadChart(source: com.cseini.byd.karaoke.data.KaraokeCharts.Source) {
+        _sealionGuide?.hide()
+        status.text = "${source.label} 불러오는 중…"
+        lifecycleScope.launch {
+            val songs = com.cseini.byd.karaoke.data.KaraokeCharts.list(source)
+            if (songs.isEmpty()) { status.text = "${source.label}를 불러오지 못했습니다"; return@launch }
+            adapter.setGeneral(false)
+            results.layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter.submit(songs)
+            showResults()
+            status.text = "🎵 ${source.label} — 곡을 고르면 그 노래의 반주를 찾아드려요"
+        }
     }
 
     private fun doSearch() {
