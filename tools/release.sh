@@ -29,6 +29,17 @@ fi
 
 APK="byd-karaoke-v${VERSION}.apk"
 cp "$SRC" "$APK"
+LOCAL_SHA=$(shasum -a 256 "$APK" | awk '{print $1}')
 
 gh release create "v${VERSION}" "$APK" --title "v${VERSION}" --notes "${1:-v${VERSION}}"
-echo "✅ v${VERSION} 릴리스 완료 — 차에서 앱을 재시작하면 업데이트가 내려갑니다."
+
+# 업로드 후 검증 — 실제 공개 다운로드 URL에서 받아 로컬과 sha256 일치 확인(2026-09 사고 재발 방지,
+# 써드파티플레이어 deploy-player.sh 와 같은 원칙: "성공했다"는 말을 그대로 믿지 않는다).
+echo "→ 업로드 검증 중…"
+REMOTE_SHA=$(curl -sL "https://github.com/cseini/byd-karaoke/releases/download/v${VERSION}/${APK}" | shasum -a 256 | awk '{print $1}')
+if [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+  echo "✗ 업로드된 APK의 sha256 이 로컬과 다릅니다(local=$LOCAL_SHA remote=$REMOTE_SHA) — 릴리스 확인 필요"
+  exit 1
+fi
+echo "  ✓ 공개 다운로드 sha256 일치 확인"
+echo "✅ v${VERSION} 릴리스 완료(검증됨) — 차에서 앱을 재시작하면 업데이트가 내려갑니다."
