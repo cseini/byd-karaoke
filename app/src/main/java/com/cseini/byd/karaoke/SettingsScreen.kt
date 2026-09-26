@@ -192,7 +192,15 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_gboard_setup).visibility = View.GONE
 
         root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
-        root.findViewById<Button>(R.id.btn_log_send).setOnClickListener { sendLog(it as Button) }
+        root.findViewById<Button>(R.id.btn_feedback).setOnClickListener { showFeedbackDialog() }
+        root.findViewById<Button>(R.id.btn_cafe_nick).setOnClickListener {
+            CafeNick.showDialog(activity, settings.cafeNick, cancelable = true) { combined ->
+                settings.cafeNick = combined
+                settings.cafeNickSynced = false
+                CafeNick.send(activity, combined) { ok -> if (ok) settings.cafeNickSynced = true }
+                Toast.makeText(activity, "닉네임을 저장했습니다: $combined", Toast.LENGTH_SHORT).show()
+            }
+        }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
@@ -665,19 +673,42 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             .show()
     }
 
-    /** 노래 중 튕김처럼 재현이 어려운 문제의 이벤트 로그를 지금 서버로 보낸다(운영자 제보용). */
-    private fun sendLog(btn: Button) {
-        btn.isEnabled = false
-        btn.text = "전송 중…"
-        LogUploader.uploadNow(activity) { ok ->
-            btn.isEnabled = true
-            btn.text = "로그 전송"
-            android.widget.Toast.makeText(
-                activity,
-                if (ok) "로그를 보냈어요. 감사합니다!" else "보낼 로그가 없거나 네트워크 오류예요.",
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+    /**
+     * 의견 보내기 — BYD 공통 피드백 시스템(/feedback)으로 보낸다. 예전 '로그 전송'(사용자 메시지 없이
+     * 로그만 보내던 것)을 대체 — 카테고리·내용을 받고, 진단 로그는 체크박스로 함께 보낸다.
+     */
+    private fun showFeedbackDialog() {
+        val view = android.view.LayoutInflater.from(activity).inflate(R.layout.dialog_feedback, null)
+        val chips = view.findViewById<com.google.android.material.chip.ChipGroup>(R.id.fb_category)
+        val message = view.findViewById<EditText>(R.id.fb_message)
+        val withLog = view.findViewById<CheckBox>(R.id.fb_with_log)
+        val status = view.findViewById<TextView>(R.id.fb_status)
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setView(view)
+            .setPositiveButton("보내기", null)   // 아래에서 직접 제어(전송 중 닫히지 않게)
+            .setNegativeButton("취소", null)
+            .create()
+        dialog.setOnShowListener {
+            val send = dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+            send.setOnClickListener {
+                val text = message.text.toString().trim()
+                if (text.isEmpty()) { status.text = "내용을 입력해주세요"; return@setOnClickListener }
+                val category = chips.findViewById<com.google.android.material.chip.Chip>(chips.checkedChipId)
+                    ?.text?.toString() ?: "기타"
+                send.isEnabled = false
+                status.text = "보내는 중…"
+                FeedbackSender.send(activity, category, text, withLog.isChecked) { ok ->
+                    if (ok) {
+                        Toast.makeText(activity, "의견을 보냈습니다. 감사합니다!", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                    } else {
+                        status.text = "전송 실패 — 네트워크를 확인하고 다시 시도해주세요"
+                        send.isEnabled = true
+                    }
+                }
+            }
         }
+        dialog.show()
     }
 
     private fun checkUpdate() {

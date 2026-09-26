@@ -1,6 +1,9 @@
 package com.cseini.byd.karaoke
 
+import android.app.Activity
 import android.content.Context
+import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.doAfterTextChanged
 import com.google.gson.Gson
 import java.net.HttpURLConnection
 import java.net.URL
@@ -43,6 +46,71 @@ object CafeNick {
         if (t.isEmpty()) return false
         val lower = t.lowercase()
         return !lower.contains("ll") && !t.contains("||") && !t.contains("11") && !t.contains("ㅣㅣ")
+    }
+
+    /**
+     * 3칸(지역ll닉네임ll차종) 편집 다이얼로그 — 최초 등록 게이트(cancelable=false, 빈칸)와
+     * 설정 화면의 수정(cancelable=true, 저장값 미리 채움) 둘 다 이 함수 하나로 처리한다.
+     * 저장·전송은 onSaved 콜백에서 호출자가 각자의 Settings 저장 방식에 맞게 한다.
+     */
+    fun showDialog(activity: Activity, initial: String, cancelable: Boolean, onSaved: (String) -> Unit) {
+        val parts = initial.split(SEP)
+        val (initRegion, initNick, initCar) = if (parts.size == 3) Triple(parts[0], parts[1], parts[2]) else Triple("", "", "")
+        val dp = { d: Int -> (d * activity.resources.displayMetrics.density).toInt() }
+        fun field(hint: String, value: String): android.widget.EditText = android.widget.EditText(activity).apply {
+            this.hint = hint
+            setText(value)
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        val etRegion = field("지역", initRegion).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT }
+        val etNick = field("닉네임", initNick).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT }
+        val etCar = field("차종", initCar).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE }
+        fun sep() = android.widget.TextView(activity).apply {
+            text = SEP
+            setPadding(dp(6), 0, dp(6), 0)
+        }
+        val row = android.widget.LinearLayout(activity).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(20), dp(12), dp(20), 0)
+            val lp = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(etRegion, lp)
+            addView(sep())
+            addView(etNick, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(sep())
+            addView(etCar, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        val builder = AlertDialog.Builder(activity)
+            .setTitle(if (cancelable) "BYD 써드파티연구소 닉네임 수정" else "BYD 써드파티연구소 닉네임 등록")
+            .setMessage(
+                (if (cancelable) "닉네임을 수정합니다." else "BYD 써드파티연구소 카페 닉네임을 등록해 주세요. 세 칸을 모두 채워야 시작할 수 있어요.") +
+                    "\n(구분자 ll·|| 등은 칸 안에 넣지 마세요)",
+            )
+            .setView(row)
+            .setPositiveButton("확인", null)   // 아래에서 유효성 통과 시에만 닫히도록 재정의
+            .setCancelable(cancelable)
+        if (cancelable) builder.setNegativeButton("취소", null)
+        val dialog = builder.create()
+        val valid = { isValidField(etRegion.text.toString()) &&
+            isValidField(etNick.text.toString()) &&
+            isValidField(etCar.text.toString()) }
+        dialog.setOnShowListener {
+            val ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            ok.isEnabled = valid()
+            val watch = { _: android.text.Editable? -> ok.isEnabled = valid(); Unit }
+            etRegion.doAfterTextChanged(watch)
+            etNick.doAfterTextChanged(watch)
+            etCar.doAfterTextChanged(watch)
+            ok.setOnClickListener {
+                if (!valid()) return@setOnClickListener
+                val combined = etRegion.text.toString().trim() + SEP +
+                    etNick.text.toString().trim() + SEP + etCar.text.toString().trim()
+                onSaved(combined)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     /** 로컬 저장 후 서버로 등록 1건 전송. onDone(성공여부) 로 회신. */

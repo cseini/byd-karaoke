@@ -23,14 +23,24 @@
             android:textColor="@color/tj_text_primary" />
 
         <Button
-            android:id="@+id/btn_log_send"
+            android:id="@+id/btn_feedback"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:minWidth="0dp"
             android:paddingHorizontal="14dp"
             app:backgroundTint="@color/tj_panel_light"
             android:textColor="@color/tj_text_primary"
-            android:text="로그 전송" />
+            android:text="의견 보내기" />
+
+        <Button
+            android:id="@+id/btn_cafe_nick"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            app:backgroundTint="@color/tj_panel_light"
+            android:textColor="@color/tj_text_primary"
+            android:text="닉네임" />
 
         <Button
             android:id="@+id/btn_check_update"

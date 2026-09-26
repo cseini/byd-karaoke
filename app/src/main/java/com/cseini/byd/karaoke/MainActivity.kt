@@ -579,61 +579,17 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             }
             return
         }
-        val dp = { d: Int -> (d * resources.displayMetrics.density).toInt() }
-        fun field(hint: String): EditText = EditText(this).apply {
-            this.hint = hint
-            setSingleLine()
-            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        CafeNick.showDialog(this, "", cancelable = false) { combined -> saveCafeNick(combined) }
+    }
+
+    /** 닉네임 저장 — 게이트(신규 등록) 전용. 설정 화면(수정)은 SettingsScreen 이 자체 처리한다. */
+    private fun saveCafeNick(combined: String) {
+        settings.cafeNick = combined
+        settings.cafeNickSynced = false
+        CafeNick.send(this, combined) { sent ->
+            if (sent) settings.cafeNickSynced = true
+            else CrashLog.event(this, "닉네임 저장 서버 전송 실패(오프라인?) — 다음 실행에 재전송")
         }
-        val etRegion = field("지역").apply { imeOptions = EditorInfo.IME_ACTION_NEXT }
-        val etNick = field("닉네임").apply { imeOptions = EditorInfo.IME_ACTION_NEXT }
-        val etCar = field("차종").apply { imeOptions = EditorInfo.IME_ACTION_DONE }
-        fun sep() = TextView(this).apply {
-            text = CafeNick.SEP
-            setPadding(dp(6), 0, dp(6), 0)
-        }
-        val row = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(12), dp(20), 0)
-            val lp = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            addView(etRegion, lp)
-            addView(sep())
-            addView(etNick, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(sep())
-            addView(etCar, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("BYD 써드파티연구소 닉네임 등록")
-            .setMessage("BYD 써드파티연구소 카페 닉네임을 등록해 주세요. 세 칸을 모두 채워야 시작할 수 있어요.\n(구분자 ll·|| 등은 칸 안에 넣지 마세요)")
-            .setView(row)
-            .setPositiveButton("확인", null)   // 아래에서 유효성 통과 시에만 닫히도록 재정의
-            .setCancelable(false)
-            .create()
-        val valid = { CafeNick.isValidField(etRegion.text.toString()) &&
-            CafeNick.isValidField(etNick.text.toString()) &&
-            CafeNick.isValidField(etCar.text.toString()) }
-        dialog.setOnShowListener {
-            val ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            ok.isEnabled = valid()
-            val watch = { _: android.text.Editable? -> ok.isEnabled = valid(); Unit }
-            etRegion.doAfterTextChanged(watch)
-            etNick.doAfterTextChanged(watch)
-            etCar.doAfterTextChanged(watch)
-            ok.setOnClickListener {
-                if (!valid()) return@setOnClickListener
-                val combined = etRegion.text.toString().trim() + CafeNick.SEP +
-                    etNick.text.toString().trim() + CafeNick.SEP + etCar.text.toString().trim()
-                settings.cafeNick = combined
-                settings.cafeNickSynced = false
-                CafeNick.register(this, etRegion.text.toString(), etNick.text.toString(), etCar.text.toString()) { sent ->
-                    if (sent) settings.cafeNickSynced = true
-                    else CrashLog.event(this, "닉네임 등록 서버 전송 실패(오프라인?) — 다음 실행에 재전송")
-                }
-                dialog.dismiss()
-            }
-        }
-        dialog.show()
     }
 
     /** 접근성 서비스(휠 버튼 감지)가 실제로 켜져 있는지. */

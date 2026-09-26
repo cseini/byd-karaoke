@@ -12,6 +12,8 @@ import java.io.File
 object CrashLog {
 
     private const val MAX_EVENTS = 24 * 1024
+    // event() 의 실제 파일 쓰기를 순서대로 처리하는 단일 백그라운드 스레드 — 메인 스레드 블로킹 방지.
+    private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     fun install(ctx: Context) {
         val app = ctx.applicationContext
@@ -27,15 +29,20 @@ object CrashLog {
 
     /**
      * 한 줄 이벤트 기록(수명주기·close 경로 등). 크기 상한으로 잘라 유지.
-     * 이어쓰기라 매 호출마다 로그 전체를 읽고 다시 쓰지 않는다(메인 스레드에서 불린다).
+     * 호출부는 메인 스레드가 대부분(화면 포커스 변경 등 잦은 지점 포함)이라, 실제 파일 I/O는
+     * 단일 백그라운드 스레드에 순서대로 맡긴다 — 예전엔 여기서 매번 동기로 파일을 열고 썼는데,
+     * 기능이 늘며 호출 지점이 55곳까지 늘어나 화면 전환마다 디스크 I/O로 버벅이는 원인이었다.
      */
-    @Synchronized
     fun event(ctx: Context, msg: String) {
-        runCatching {
-            val f = File(ctx.applicationContext.filesDir, "events.log")
-            f.appendText("${now()} $msg\n")
-            // 상한을 넘었을 때만 뒤쪽 절반만 남기고 잘라낸다(가끔).
-            if (f.length() > MAX_EVENTS) f.writeText(f.readText().takeLast(MAX_EVENTS / 2))
+        val app = ctx.applicationContext
+        val line = "${now()} $msg\n"   // 시각은 호출 시점 기준으로 미리 찍어둔다.
+        ioExecutor.execute {
+            runCatching {
+                val f = File(app.filesDir, "events.log")
+                f.appendText(line)
+                // 상한을 넘었을 때만 뒤쪽 절반만 남기고 잘라낸다(가끔).
+                if (f.length() > MAX_EVENTS) f.writeText(f.readText().takeLast(MAX_EVENTS / 2))
+            }
         }
     }
 
