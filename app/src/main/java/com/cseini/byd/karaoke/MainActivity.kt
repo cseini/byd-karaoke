@@ -44,6 +44,30 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private var embeddedPlayer: EmbeddedPlayer? = null
     private lateinit var embedScreen: android.widget.FrameLayout
     private var screenCleanup: (() -> Unit)? = null
+
+    // 임베드 화면 뷰 캐시 — 이 헤드유닛에서 레이아웃 인플레이트가 설정 1.8초·녹음함 0.3초 걸린다
+    // (09-26 실측, 피드백 #749). 한 번 만든 뷰를 재사용하고 시작 직후 백그라운드에서 미리 인플레이트한다.
+    // 액티비티가 재생성되면 캐시도 같이 사라지므로(인스턴스 필드) 옛 컨텍스트 뷰가 남을 일은 없다.
+    private val screenViews = HashMap<Int, View>()
+
+    private fun screenView(layout: Int): View {
+        screenViews[layout]?.let { v -> (v.parent as? android.view.ViewGroup)?.removeView(v); return v }
+        return layoutInflater.inflate(layout, embedScreen, false).also { screenViews[layout] = it }
+    }
+
+    /** 설정·녹음함 레이아웃을 백그라운드 스레드에서 미리 인플레이트 — 시작 직후 CPU 경합을 피해 조금 늦게 돌린다. */
+    private fun prewarmScreens() {
+        embedScreen.postDelayed({
+            if (isDestroyed) return@postDelayed
+            val inflater = androidx.asynclayoutinflater.view.AsyncLayoutInflater(this)
+            for (layout in listOf(R.layout.activity_settings, R.layout.activity_recordings)) {
+                if (screenViews.containsKey(layout)) continue
+                inflater.inflate(layout, embedScreen) { view, res, _ ->
+                    if (!screenViews.containsKey(res)) screenViews[res] = view
+                }
+            }
+        }, 2500)
+    }
     // 설정 화면 인스턴스 — 뒤로가기 시 미저장 변경 저장 여부를 묻기 위해 참조를 들고 있는다.
     private var settingsScreen: SettingsScreen? = null
 
@@ -216,9 +240,15 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
     /** 임베드 화면 띄우기(재생 중이면 먼저 닫는다). */
     private fun showScreen(which: String) {
+        // 화면전환 버벅임 진단용 — 어느 단계가 오래 걸리는지 이벤트 로그에 구간별로 남긴다.
+        // (RecordingStore·CrashLog·MixRecorder 수정 이후에도 2~3초가 남는다는 제보로 09-27 추가)
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        fun lap(label: String) = CrashLog.event(this, "showScreen($which) $label +${android.os.SystemClock.elapsedRealtime() - t0}ms")
         cancelAutoPlay()
         if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close()
+        lap("cancelAutoPlay+closePlayer")
         closeScreen()
+        lap("closeScreen done")
         // 화면 생성 실패 시 앱이 죽는 대신 에러 전문을 보여준다(원인 파악·제보용).
         runCatching {
             val layout = when (which) {
@@ -226,14 +256,18 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
                 "ranking" -> R.layout.activity_ranking
                 else -> R.layout.activity_settings
             }
-            val v = layoutInflater.inflate(layout, embedScreen, false)
+            val cached = screenViews.containsKey(layout)
+            val v = screenView(layout)
+            lap(if (cached) "view(cached)" else "inflate")
             embedScreen.addView(v)
             when (which) {
                 "recordings" -> RecordingsScreen(v, this).also { it.refresh(); screenCleanup = { it.destroy() } }
                 "ranking" -> RankingScreen(v, this).refresh()
                 "settings" -> settingsScreen = SettingsScreen(v, this)
             }
+            lap("screen ctor+refresh")
             embedScreen.visibility = View.VISIBLE
+            lap("visible")
         }.onFailure { e ->
             closeScreen()
             val trace = e.stackTraceToString().take(4000)
@@ -258,18 +292,28 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     }
 
     private fun closeScreen() {
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        fun lap(label: String) = CrashLog.event(this, "closeScreen $label +${android.os.SystemClock.elapsedRealtime() - t0}ms")
         screenCleanup?.invoke(); screenCleanup = null
         settingsScreen = null
         if (::embedScreen.isInitialized) {
             embedScreen.removeAllViews()
             embedScreen.visibility = View.GONE
         }
+        lap("cleanup+removeViews")
         // 설정에서 바꾼 값(물리버튼·API 키 등)을 닫는 즉시 화면에 반영한다.
         syncPhysicalButtons()
+        lap("syncPhysicalButtons")
         if (::settings.isInitialized) {
             refreshVoiceUi()
+            lap("refreshVoiceUi")
             // 일반/노래방 모드를 바꿔 저장했으면 검색 결과 카드·홈 목록을 즉시 전환.
-            refreshHistory(); refreshHomeQueue(); applySearchMode()
+            refreshHistory()
+            lap("refreshHistory")
+            refreshHomeQueue()
+            lap("refreshHomeQueue")
+            applySearchMode()
+            lap("applySearchMode")
         }
     }
 
@@ -559,6 +603,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
         // 카페 닉네임 필수 입력(닫기 불가 다이얼로그) — 미등록이면 여기서 게이트한다.
         promptCafeNickIfNeeded()
+        // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
+        prewarmScreens()
 
         // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
         // 닉네임 모달이 떠 있으면 그 뒤에서 USB/마이크를 잡지 않도록 스킵한다.
@@ -801,20 +847,25 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         CrashLog.event(this, "voice.avail gemini=$g sys=$s activity=$a")   // 어느 STT 가 있는지 원격 확인
         // Gboard 음성입력 경로 검토용(씨라이언: Google 음성 서비스 없음). Gboard·Google앱 설치/버전, 등록 IME,
         // RecognitionService 제공 앱을 남겨 "Gboard 마이크가 부르는 것"을 이 유닛에서 쓸 수 있는지 판단한다.
-        runCatching {
-            val pm = packageManager
-            fun ver(pkg: String) = runCatching { pm.getPackageInfo(pkg, 0).versionName }.getOrNull() ?: "none"
-            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-            val imes = imm.inputMethodList.joinToString(",") { it.id.substringBefore('/') }.take(160)
-            val recog = pm.queryIntentServices(
-                android.content.Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0,
-            ).joinToString(",") { it.serviceInfo.packageName }.ifEmpty { "none" }
-            CrashLog.event(
-                this,
-                "ime.avail gboard=${ver("com.google.android.inputmethod.latin")} gapp=${ver("com.google.android.googlequicksearchbox")} " +
-                    "gms=${ver("com.google.android.gms")} recog=[$recog] imes=[$imes]",
-            )
-        }
+        // 순수 진단 로그용이라 UI 결정에 쓰이지 않는다 — PackageManager IPC(getPackageInfo x3·
+        // inputMethodList·queryIntentServices)가 여러 번 걸려서 화면 전환마다(refreshVoiceUi 호출 시)
+        // 메인 스레드를 붙잡던 걸 백그라운드로 옮긴다.
+        Thread {
+            runCatching {
+                val pm = packageManager
+                fun ver(pkg: String) = runCatching { pm.getPackageInfo(pkg, 0).versionName }.getOrNull() ?: "none"
+                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                val imes = imm.inputMethodList.joinToString(",") { it.id.substringBefore('/') }.take(160)
+                val recog = pm.queryIntentServices(
+                    android.content.Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0,
+                ).joinToString(",") { it.serviceInfo.packageName }.ifEmpty { "none" }
+                CrashLog.event(
+                    this,
+                    "ime.avail gboard=${ver("com.google.android.inputmethod.latin")} gapp=${ver("com.google.android.googlequicksearchbox")} " +
+                        "gms=${ver("com.google.android.gms")} recog=[$recog] imes=[$imes]",
+                )
+            }
+        }.start()
         // lab 은 키보드 마이크 폴백(실험)이 있어 STT 가 없어도 버튼을 띄운다. prod 는 실제 STT/Gemini 있을 때만.
         // 서버(Groq) 엔진은 키도 시스템 STT 도 필요 없다 — 이걸 빼면 키 없는 prod 유닛에서
         // 음성검색이 되는데도 🎤 버튼이 숨겨진다.

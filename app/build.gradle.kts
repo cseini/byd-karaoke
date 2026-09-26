@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 361
-        versionName = "7.25"
+        versionCode = 363
+        versionName = "7.27"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -123,6 +123,8 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+    // 임베드 화면(설정 등) 레이아웃을 백그라운드에서 미리 인플레이트 — 헤드유닛에서 설정 인플레이트가 1.8초 걸린다.
+    implementation("androidx.asynclayoutinflater:asynclayoutinflater:1.0.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("com.google.android.material:material:1.11.0")
 
