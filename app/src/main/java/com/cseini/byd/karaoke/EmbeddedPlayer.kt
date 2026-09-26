@@ -318,9 +318,8 @@ class EmbeddedPlayer(
     }
 
     private fun onEnded() {
-      try {
         CrashLog.event(activity, "onEnded scored=$scored recStarted=$recordStarted")
-        if (scored) return
+        if (scored) { onSongEnd(); return }
         if (!recordStarted) {
             // 녹음·채점을 켰어도 마이크를 못 열었거나(권한·장치) 시작에 실패했으면 여기로 온다.
             // 예전엔 이 경우 아무것도 안 하고 return 해 다음곡 진행이 영구히 멈췄다.
@@ -328,33 +327,37 @@ class EmbeddedPlayer(
             statusView.text = if (!recordingOn && !scoringOn) "🎵 재생 완료"
                 else "🎵 재생 완료 (마이크를 못 열어 녹음·채점 없음)"
             scheduleAfterSong()
+            onSongEnd()
             return
         }
         scored = true
-        val file = recorder?.stop()
-        if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return }
-        // 채점만 켜진 경우(녹음 저장 off) 파일을 남기지 않으므로 다시듣기도 없다.
-        val keepRecording = recordingOn
-        lastRecording = if (keepRecording) file else null
-        showPostSong()
         val rec = recorder
-        if (!scoringOn) {
-            saveRecording(file, -1)
-            statusView.text = "🎵 녹음 저장됨 — 다시듣기로 들어보세요"
-            scheduleAfterSong()
-            return
-        }
-        // 채점 동안 화면이 멈춘 듯 보이지 않게 진행 표시(점 애니메이션)
-        var scoringDots = 0
-        val scoringTicker = object : Runnable {
-            override fun run() {
-                statusView.text = "🎯 채점 중" + ".".repeat(1 + scoringDots % 3)
-                scoringDots++
-                ui.postDelayed(this, 400)
-            }
-        }
-        ui.post(scoringTicker)
         activity.lifecycleScope.launch {
+            // recorder.stop() 은 녹음 워커 스레드를 join(최대 1.5초)으로 기다린다 — 메인 스레드에서
+            // 그대로 부르면 채점이 꺼져 있어도 노래 종료마다 화면이 1초 넘게 멈춘 듯 보였다.
+            val file = withContext(Dispatchers.IO) { rec?.stop() }
+            onSongEnd()   // 녹음 마이크 종료 뒤 USB HID 를 다시 잡아 버튼 읽기를 재개한다(채점은 계속 진행)
+            if (file == null || !file.exists()) { statusView.text = "녹음 파일이 없습니다."; return@launch }
+            // 채점만 켜진 경우(녹음 저장 off) 파일을 남기지 않으므로 다시듣기도 없다.
+            val keepRecording = recordingOn
+            lastRecording = if (keepRecording) file else null
+            showPostSong()
+            if (!scoringOn) {
+                saveRecording(file, -1)
+                statusView.text = "🎵 녹음 저장됨 — 다시듣기로 들어보세요"
+                scheduleAfterSong()
+                return@launch
+            }
+            // 채점 동안 화면이 멈춘 듯 보이지 않게 진행 표시(점 애니메이션)
+            var scoringDots = 0
+            val scoringTicker = object : Runnable {
+                override fun run() {
+                    statusView.text = "🎯 채점 중" + ".".repeat(1 + scoringDots % 3)
+                    scoringDots++
+                    ui.postDelayed(this, 400)
+                }
+            }
+            ui.post(scoringTicker)
             // 채점에 필요한(다운샘플된) 데이터만 뽑고 녹음 버퍼(~50MB)는 즉시 해제
             var accomp: Pair<FloatArray, Int>? = null
             val voicePair = withContext(Dispatchers.Default) {
@@ -389,9 +392,6 @@ class EmbeddedPlayer(
             }
             scheduleAfterSong()
         }
-      } finally {
-        onSongEnd()   // 채점(녹음 마이크 종료) 뒤 USB HID 를 다시 잡아 버튼 읽기를 재개한다
-      }
     }
 
     private fun showScore(result: ScoringEngine.Score) {

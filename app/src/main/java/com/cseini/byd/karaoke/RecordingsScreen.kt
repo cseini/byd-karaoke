@@ -7,10 +7,15 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cseini.byd.karaoke.data.RecordingItem
 import com.cseini.byd.karaoke.data.RecordingStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -19,6 +24,7 @@ import java.util.Locale
 class RecordingsScreen(private val root: View, private val host: ScreenHost) {
 
     private val ctx = root.context
+    private val activity = ctx as AppCompatActivity
     private val store = RecordingStore(ctx)
     private val empty: TextView = root.findViewById(R.id.empty)
     private val deleteSelectedBtn: Button = root.findViewById(R.id.btn_delete_selected)
@@ -42,11 +48,19 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     fun refresh() {
-        store.reload()
-        val items = store.all()
-        adapter.submit(items)   // 선택 상태 초기화 포함
+        // store.reload() 는 저장된 녹음 개수만큼 File.exists() 를 하나씩 확인한다 — SD카드가
+        // 블랙박스에 점유돼 있으면 특히 느려서, 메인 스레드에서 그대로 부르면 녹음함을 열 때마다
+        // 화면이 멈춘 듯 보였다. 먼저 캐시된 목록을 보여주고 확인은 백그라운드에서.
+        adapter.submit(store.all())
         updateSelectionBar(0)
-        empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+        empty.visibility = if (store.all().isEmpty()) View.VISIBLE else View.GONE
+        activity.lifecycleScope.launch {
+            withContext(Dispatchers.IO) { store.reload() }
+            val items = store.all()
+            adapter.submit(items)   // 선택 상태 초기화 포함
+            updateSelectionBar(0)
+            empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+        }
     }
 
     /** 화면을 떠날 때 공유 서버를 반드시 정리(임베드는 onDestroy 가 안 오므로 명시 호출). */

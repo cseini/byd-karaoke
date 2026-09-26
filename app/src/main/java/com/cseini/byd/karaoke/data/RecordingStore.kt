@@ -22,23 +22,35 @@ class RecordingStore(context: Context) {
     private val items = ArrayList<RecordingItem>()
 
     init {
-        reload()
+        loadRaw()
     }
 
-    /** SharedPreferences 에서 최신 목록을 다시 읽어온다(다른 화면에서 추가된 녹음 반영). */
-    fun reload() {
+    /**
+     * prefs 에서 그대로 불러온다(파일 존재 확인 없음) — 생성자가 이걸 쓴다.
+     * 예전엔 생성자가 바로 reload() 를 불러서, RecordingStore 를 새로 만들 때마다
+     * (녹음함·랭킹 화면 열 때, 심지어 앱 시작 시 홈 화면용 인스턴스까지) 저장된 녹음 개수만큼
+     * File.exists() 를 메인 스레드에서 하나씩 확인했다 — SD카드가 블랙박스에 점유돼 있으면 특히 느려서
+     * 앱 시작·화면 전환이 눈에 띄게 버벅이는 원인이었다.
+     */
+    private fun loadRaw() {
         items.clear()
         prefs.getString("recordings", null)?.let { json ->
             val type = object : TypeToken<List<RecordingItem>>() {}.type
-            runCatching { gson.fromJson<List<RecordingItem>>(json, type) }
-                .getOrNull()
-                ?.let { list ->
-                    // 파일이 지워진 항목만 정리. 부모 폴더 자체가 안 보이면(SD 카드가 아직/잠시 안 잡힘)
-                    // 지우지 않는다 — 예전엔 그 순간 SD 녹음 인덱스가 통째로 사라진 채 저장됐다.
-                    val kept = list.filter { val f = File(it.path); f.exists() || f.parentFile?.exists() != true }
-                    items.addAll(kept)
-                    if (kept.size != list.size) persist()
-                }
+            runCatching { gson.fromJson<List<RecordingItem>>(json, type) }.getOrNull()?.let { items.addAll(it) }
+        }
+    }
+
+    /**
+     * 지워진 파일 항목을 정리한다(File.exists() 로 하나씩 확인 — 느릴 수 있으니 백그라운드에서 부를 것).
+     * 부모 폴더 자체가 안 보이면(SD 카드가 아직/잠시 안 잡힘) 지우지 않는다 — 예전엔 그 순간 SD 녹음
+     * 인덱스가 통째로 사라진 채 저장됐다.
+     */
+    fun reload() {
+        loadRaw()
+        val list = items.toList()
+        val kept = list.filter { val f = File(it.path); f.exists() || f.parentFile?.exists() != true }
+        if (kept.size != list.size) {
+            items.clear(); items.addAll(kept); persist()
         }
     }
 
