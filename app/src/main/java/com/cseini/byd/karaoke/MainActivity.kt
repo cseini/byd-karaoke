@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private var screenCleanup: (() -> Unit)? = null
 
     // 임베드 화면 뷰 캐시 — 이 헤드유닛에서 레이아웃 인플레이트가 설정 1.8초·녹음함 0.3초 걸린다
-    // (09-26 실측, 피드백 #749). 한 번 만든 뷰를 재사용하고 시작 직후 메인 스레드 유휴 시간에 미리 인플레이트한다.
+    // (09-26 실측, 피드백 #749). 한 번 만든 뷰를 재사용하고 시작 직후 메인 스레드에서 미리 인플레이트한다.
     // 액티비티가 재생성되면 캐시도 같이 사라지므로(인스턴스 필드) 옛 컨텍스트 뷰가 남을 일은 없다.
     private val screenViews = HashMap<Int, View>()
 
@@ -56,21 +56,20 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     }
 
     /**
-     * 설정·녹음함 레이아웃을 메인 스레드가 한가할 때(IdleHandler) 하나씩 미리 인플레이트한다.
-     * 백그라운드 인플레이트(AsyncLayoutInflater)는 AppCompat/Material 뷰 팩토리를 거치지 않아
-     * Button 이 MaterialButton 이 아닌 기본 위젯으로 만들어져 색·스타일이 빠졌다(v7.27 회귀).
+     * 설정·녹음함 레이아웃을 정해진 시각에 메인 스레드에서 미리 인플레이트한다(정상 인플레이터 사용 —
+     * AsyncLayoutInflater 는 AppCompat/Material 뷰 팩토리를 안 거쳐 Button 이 기본 위젯으로 만들어져
+     * 색·스타일이 빠졌었다, v7.27 회귀). IdleHandler 로 "완전히 유휴"를 기다리는 방식은 쓰지 않는다 —
+     * MixRecorder 가 녹음/재생 중 300ms~1s 간격으로 계속 postDelayed 를 걸어 메인 큐를 채우기 때문에
+     * queueIdle 이 거의 발동하지 않는다(v7.28 에서 확인). 대신 시작 직후(보통 노래 시작 전) 고정 지연으로
+     * 반드시 실행되게 하고, 두 레이아웃을 나눠 한 번에 걸리는 프레임 드롭을 줄인다.
      */
     private fun prewarmScreens() {
-        embedScreen.postDelayed({
-            if (isDestroyed) return@postDelayed
-            val pending = ArrayDeque(listOf(R.layout.activity_settings, R.layout.activity_recordings))
-            android.os.Looper.myQueue().addIdleHandler {
-                if (isDestroyed) return@addIdleHandler false
-                val layout = pending.removeFirstOrNull() ?: return@addIdleHandler false
-                if (!screenViews.containsKey(layout)) screenView(layout)
-                pending.isNotEmpty()
-            }
-        }, 4000)
+        listOf(R.layout.activity_settings, R.layout.activity_recordings).forEachIndexed { i, layout ->
+            embedScreen.postDelayed({
+                if (isDestroyed || screenViews.containsKey(layout)) return@postDelayed
+                screenView(layout)
+            }, 4000L + i * 500)
+        }
     }
     // 설정 화면 인스턴스 — 뒤로가기 시 미저장 변경 저장 여부를 묻기 위해 참조를 들고 있는다.
     private var settingsScreen: SettingsScreen? = null
