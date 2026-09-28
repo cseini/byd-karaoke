@@ -86,7 +86,7 @@ object KeyEntryServer {
     private val PAGE = """
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>노래방 · 키 입력</title>
+<title>오너스랩노래방 · 키 입력</title>
 <style>
  body{font-family:-apple-system,sans-serif;margin:0;background:#0b0b16;color:#eee}
  header{padding:16px;background:#12122a;font-size:19px;font-weight:bold;color:#41e0ff;position:sticky;top:0}
@@ -100,7 +100,7 @@ object KeyEntryServer {
  .err{background:#3d1220;color:#ff9db3;display:block}
  a{color:#41e0ff}
 </style></head><body>
-<header>🎤 노래방 · Gemini 키 입력</header>
+<header>🎤 오너스랩노래방 · Gemini 키 입력</header>
 <div class="wrap">
  <p class="d">음성 검색용 Gemini 키를 붙여넣고 전송하세요. 1~3개까지 넣을 수 있고,
    여러 개면 한도 초과 시 자동으로 다음 키로 넘어갑니다. 키는 <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>에서 무료 발급.</p>

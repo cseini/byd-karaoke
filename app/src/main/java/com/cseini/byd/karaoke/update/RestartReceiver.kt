@@ -37,7 +37,7 @@ class RestartReceiver : BroadcastReceiver() {
                 else @Suppress("DEPRECATION") Notification.Builder(context)
                 )
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("노래방 업데이트 완료 🎉")
+                .setContentTitle("오너스랩노래방 업데이트 완료 🎉")
                 .setContentText("탭하면 새 버전으로 시작합니다")
                 .setContentIntent(tap)
                 .setAutoCancel(true)

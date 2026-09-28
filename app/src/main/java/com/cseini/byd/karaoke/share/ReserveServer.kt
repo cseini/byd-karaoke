@@ -262,7 +262,7 @@ object ReserveServer {
     private val PAGE = """
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BYD YT노래방 예약</title>
+<title>BYD YT오너스랩노래방 예약</title>
 <style>
  body{font-family:-apple-system,sans-serif;margin:0;background:#0b0b16;color:#eee}
  header{padding:16px;background:#12122a;font-size:20px;font-weight:bold;color:#41e0ff;position:sticky;top:0}

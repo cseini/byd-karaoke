@@ -12,7 +12,7 @@ object SecondScreenPage {
     val HTML = """
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>노래방 뒷좌석 화면</title>
+<title>오너스랩노래방 뒷좌석 화면</title>
 <style>
  *{box-sizing:border-box}
  html,body{margin:0;height:100%;background:#000;color:#eee;font-family:-apple-system,'Noto Sans KR',sans-serif;overflow:hidden}
@@ -126,7 +126,7 @@ object SecondScreenPage {
 <div id="loading"><div class="li">⏳</div><div class="lt">로딩 중…</div></div>
 
 <div id="gate">
-  <h1>🎤 뒷좌석 노래방 화면</h1>
+  <h1>🎤 뒷좌석 오너스랩노래방 화면</h1>
   <p>화면을 누르면 헤드유닛이 지금 트는 영상이 여기서 재생됩니다.<br>소리는 차량 스피커로 나오고, 영상만 여기에 맞춰 보여줘요.</p>
   <button onclick="startGate()">화면 켜기 ▶</button>
 </div>

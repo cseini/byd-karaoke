@@ -82,9 +82,9 @@ object CafeNick {
             addView(etCar, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
         val builder = AlertDialog.Builder(activity)
-            .setTitle(if (cancelable) "BYD 써드파티연구소 닉네임 수정" else "BYD 써드파티연구소 닉네임 등록")
+            .setTitle(if (cancelable) "BYD 오너스 랩 닉네임 수정" else "BYD 오너스 랩 닉네임 등록")
             .setMessage(
-                (if (cancelable) "닉네임을 수정합니다." else "BYD 써드파티연구소 카페 닉네임을 등록해 주세요. 세 칸을 모두 채워야 시작할 수 있어요.") +
+                (if (cancelable) "닉네임을 수정합니다." else "BYD 오너스 랩 카페 닉네임을 등록해 주세요. 세 칸을 모두 채워야 시작할 수 있어요.") +
                     "\n(구분자 ll·|| 등은 칸 안에 넣지 마세요)",
             )
             .setView(row)

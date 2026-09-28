@@ -53,7 +53,7 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
             val html = """
                 <!doctype html><html lang="ko"><head><meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1">
-                <title>노래방 녹음 받기</title></head>
+                <title>오너스랩노래방 녹음 받기</title></head>
                 <body style="font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#eee">
                 <h2>🎤 내 노래 받기</h2>
                 <p style="color:#9ad">${htmlEscape(file.name)}<br>(${kb} KB)</p>

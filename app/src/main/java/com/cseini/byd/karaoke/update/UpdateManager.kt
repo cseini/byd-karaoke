@@ -159,10 +159,10 @@ object UpdateManager {
                 .putString("pending_apk", apk.absolutePath)
                 .commit()
             // 다이얼로그로 한 단계 거치지 않고 권한 화면을 바로 연다. 켜고 돌아오면 자동 설치.
-            // 앱 이름을 하드코딩하면 테스트 앱(노래방테스트) 사용자가 목록에서 엉뚱한 '노래방'을 켠다.
+            // 앱 이름을 하드코딩하면 테스트 앱(오너스랩노래방테스트) 사용자가 목록에서 엉뚱한 '오너스랩노래방'을 켠다.
             val label = runCatching {
                 context.applicationInfo.loadLabel(context.packageManager).toString()
-            }.getOrDefault("노래방")
+            }.getOrDefault("오너스랩노래방")
             Toast.makeText(
                 context, "설치하려면 목록에서 '$label'을 켜고(허용) 뒤로 돌아오세요 — 자동으로 이어서 설치됩니다.",
                 Toast.LENGTH_LONG,

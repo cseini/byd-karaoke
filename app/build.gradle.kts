@@ -25,7 +25,7 @@ android {
     productFlavors {
         create("prod") {
             dimension = "variant"
-            manifestPlaceholders["appLabel"] = "노래방"
+            manifestPlaceholders["appLabel"] = "오너스랩노래방"
             // 라이브 앱 OTA 저장소
             buildConfigField("String", "OTA_REPO", "\"cseini/byd-karaoke\"")
         }
@@ -33,7 +33,7 @@ android {
             dimension = "variant"
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
-            manifestPlaceholders["appLabel"] = "노래방테스트"
+            manifestPlaceholders["appLabel"] = "오너스랩노래방테스트"
             // 테스트 앱은 별도 저장소에서 OTA (본앱과 분리)
             buildConfigField("String", "OTA_REPO", "\"cseini/byd-karaoke-test\"")
         }

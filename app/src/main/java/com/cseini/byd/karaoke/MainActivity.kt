@@ -1175,7 +1175,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             kotlin.concurrent.thread { UpdateManager.enableAccessibilityViaAdb(this) }
             if (!gboardA11yGuided) {
                 gboardA11yGuided = true
-                toast("접근성 서비스가 필요해요. 차량은 자동으로 켜지고, 태블릿·폰은 방금 연 화면에서 '노래방' 접근성을 켠 뒤 마이크를 다시 누르세요")
+                toast("접근성 서비스가 필요해요. 차량은 자동으로 켜지고, 태블릿·폰은 방금 연 화면에서 '오너스랩노래방' 접근성을 켠 뒤 마이크를 다시 누르세요")
                 runCatching { startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             } else {
                 toast("접근성 준비 중… 켜졌으면 마이크를 다시 눌러주세요")

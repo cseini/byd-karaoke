@@ -131,7 +131,7 @@ object UpdateFlow {
     private fun manualInstallGuide(activity: AppCompatActivity, apk: java.io.File, why: String) {
         val label = runCatching {
             activity.applicationInfo.loadLabel(activity.packageManager).toString()
-        }.getOrDefault("노래방")
+        }.getOrDefault("오너스랩노래방")
         AlertDialog.Builder(activity)
             .setTitle("자동 설치가 안 됐어요")
             .setMessage(
