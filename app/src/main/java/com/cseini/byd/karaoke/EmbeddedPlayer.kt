@@ -113,6 +113,7 @@ class EmbeddedPlayer(
     private var lastRecording: File? = null
     private var countdown: Runnable? = null
     private var extractFails = 0   // 연속 스트림 추출 실패 수(재생 성공 시 0)
+    private var errorRetried = false   // 이 곡에서 이미 자동 재시도(reload) 했는지 — 1곡당 1회만
     private var lastScore = -1          // 세컨드스크린 노출용: 마지막 채점 점수(-1=미채점)
     private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
     private var lastCountdown = ""      // 세컨드스크린 노출용: 자동진행 카운트다운 문구
@@ -210,7 +211,9 @@ class EmbeddedPlayer(
         ui.post(r)
     }
 
-    private fun load(videoId: String, title: String) {
+    /** isAutoRetry=true 는 onError 가 스스로 같은 곡을 다시 부르는 재시도 호출 — 이땐 errorRetried 를
+     *  리셋하지 않아야 재시도가 또 실패했을 때 무한히 다시 트는 걸 막는다(곡당 자동 재시도는 1회뿐). */
+    private fun load(videoId: String, title: String, isAutoRetry: Boolean = false) {
         cancelCountdown()
         stopMediaPlayer()
         player?.release()
@@ -218,6 +221,7 @@ class EmbeddedPlayer(
         recorder?.let { if (it.isRecording) it.stop() }
         currentVideoId = videoId
         remoteMuted = false   // 새 곡은 항상 음소거 해제 상태로
+        if (!isAutoRetry) errorRetried = false   // 새로 튼 곡이면 자동 재시도 기회를 다시 준다
         recordStarted = false; scored = false; playLogged = false; replaying = false
         lastRecording = null
         lastScore = -1; lastBreakdown = ""   // 새 곡 → 이전 점수 세컨드스크린에서 지움
@@ -238,9 +242,19 @@ class EmbeddedPlayer(
             onPlaying = { onPlaying() }, onEnded = { onEnded() }, onTime = { },
             onError = { msg ->
                 if (rec.isRecording) rec.stop()
-                statusView.text = msg
-                // 스트림 추출 연속 실패 = 유튜브 방식 변경 의심 → 2곡째부터 호스트에 알림
-                if (++extractFails >= 2) { extractFails = 0; onRepeatedFailure() }
+                // 이 곡에서 처음 겪는 오류(주로 네트워크 순간 끊김·타임아웃)면 화면엔 표시하지 않고
+                // 조용히 한 번만 같은 곡을 다시 불러온다 — 손님이 "화면은 도는데 반주가 안 나와" 하며
+                // 곡을 여러 번 다시 트는 상황(FB1080)을 앱이 먼저 복구하게 하기 위함.
+                if (!errorRetried) {
+                    errorRetried = true
+                    CrashLog.event(activity, "재생오류 자동 재시도 videoId=$videoId msg=$msg")
+                    statusView.text = "잠시만요, 다시 불러오는 중…"
+                    ui.postDelayed({ if (currentVideoId == videoId) load(videoId, title, isAutoRetry = true) }, 800)
+                } else {
+                    statusView.text = msg
+                    // 스트림 추출 연속 실패 = 유튜브 방식 변경 의심 → 2곡째부터 호스트에 알림
+                    if (++extractFails >= 2) { extractFails = 0; onRepeatedFailure() }
+                }
             },
         )
         player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec.accompProcessor)
