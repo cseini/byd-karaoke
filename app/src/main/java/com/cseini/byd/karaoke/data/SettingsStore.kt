@@ -206,6 +206,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("auto_hide_controls", false)
         set(v) = prefs.edit().putBoolean("auto_hide_controls", v).apply()
 
+    /** 재생 화면 하단 제어영역 배경 불투명도(0~100). 기본 85 — 영상이 살짝 비치게. */
+    var controlsAlphaPct: Int
+        get() = prefs.getInt("controls_alpha_pct", 85)
+        set(v) = prefs.edit().putInt("controls_alpha_pct", v.coerceIn(20, 100)).apply()
+
     /** 음성 검색 후 첫 곡을 3초 뒤 자동 재생. */
     var autoPlayVoiceFirst: Boolean
         get() = prefs.getBoolean("auto_play_voice", false)
