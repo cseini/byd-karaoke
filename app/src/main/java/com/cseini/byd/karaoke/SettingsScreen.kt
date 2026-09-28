@@ -56,7 +56,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val nativeMicCheck: CheckBox = root.findViewById(R.id.chk_native_mic)
     private val recordOptions: View = root.findViewById(R.id.record_options)
     private val startFullscreenCheck: CheckBox = root.findViewById(R.id.chk_start_fullscreen)
-    private val autoHideControlsCheck: CheckBox = root.findViewById(R.id.chk_auto_hide_controls)
     private val autoplayCheck: CheckBox = root.findViewById(R.id.chk_autoplay)
     private val secondScreenCheck: CheckBox = root.findViewById(R.id.chk_second_screen)
     private val secondScreenDesc: TextView = root.findViewById(R.id.txt_second_screen_desc)
@@ -140,7 +139,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         micButtonCheck.isChecked = settings.micButtonControl
         nativeMicCheck.isChecked = settings.nativeMicMode
         startFullscreenCheck.isChecked = settings.startFullscreen
-        autoHideControlsCheck.isChecked = settings.autoHideControls
         autoplayCheck.isChecked = settings.autoPlayVoiceFirst
         // 뒷좌석 태블릿 세컨드스크린 + 일반 유튜브 검색 — 노출.
         run {
@@ -215,7 +213,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         syncSeek.progress, rateGroup.checkedRadioButtonId, scoringCheck.isChecked,
         recordingCheck.isChecked, micSourceGroup.checkedRadioButtonId, voiceGainSeek.progress,
         accompGainSeek.progress, micButtonCheck.isChecked, nativeMicCheck.isChecked,
-        startFullscreenCheck.isChecked, autoHideControlsCheck.isChecked, autoplayCheck.isChecked, wheelButtonCheck.isChecked,
+        startFullscreenCheck.isChecked, autoplayCheck.isChecked, wheelButtonCheck.isChecked,
         secondScreenCheck.isChecked, generalYoutubeCheck.isChecked,
         sealionCheck.isChecked, storageGroup.checkedRadioButtonId,
         maxStorageInput.text, selectedMap(R.id.map_mic_long), selectedMap(R.id.map_mic_double),
@@ -285,7 +283,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         settings.micButtonControl = micButtonCheck.isChecked
         settings.nativeMicMode = nativeMicCheck.isChecked
         settings.startFullscreen = startFullscreenCheck.isChecked
-        settings.autoHideControls = autoHideControlsCheck.isChecked
         settings.autoPlayVoiceFirst = autoplayCheck.isChecked
         settings.secondScreen = secondScreenCheck.isChecked
         settings.generalYoutube = generalYoutubeCheck.isChecked

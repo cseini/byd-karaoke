@@ -701,6 +701,23 @@
                         android:text="원래대로" />
                 </LinearLayout>
 
+                <!-- 하단 제어영역 자체를 자동으로 접어 넣는 토글(재생 시작·다시보기 후 5초 뒤 숨김). -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical|end"
+                    android:paddingTop="2dp">
+
+                    <CheckBox
+                        android:id="@+id/embed_auto_hide_controls"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/tj_text_secondary"
+                        android:text="🎛 제어영역 자동 숨기기" />
+                </LinearLayout>
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

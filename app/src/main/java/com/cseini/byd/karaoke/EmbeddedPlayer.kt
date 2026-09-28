@@ -82,6 +82,7 @@ class EmbeddedPlayer(
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val showControlsBtn: Button = activity.findViewById(R.id.embed_show_controls)
+    private val autoHideCheck: android.widget.CheckBox = activity.findViewById(R.id.embed_auto_hide_controls)
     private val floatToolbar: View = activity.findViewById(R.id.embed_float_toolbar)
     private val floatIntroSlot: FrameLayout = activity.findViewById(R.id.embed_float_intro_slot)
     private val floatKeyVal: TextView = activity.findViewById(R.id.embed_float_key_val)
@@ -180,6 +181,11 @@ class EmbeddedPlayer(
         setupFloatToolbarDrag()
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
         showControlsBtn.setOnClickListener { showControlsAnimated() }
+        autoHideCheck.isChecked = settings.autoHideControls
+        autoHideCheck.setOnCheckedChangeListener { _, checked ->
+            settings.autoHideControls = checked
+            if (checked) scheduleAutoHide() else cancelAutoHide()
+        }
         // 영상 영역 탭으로 전체화면 진입, 전체화면 중엔 탭으로 해제.
         val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
         container.setOnTouchListener(fsTouch)
@@ -603,10 +609,10 @@ class EmbeddedPlayer(
     // 자동숨기기는 전체화면이 아닐 때만 작동한다.
     private val autoHideRunnable = Runnable { hideControlsAnimated() }
 
-    /** "컨트롤이 보이는" 시점(재생 시작·다시보기 클릭)마다 호출 — 토글이 켜져 있으면 10초 뒤 숨김을 다시 건다. */
+    /** "컨트롤이 보이는" 시점(재생 시작·다시보기 클릭)마다 호출 — 토글이 켜져 있으면 5초 뒤 숨김을 다시 건다. */
     private fun scheduleAutoHide() {
         ui.removeCallbacks(autoHideRunnable)
-        if (settings.autoHideControls && !fullscreen) ui.postDelayed(autoHideRunnable, 10_000)
+        if (settings.autoHideControls && !fullscreen) ui.postDelayed(autoHideRunnable, 5_000)
     }
 
     private fun cancelAutoHide() {
