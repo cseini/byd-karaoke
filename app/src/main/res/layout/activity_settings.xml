@@ -480,6 +480,14 @@
                         android:text="▶ 영상을 전체화면으로 시작 (탭하면 해제)" />
 
                     <CheckBox
+                        android:id="@+id/chk_auto_hide_controls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/tj_text_primary"
+                        android:text="🎛 재생 시작 10초 뒤 하단 제어영역 자동 숨김" />
+
+                    <CheckBox
                         android:id="@+id/chk_autoplay"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

@@ -37,11 +37,29 @@ object ReserveServer {
 
     private var server: Http? = null
     private var host: Host? = null
-    @Volatile private var alwaysOn = false   // 세컨드스크린 토글: 예약 다이얼로그 닫아도 서버 유지
     var url: String? = null
         private set
 
-    /** 서버 시작. 성공하면 접속 URL(끝에 `/`), 네트워크가 없으면 null. host 는 원격 명령 라우팅용. */
+    // 접속 이벤트 콜백(헤드유닛 UI가 등록) — 폰/태블릿이 각자의 "연결하기" 게이트 버튼을 누르면
+    // 즉시 불려서 QR 다이얼로그를 자동으로 닫고 토스트를 띄운다. NanoHTTPD 콜백은 백그라운드
+    // 스레드에서 오므로 메인스레드로 넘겨(notifyConnected) 호출한다.
+    var onReserveConnected: (() -> Unit)? = null
+    var onScreenConnected: (() -> Unit)? = null
+
+    // 마지막 폴링 요청 시각(연결 "유지" 여부 판단용) — 새 하트비트를 만들지 않고, 이미 도는
+    // 폴링(예약페이지 /queue 3초 간격, 세컨드스크린 /now 재생 중 계속)의 트래픽을 그대로 재사용한다.
+    @Volatile var lastReserveAt: Long = 0
+        private set
+    @Volatile var lastScreenAt: Long = 0
+        private set
+
+    private fun notifyConnected(cb: (() -> Unit)?) {
+        if (cb == null) return
+        android.os.Handler(android.os.Looper.getMainLooper()).post { cb() }
+    }
+
+    /** 서버 시작(idempotent) — 앱이 떠 있는 동안 상시 가동. 성공하면 접속 URL(끝에 `/`), 네트워크가 없으면 null.
+     *  host 는 원격 명령 라우팅용. */
     fun start(context: Context, host: Host? = null): String? {
         if (host != null) this.host = host
         if (server != null) return url
@@ -61,34 +79,19 @@ object ReserveServer {
         return null
     }
 
-    /** 세컨드스크린 상시 모드로 시작. 예약 다이얼로그 dismiss 로 죽지 않는다. */
-    fun enableAlwaysOn(context: Context, host: Host): String? {
-        alwaysOn = true
+    /** 세컨드스크린 기능 켜기. 서버 자체는 이미 상시 가동 중이라 상태 플래그만 세우고 start() 는 보험. */
+    fun enableScreen(context: Context, host: Host): String? {
         SecondScreenState.enabled = true
         return start(context, host)
     }
 
+    /** 세컨드스크린 기능 끄기 — 서버(예약 서버도 같은 HTTP 데몬)는 내리지 않고, 세컨드스크린만 비활성 표시. */
+    fun disableScreen() {
+        SecondScreenState.enabled = false
+    }
+
     /** 세컨드스크린 접속용 태블릿 화면 URL(…/screen). 서버가 안 떠 있으면 null. */
     fun screenUrl(): String? = url?.let { it.trimEnd('/') + "/screen" }
-
-    /** 예약 다이얼로그 dismiss 용 — 상시 모드면 유지한다. */
-    fun stop() {
-        if (alwaysOn) return
-        doStop()
-    }
-
-    /** 세컨드스크린 토글 off — 상시 모드 해제하고 실제로 내린다. */
-    fun stopForce() {
-        alwaysOn = false
-        SecondScreenState.enabled = false
-        doStop()
-    }
-
-    private fun doStop() {
-        server?.let { runCatching { it.stop() } }
-        server = null
-        url = null
-    }
 
     private class Http(
         private val ctx: Context,
@@ -104,19 +107,37 @@ object ReserveServer {
             val p = session.parameters
             fun q(k: String): String = p[k]?.firstOrNull()?.trim().orEmpty()
             return when {
+                // 게이트 화면의 "연결하기" 버튼이 보내는 명시적 접속 이벤트 — /reserve, /screen 보다
+                // 먼저 매칭돼야 한다(그것들이 접두 매칭이라 순서가 중요).
+                uri.startsWith("/reserve-connected") -> handleReserveConnected()
+                uri.startsWith("/screen-connected") -> handleScreenConnected()
                 uri.startsWith("/search") -> handleSearch(q("q"))
                 uri.startsWith("/reserve") -> handleReserve(q("videoId"), q("title"), q("channel"))
                 uri.startsWith("/cancel") -> handleCancel(q("videoId"))
-                uri.startsWith("/queue") -> handleQueue()
+                uri.startsWith("/queue") -> { lastReserveAt = System.currentTimeMillis(); handleQueue() }
                 uri.startsWith("/recent") -> handleRecent()
                 uri.startsWith("/ranking") -> handleRanking()
-                uri.startsWith("/now") -> handleNow()
+                uri.startsWith("/now") -> { lastScreenAt = System.currentTimeMillis(); handleNow() }
                 uri.startsWith("/vid") -> handleVid(session, q("v"))
                 uri.startsWith("/cmd") -> handleCmd(q("action"), q("videoId"), q("title"))
                 uri.startsWith("/screen") -> json(Response.Status.OK, "text/html; charset=utf-8", SecondScreenPage.HTML)
                     .apply { addHeader("Cache-Control", "no-store, must-revalidate") }   // 태블릿이 항상 최신 페이지를 받게(캐시 잔상 방지)
                 else -> json(Response.Status.OK, "text/html; charset=utf-8", PAGE)
             }
+        }
+
+        /** 예약페이지 게이트("연결하기 ▶")가 보내는 명시적 접속 이벤트. */
+        private fun handleReserveConnected(): Response {
+            lastReserveAt = System.currentTimeMillis()
+            notifyConnected(onReserveConnected)
+            return jsonBody("{\"ok\":true}")
+        }
+
+        /** 세컨드스크린 게이트("화면 켜기 ▶")가 보내는 명시적 접속 이벤트. */
+        private fun handleScreenConnected(): Response {
+            lastScreenAt = System.currentTimeMillis()
+            notifyConnected(onScreenConnected)
+            return jsonBody("{\"ok\":true}")
         }
 
         /** 뒷좌석 태블릿 싱크용 현재 상태. 라이브 위치는 서버-상대 시간으로 보간해 내려준다. */
@@ -280,7 +301,19 @@ object ReserveServer {
  .cx{background:#33334a;color:#ffb3b3;padding:8px 12px;font-size:13px}
  .empty{color:#889;font-size:14px;padding:8px 0}
  .num{display:inline-block;min-width:22px;color:#41e0ff;font-weight:bold}
+ #gate{position:fixed;inset:0;z-index:20;background:#0b0b16;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px}
+ #gate h1{color:#41e0ff;font-size:26px;margin:0 0 10px}
+ #gate p{color:#9ab;font-size:16px;line-height:1.5;max-width:440px}
+ #gate button{margin-top:24px;border:none;border-radius:14px;background:#2b6cff;color:#fff;font-size:19px;font-weight:800;padding:16px 34px}
 </style></head><body>
+
+<div id="gate">
+  <h1>🎤 예약 리모컨 연결</h1>
+  <p>여기서 노래를 검색하고 예약하면 차량 화면에 바로 반영됩니다.</p>
+  <button onclick="startGate()">연결하기 ▶</button>
+</div>
+
+<div id="app" style="display:none">
 <header>🎤 노래 예약</header>
 <div class="wrap">
  <div class="row">
@@ -290,6 +323,7 @@ object ReserveServer {
  <div id="results"></div>
  <h3>🎫 예약된 곡</h3>
  <div id="queue"><div class="empty">아직 예약된 곡이 없어요.</div></div>
+</div>
 </div>
 <script>
  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
@@ -325,7 +359,12 @@ object ReserveServer {
    try{ await fetch('/cancel?videoId='+encodeURIComponent(vid)); loadQueue(); }catch(e){}
  }
  document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
- loadQueue(); setInterval(loadQueue,3000);
+ function startGate(){
+   document.getElementById('gate').style.display='none';
+   document.getElementById('app').style.display='';
+   fetch('/reserve-connected').catch(function(){});
+   loadQueue(); setInterval(loadQueue,3000);
+ }
 </script></body></html>
 """.trimIndent()
 }

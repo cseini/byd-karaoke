@@ -162,6 +162,7 @@ object SecondScreenPage {
  function startGate(){
    started=true;
    document.getElementById('gate').style.display='none';
+   fetch('/screen-connected').catch(function(){});
    video.play().catch(function(){});
    var r=document.documentElement; if(r.requestFullscreen) r.requestFullscreen().catch(function(){});
    showPanel(false);   // 실행 시 검색화면을 메인으로(재생 중이면 다음 tick 이 닫고 영상으로 전환)

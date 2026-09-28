@@ -81,6 +81,7 @@ class EmbeddedPlayer(
     private val nextBtn: Button = activity.findViewById(R.id.embed_next)
     private val fullscreenBtn: Button = activity.findViewById(R.id.embed_fullscreen)
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
+    private val showControlsBtn: Button = activity.findViewById(R.id.embed_show_controls)
     private val floatToolbar: View = activity.findViewById(R.id.embed_float_toolbar)
     private val floatIntroSlot: FrameLayout = activity.findViewById(R.id.embed_float_intro_slot)
     private val floatKeyVal: TextView = activity.findViewById(R.id.embed_float_key_val)
@@ -118,6 +119,7 @@ class EmbeddedPlayer(
     private var lastBreakdown = ""      // 세컨드스크린 노출용: 마지막 심사평
     private var lastCountdown = ""      // 세컨드스크린 노출용: 자동진행 카운트다운 문구
     private var introJumpSec: Double? = null   // 현재 곡의 간주점프 지점(초) — 지나면 버튼 자동 숨김
+    private var controlsHidden = false   // 자동숨기기로 하단 제어영역이 내려가 있는 상태인지
 
     // 일반 유튜브 영상 모드에선 노래방 기능(녹음·채점)을 끈다 — 그냥 영상 재생만.
     private val recordingOn get() = settings.recordingEnabled && !settings.generalYoutube
@@ -177,6 +179,7 @@ class EmbeddedPlayer(
         floatStopBtn.setOnClickListener { stopSong() }
         setupFloatToolbarDrag()
         fullscreenBtn.setOnClickListener { toggleFullscreen() }
+        showControlsBtn.setOnClickListener { showControlsAnimated() }
         // 영상 영역 탭으로 전체화면 진입, 전체화면 중엔 탭으로 해제.
         val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
         container.setOnTouchListener(fsTouch)
@@ -236,6 +239,8 @@ class EmbeddedPlayer(
         seekRow.visibility = View.VISIBLE
         tuneRow.visibility = View.VISIBLE
         stopBtn.visibility = View.VISIBLE
+        cancelAutoHide()
+        bottom.visibility = View.VISIBLE   // 이전 곡에서 자동숨김으로 내려가 있었을 수 있어 새 곡은 항상 보이게
         val rec = MixRecorder(activity, settings)
         recorder = rec
         val cb = PlayerCallbacks(
@@ -289,6 +294,7 @@ class EmbeddedPlayer(
 
     private fun onPlaying() {
         extractFails = 0   // 재생 성공 → 연속 실패 카운터 초기화
+        scheduleAutoHide()
         if (recordStarted || scored) return
         if (!playLogged) {
             playLogged = true
@@ -592,8 +598,46 @@ class EmbeddedPlayer(
     }
 
     // ── 전체화면(패널·예약목록 숨겨 영상만) ──
+    // ── 하단 제어영역 자동숨기기(설정, 기본 꺼짐) ──
+    // 전체화면 모드는 이미 별도로 bottom 을 GONE 처리하므로(fullscreenTap 이 탭-투-토글을 담당),
+    // 자동숨기기는 전체화면이 아닐 때만 작동한다.
+    private val autoHideRunnable = Runnable { hideControlsAnimated() }
+
+    /** "컨트롤이 보이는" 시점(재생 시작·다시보기 클릭)마다 호출 — 토글이 켜져 있으면 10초 뒤 숨김을 다시 건다. */
+    private fun scheduleAutoHide() {
+        ui.removeCallbacks(autoHideRunnable)
+        if (settings.autoHideControls && !fullscreen) ui.postDelayed(autoHideRunnable, 10_000)
+    }
+
+    private fun cancelAutoHide() {
+        ui.removeCallbacks(autoHideRunnable)
+        controlsHidden = false
+        showControlsBtn.visibility = View.GONE
+    }
+
+    private fun hideControlsAnimated() {
+        if (fullscreen || controlsHidden || bottom.visibility != View.VISIBLE) return
+        controlsHidden = true
+        bottom.animate().translationY(bottom.height.toFloat()).setDuration(220)
+            .withEndAction { bottom.visibility = View.GONE; bottom.translationY = 0f }.start()
+        showControlsBtn.visibility = View.VISIBLE
+    }
+
+    private fun showControlsAnimated() {
+        ui.removeCallbacks(autoHideRunnable)
+        controlsHidden = false
+        showControlsBtn.visibility = View.GONE
+        if (bottom.visibility != View.VISIBLE) {
+            bottom.translationY = bottom.height.toFloat()
+            bottom.visibility = View.VISIBLE
+            bottom.animate().translationY(0f).setDuration(220).start()
+        }
+        scheduleAutoHide()   // 토글이 켜져 있으면 다시 보인 시점부터 또 10초 뒤 숨김
+    }
+
     private fun toggleFullscreen() {
         fullscreen = !fullscreen
+        if (fullscreen) cancelAutoHide()   // 전체화면은 fullscreenTap 이 컨트롤 노출을 대신 담당
         bottom.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenBtn.visibility = if (fullscreen) View.GONE else View.VISIBLE
         fullscreenTap.visibility = if (fullscreen) View.VISIBLE else View.GONE
@@ -930,6 +974,8 @@ class EmbeddedPlayer(
         }
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
+        cancelAutoHide()
+        bottom.visibility = View.VISIBLE
         stopMediaPlayer()
         recorder?.let { if (it.isRecording) it.stop() }
         recorder = null

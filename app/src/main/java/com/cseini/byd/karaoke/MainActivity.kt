@@ -88,7 +88,15 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     override fun onRecordingsChanged() { if (::recordings.isInitialized) recordings.reload() }
     /** 임베드 화면의 하단바 → 다른 임베드 화면으로 전환(분할화면 유지). */
     override fun onNavigate(target: String) {
-        val go = { if (target == "search") closeScreen() else showScreen(target) }
+        val go = {
+            when (target) {
+                "search" -> closeScreen()
+                // 🏠 홈 — 어떤 상황에서든(재생 중이어도) 순수 검색 대기 화면으로. 이미 검색화면이어도
+                // 항상 눌리도록 NavBar 쪽에서 "현재 화면과 같으면 무시" 처리를 건너뛴다.
+                "home" -> { embeddedPlayer?.close(); closeScreen(); resetToSearchHome() }
+                else -> showScreen(target)
+            }
+        }
         settingsScreen?.let { it.requestClose { go() } } ?: go()
     }
 
@@ -340,11 +348,13 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private lateinit var searchInput: EditText
     private var searchJob: kotlinx.coroutines.Job? = null
     private var inFlightQuery: String? = null   // 진행 중인 검색어(같은 검색 중복 재시작 방지)
+    private var resultsLayoutGeneral: Boolean? = null   // results 에 마지막으로 적용한 레이아웃 모드(불필요한 재할당 방지)
     private var autoPlayAfterSearch = false    // 이번 검색 결과 첫 곡을 자동 재생할지(음성 트리거)
     private val searchDebounce = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingSearch: Runnable? = null
     private lateinit var status: TextView
     private lateinit var results: RecyclerView
+    private lateinit var connectStatus: TextView
     private lateinit var historySection: View
     private lateinit var historyEmpty: TextView
     private lateinit var voiceOverlay: View
@@ -460,7 +470,25 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private val queuePoll = object : Runnable {
         override fun run() {
             refreshHomeQueue()
+            refreshConnectStatus()
             searchDebounce.postDelayed(this, 5000)
+        }
+    }
+
+    /** 연결 상태 뱃지 — 새 하트비트 없이, 이미 도는 폴링(예약 /queue, 세컨드스크린 /now)의
+     *  마지막 요청 시각을 재활용해 "지금 붙어 있는지"를 판단한다. */
+    private fun refreshConnectStatus() {
+        val now = System.currentTimeMillis()
+        val reserveOn = now - com.cseini.byd.karaoke.share.ReserveServer.lastReserveAt < 10_000
+        val screenOn = now - com.cseini.byd.karaoke.share.ReserveServer.lastScreenAt < 10_000
+        val parts = ArrayList<String>()
+        if (reserveOn) parts.add("📱 예약 연결됨")
+        if (screenOn) parts.add("🖥 세컨드스크린 연결됨")
+        if (parts.isEmpty()) {
+            connectStatus.visibility = View.GONE
+        } else {
+            connectStatus.text = parts.joinToString(" · ")
+            connectStatus.visibility = View.VISIBLE
         }
     }
 
@@ -563,6 +591,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             visibility = View.VISIBLE
             setOnClickListener { showConnectMenu() }
         }
+        connectStatus = findViewById(R.id.connect_status)
 
         val btnClear = findViewById<Button>(R.id.btn_clear)
         btnClear.setOnClickListener {
@@ -608,6 +637,13 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         promptCafeNickIfNeeded()
         // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
         prewarmScreens()
+
+        // 예약 서버(폰 리모컨) 상시 기동 — "끄기" 개념 없이 앱이 떠 있는 동안 항상 켜둔다.
+        // 세컨드스크린도 같은 HTTP 데몬을 쓰므로 settings.secondScreen 이면 onResume 에서 enableScreen().
+        // 접속 이벤트 콜백(onReserveConnected/onScreenConnected)은 QR 다이얼로그를 여는 지점마다
+        // 그때그때 지역적으로 설정한다(설정 화면에도 같은 QR을 여는 곳이 있어, 실제로 떠 있는
+        // 다이얼로그를 정확히 닫으려면 전역 고정 콜백보다 그쪽이 맞다).
+        com.cseini.byd.karaoke.share.ReserveServer.start(this, this)
 
         // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
         // 닉네임 모달이 떠 있으면 그 뒤에서 USB/마이크를 잡지 않도록 스킵한다.
@@ -759,9 +795,10 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // 히스토리(초기 화면)를 보고 있으면 이전 검색/카운트다운 안내 잔상은 지운다.
         if (results.visibility != View.VISIBLE) status.text = DEFAULT_HINT
         refreshVoiceUi()
-        // 뒷좌석 태블릿 세컨드스크린(lab): 한번 켠 적 있으면(버튼 사용) 상시 서버 기동 + host 연결 + 프로세스 보호 FGS.
+        // 뒷좌석 태블릿 세컨드스크린(lab): 켜둔 사용자면(설정) host 연결 + 프로세스 보호 FGS.
+        // 서버(예약·세컨드스크린 공용 HTTP 데몬) 자체는 onCreate 에서 이미 상시 기동돼 있다.
         if (settings.secondScreen) {
-            com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
+            com.cseini.byd.karaoke.share.ReserveServer.enableScreen(this, this)
             com.cseini.byd.karaoke.media.KeepAliveService.start(this)
         }
         // 접근성이 꺼져 있으면(키보드 마이크 자동클릭용) dadb(ADB)로 한 번 켜본다.
@@ -979,9 +1016,14 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             logSearchTiming(q, System.currentTimeMillis() - startedAt, r)
             when (r) {
                 is YouTubeRepository.Result.Ok -> {
-                    // 일반 유튜브 모드면 썸네일 카드 2열 그리드, 아니면 목록형.
-                    results.layoutManager = if (general) GridLayoutManager(this@MainActivity, 2)
-                    else LinearLayoutManager(this@MainActivity)
+                    // 일반 유튜브 모드면 썸네일 카드 2열 그리드, 아니면 목록형 — 모드가 바뀔 때만 교체한다.
+                    // 검색(자동검색 포함)마다 매번 새로 할당하면 RecyclerView 가 통째로 재구성되며
+                    // 레이아웃 재계산 중 포커스 있던 검색창의 키보드가 내려가는 경우가 있었다.
+                    if (resultsLayoutGeneral != general) {
+                        results.layoutManager = if (general) GridLayoutManager(this@MainActivity, 2)
+                        else LinearLayoutManager(this@MainActivity)
+                        resultsLayoutGeneral = general
+                    }
                     adapter.setGeneral(general)
                     adapter.submit(r.items)
                     showResults()
@@ -1064,10 +1106,10 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             .show()
     }
 
-    /** 세컨드스크린 접속 QR(…/screen). 서버·host·FGS 보장. */
+    /** 세컨드스크린 접속 QR(…/screen). 서버·host·FGS 보장. 태블릿이 "화면 켜기"를 누르면 자동으로 닫힌다. */
     private fun showSecondScreenConnect() {
         settings.secondScreen = true   // 버튼 한 번으로 켜짐 유지(다음 실행에도 자동 기동)
-        val url = com.cseini.byd.karaoke.share.ReserveServer.enableAlwaysOn(this, this)
+        val url = com.cseini.byd.karaoke.share.ReserveServer.enableScreen(this, this)
         if (url == null) { toast("네트워크에 연결돼 있지 않습니다. 차 핫스팟/WiFi를 확인하세요."); return }
         com.cseini.byd.karaoke.media.KeepAliveService.start(this)
         val view = layoutInflater.inflate(R.layout.dialog_reserve, null)
@@ -1078,13 +1120,19 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8770),
             "screen",
         )
-        AlertDialog.Builder(this)
+        var dialog: AlertDialog? = null
+        com.cseini.byd.karaoke.share.ReserveServer.onScreenConnected = {
+            dialog?.dismiss()
+            toast("세컨드스크린이 연결됐어요! 🖥")
+        }
+        dialog = AlertDialog.Builder(this)
             .setView(view)
             .setPositiveButton("닫기", null)
+            .setOnDismissListener { com.cseini.byd.karaoke.share.ReserveServer.onScreenConnected = null }
             .show()
     }
 
-    /** 예약 서버를 켜고 접속 QR을 띄운다(끄기 버튼 포함). 예약 목록 관리는 재생 화면에서. */
+    /** 예약 서버 접속 QR을 띄운다. 서버는 상시 가동 중이라 "끄기" 없음 — 폰이 "연결하기"를 누르면 자동으로 닫힌다. */
     private fun showReserveServer() {
         val url = com.cseini.byd.karaoke.share.ReserveServer.start(this)
         if (url == null) {
@@ -1099,13 +1147,15 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             view.findViewById(R.id.reserve_hint),
             com.cseini.byd.karaoke.share.QrSwitcher.portOf(url, 8770),
         )
-        AlertDialog.Builder(this)
+        var dialog: AlertDialog? = null
+        com.cseini.byd.karaoke.share.ReserveServer.onReserveConnected = {
+            dialog?.dismiss()
+            toast("예약 리모컨이 연결됐어요! 📱")
+        }
+        dialog = AlertDialog.Builder(this)
             .setView(view)
             .setPositiveButton("닫기", null)
-            .setNegativeButton("예약 서버 끄기") { _, _ ->
-                com.cseini.byd.karaoke.share.ReserveServer.stop()
-                toast("예약 서버를 껐습니다")
-            }
+            .setOnDismissListener { com.cseini.byd.karaoke.share.ReserveServer.onReserveConnected = null }
             .show()
     }
 

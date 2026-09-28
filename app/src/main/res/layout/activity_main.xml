@@ -407,6 +407,21 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- 연결 상태 작은 뱃지 — 예약/세컨드스크린이 실제로 붙어 있을 때만 보인다(끊기면 자동으로 숨음). -->
+    <TextView
+        android:id="@+id/connect_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="60dp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:background="#992b6cff"
+        android:textColor="#ffffff"
+        android:textSize="11sp"
+        android:visibility="gone" />
+
     <!-- (lab) 하단 오른쪽 구석 '연결' — 예약 서버 QR + 세컨드스크린 QR 을 하나로 묶음. 검색화면에서만
          보이게 embed_overlay 보다 앞(아래 z-order)에 둔다(재생 중엔 플레이어가 덮음). -->
     <Button
@@ -796,6 +811,24 @@
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone" />
+
+        <!-- 하단 제어영역 자동숨기기(설정) 로 컨트롤이 내려가 있을 때만 보이는 '다시 보기' 버튼. -->
+        <Button
+            android:id="@+id/embed_show_controls"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="10dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp"
+            android:textSize="16sp"
+            android:background="#66000000"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"
+            android:text="▲" />
 
         <!-- 전체화면 전용 플로팅 미니툴바(템포·음정·간주점프·중지) — 드래그해서 옮길 수 있고
              마지막 위치를 기억한다(SettingsStore.floatToolbarXRatio/YRatio). 전체화면일 때만 보임. -->

@@ -201,6 +201,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("start_fullscreen", false)
         set(v) = prefs.edit().putBoolean("start_fullscreen", v).apply()
 
+    /** 재생 화면 하단 제어영역을 10초 뒤 자동으로 숨김(작은 버튼으로 다시 보기). 기본 꺼짐. */
+    var autoHideControls: Boolean
+        get() = prefs.getBoolean("auto_hide_controls", false)
+        set(v) = prefs.edit().putBoolean("auto_hide_controls", v).apply()
+
     /** 음성 검색 후 첫 곡을 3초 뒤 자동 재생. */
     var autoPlayVoiceFirst: Boolean
         get() = prefs.getBoolean("auto_play_voice", false)
