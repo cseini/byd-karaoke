@@ -83,8 +83,7 @@ class EmbeddedPlayer(
     private val fullscreenTap: View = activity.findViewById(R.id.embed_fullscreen_tap)
     private val showControlsBtn: Button = activity.findViewById(R.id.embed_show_controls)
     private val hideControlsBtn: Button = activity.findViewById(R.id.embed_hide_controls)
-    private val autoHideCheck: android.widget.CheckBox = activity.findViewById(R.id.embed_auto_hide_controls)
-    private val controlsAlphaSeek: SeekBar = activity.findViewById(R.id.embed_controls_alpha)
+    private val autoHideCheck: android.widget.ToggleButton = activity.findViewById(R.id.embed_auto_hide_controls)
     private val floatToolbar: View = activity.findViewById(R.id.embed_float_toolbar)
     private val floatIntroSlot: FrameLayout = activity.findViewById(R.id.embed_float_intro_slot)
     private val floatKeyVal: TextView = activity.findViewById(R.id.embed_float_key_val)
@@ -189,18 +188,6 @@ class EmbeddedPlayer(
             settings.autoHideControls = checked
             if (checked) scheduleAutoHide() else cancelAutoHide()
         }
-        controlsAlphaSeek.progress = settings.controlsAlphaPct - 20
-        applyControlsAlpha(settings.controlsAlphaPct)
-        controlsAlphaSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
-                val pct = progress + 20
-                settings.controlsAlphaPct = pct
-                applyControlsAlpha(pct)
-            }
-            override fun onStartTrackingTouch(sb: SeekBar) {}
-            override fun onStopTrackingTouch(sb: SeekBar) {}
-        })
         // 영상 영역 탭으로 전체화면 진입, 전체화면 중엔 탭으로 해제.
         val fsTouch = View.OnTouchListener { _, e -> fsGesture.onTouchEvent(e) }
         container.setOnTouchListener(fsTouch)
@@ -619,13 +606,6 @@ class EmbeddedPlayer(
     }
 
     // ── 전체화면(패널·예약목록 숨겨 영상만) ──
-    /** 제어영역 배경 불투명도 즉시 반영 — 같은 색 리소스(@color/tj_bg)를 쓰는 다른 뷰에 번지지
-     *  않게 setBackgroundColor 로 이 뷰만의 새 색을 준다(공유 Drawable 인스턴스를 건드리지 않음). */
-    private fun applyControlsAlpha(pct: Int) {
-        val base = androidx.core.content.ContextCompat.getColor(activity, R.color.tj_bg)
-        val alpha255 = (pct.coerceIn(20, 100) * 255 / 100)
-        bottom.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(base, alpha255))
-    }
 
     // ── 하단 제어영역 자동숨기기(설정, 기본 꺼짐) ──
     // 전체화면 모드는 이미 별도로 bottom 을 GONE 처리하므로(fullscreenTap 이 탭-투-토글을 담당),
