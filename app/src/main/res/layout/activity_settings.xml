@@ -627,6 +627,14 @@
                         android:text="🎚 소스 진단 (말하면서 레벨 확인)" />
 
                     <Button
+                        android:id="@+id/btn_byd_mic_test"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="13sp"
+                        android:text="🔊 차 마이크 볼륨·에코 직접 시험" />
+
+                    <Button
                         android:id="@+id/btn_bcast_diag"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

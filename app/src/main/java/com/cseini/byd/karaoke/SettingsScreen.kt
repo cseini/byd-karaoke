@@ -7,6 +7,8 @@ import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
+import com.byd.minikaraoke.IMicrophoneService
+import com.byd.minikaraoke.ISettingListener
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -181,6 +183,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
         root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
         root.findViewById<Button>(R.id.btn_source_check).setOnClickListener { showMicSourceCheck() }
+        root.findViewById<Button>(R.id.btn_byd_mic_test).setOnClickListener { showBydMicTest() }
         // 마이크의 어느 버튼이 어떤 신호를 쏘는지 차 안에서 직접 조사한다(lab 전용, 읽기 전용).
         root.findViewById<Button>(R.id.btn_bcast_diag).apply {
             if (BuildConfig.FLAVOR == "lab") visibility = View.VISIBLE
@@ -400,6 +403,89 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 }
             }
         }
+    }
+
+    /** 차 노래방 마이크 서비스에 값을 직접 지정해 보는 시험 창 — 버튼 사다리(micevent)의 최저 단계보다 더 낮게 줄 수 있는지 확인용. */
+    private fun showBydMicTest() {
+        val ctx = activity
+        val primary = 0xFF222222.toInt()
+        val logView = TextView(ctx).apply { textSize = 12f; setTextColor(primary); setPadding(0, 12, 0, 0) }
+        val lines = ArrayDeque<String>()
+        fun log(m: String) {
+            CrashLog.event(ctx, "bydmictest $m")
+            activity.runOnUiThread {
+                lines.addFirst(java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.KOREA).format(java.util.Date()) + " " + m)
+                while (lines.size > 40) lines.removeLast()
+                logView.text = lines.joinToString("\n")
+            }
+        }
+        var svc: IMicrophoneService? = null
+        var bound = false
+        val listener = object : ISettingListener.Stub() {
+            override fun onMicVolumeChanged(i: Int) { log("알림: 마이크볼륨=$i") }
+            override fun onEffectChanged(i: Int) { log("알림: 효과=$i") }
+            override fun onReverberationChanged(i: Int) { log("알림: 에코=$i") }
+        }
+        val conn = object : android.content.ServiceConnection {
+            override fun onServiceConnected(name: android.content.ComponentName?, binder: android.os.IBinder?) {
+                svc = IMicrophoneService.Stub.asInterface(binder)
+                runCatching { svc?.registerSettingListener(listener) }
+                log("연결됨 $name")
+            }
+            override fun onServiceDisconnected(name: android.content.ComponentName?) { svc = null; log("연결 끊김") }
+        }
+        for (pkg in listOf("com.byd.minikaraoke", "com.byd.sing")) {
+            val it = android.content.Intent("byd.intent.action.MICROPHONE_SERVICE").setPackage(pkg)
+            val ok = runCatching { ctx.bindService(it, conn, android.content.Context.BIND_AUTO_CREATE) }.getOrDefault(false)
+            log("연결 시도 $pkg = $ok")
+            if (ok) { bound = true; break }
+        }
+        fun call(name: String, f: (IMicrophoneService) -> Any?) {
+            val s = svc ?: run { log("$name: 아직 연결 안 됨"); return }
+            Thread {
+                val r = runCatching { f(s) }
+                log("$name → " + r.fold({ it.toString() }, { "오류 " + it.message }))
+            }.start()
+        }
+        fun numInput(hint: String) = android.widget.EditText(ctx).apply {
+            this.hint = hint; inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        fun row(input: android.widget.EditText, label: String, action: (Int) -> Unit) = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(input)
+            addView(Button(ctx).apply { text = label; textSize = 12f; setOnClickListener { input.text.toString().toIntOrNull()?.let(action) ?: log("숫자를 넣어주세요") } })
+        }
+        val volIn = numInput("마이크 볼륨 값")
+        val echoIn = numInput("에코 값")
+        val effIn = numInput("효과 값")
+        val container = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL; setPadding(40, 24, 40, 12)
+            addView(TextView(ctx).apply {
+                text = "차 마이크 볼륨은 먼저 버튼으로 1(최저)로 맞춘 뒤, 아래에서 값을 직접 지정해 보세요. 값마다 마이크에 대고 말해 소리가 어떻게 달라지는지 들어보고, 아래 기록의 '알림'이 같이 오는지 봐 주세요."
+                textSize = 13f; setTextColor(primary); setPadding(0, 0, 0, 12)
+            })
+            addView(Button(ctx).apply {
+                text = "현재 값 읽기(볼륨·에코·효과)"; textSize = 12f
+                setOnClickListener {
+                    call("읽기") { "볼륨=" + it.micVolume + " 에코=" + it.reverberation + " 효과=" + it.effect }
+                }
+            })
+            addView(row(volIn, "볼륨 지정") { v -> call("볼륨 지정 $v") { it.setMicVolume(v) } })
+            addView(row(echoIn, "에코 지정") { v -> call("에코 지정 $v") { it.setReverberation(v) } })
+            addView(row(effIn, "효과 지정") { v -> call("효과 지정 $v") { it.setEffect(v) } })
+            addView(logView)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("🔊 차 마이크 직접 시험")
+            .setView(android.widget.ScrollView(ctx).apply { addView(container) })
+            .setNegativeButton("닫기", null)
+            .setOnDismissListener {
+                runCatching { svc?.unregisterSettingListener(listener) }
+                if (bound) runCatching { ctx.unbindService(conn) }
+                svc = null
+            }
+            .show()
     }
 
     private fun showMicSourceCheck() {
