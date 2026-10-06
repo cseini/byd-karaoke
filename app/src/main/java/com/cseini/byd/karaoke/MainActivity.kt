@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         cancelAutoPlay()
         if (embeddedPlayer?.isShowing == true) embeddedPlayer?.close()
         lap("cancelAutoPlay+closePlayer")
-        closeScreen()
+        closeScreen(toHome = false)   // 다른 탭으로 바로 가는 중 — 홈 목록은 홈으로 돌아올 때만 다시 읽는다
         lap("closeScreen done")
         // 화면 생성 실패 시 앱이 죽는 대신 에러 전문을 보여준다(원인 파악·제보용).
         runCatching {
@@ -278,7 +278,10 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             }
             lap("screen ctor+refresh")
             embedScreen.visibility = View.VISIBLE
+            // 탭 화면이 덮고 있는 동안 아래 홈은 숨긴다 — 안 보여도 매번 다시 계산·그리기를 해서 탭 이동이 느렸다.
+            findViewById<View>(R.id.search_root).visibility = View.GONE
             lap("visible")
+            lapFirstFrame(embedScreen) { lap(it) }
         }.onFailure { e ->
             closeScreen()
             val trace = e.stackTraceToString().take(4000)
@@ -302,20 +305,36 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         }
     }
 
-    private fun closeScreen() {
+    /** 화면이 실제로 계산(배치)되고 그려지기까지 걸린 시간 — 코드 단계 시간만으로는 체감 지연이 안 보였다. */
+    private fun lapFirstFrame(v: View, lap: (String) -> Unit) {
+        v.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                v.viewTreeObserver.removeOnPreDrawListener(this)
+                lap("layout done")
+                v.post { lap("first frame drawn") }
+                return true
+            }
+        })
+    }
+
+    private fun closeScreen(toHome: Boolean = true) {
         val t0 = android.os.SystemClock.elapsedRealtime()
         fun lap(label: String) = CrashLog.event(this, "closeScreen $label +${android.os.SystemClock.elapsedRealtime() - t0}ms")
         screenCleanup?.invoke(); screenCleanup = null
         settingsScreen = null
         if (::embedScreen.isInitialized) {
             embedScreen.removeAllViews()
-            embedScreen.visibility = View.GONE
+            if (toHome) {
+                embedScreen.visibility = View.GONE
+                val home = findViewById<View>(R.id.search_root)
+                if (home.visibility != View.VISIBLE) { home.visibility = View.VISIBLE; lapFirstFrame(home) { lap("home $it") } }
+            }
         }
         lap("cleanup+removeViews")
         // 설정에서 바꾼 값(물리버튼·API 키 등)을 닫는 즉시 화면에 반영한다.
         syncPhysicalButtons()
         lap("syncPhysicalButtons")
-        if (::settings.isInitialized) {
+        if (toHome && ::settings.isInitialized) {
             refreshVoiceUi()
             lap("refreshVoiceUi")
             // 일반/노래방 모드를 바꿔 저장했으면 검색 결과 카드·홈 목록을 즉시 전환.

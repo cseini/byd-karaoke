@@ -183,7 +183,11 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         root.findViewById<Button>(R.id.btn_mic_learn).setOnClickListener { showMicLearn() }
         root.findViewById<Button>(R.id.btn_mic_diag).setOnClickListener { showMicDiag() }
         root.findViewById<Button>(R.id.btn_source_check).setOnClickListener { showMicSourceCheck() }
-        root.findViewById<Button>(R.id.btn_byd_mic_test).setOnClickListener { showBydMicTest() }
+        root.findViewById<Button>(R.id.btn_byd_mic_test).apply {
+            // 차 마이크 직접 지정 시험 창은 시험판(lab) 전용 — 전체판 사용자에겐 숨긴다.
+            visibility = if (BuildConfig.FLAVOR == "lab") View.VISIBLE else View.GONE
+            setOnClickListener { showBydMicTest() }
+        }
         // 마이크의 어느 버튼이 어떤 신호를 쏘는지 차 안에서 직접 조사한다(lab 전용, 읽기 전용).
         root.findViewById<Button>(R.id.btn_bcast_diag).apply {
             if (BuildConfig.FLAVOR == "lab") visibility = View.VISIBLE
