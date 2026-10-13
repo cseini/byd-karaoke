@@ -207,6 +207,8 @@ class MixRecorder(
             var echoIdx = 0
             var prevX = 0.0
             var lastLevelNs = 0L
+            var totalWritten = 0L
+            val startNs = System.nanoTime()
             try {
                 while (recording) {
                     val n = record.read(buf, 0, buf.size)
@@ -238,6 +240,7 @@ class MixRecorder(
                             readPos++
                         }
                         writer.write(out, n)
+                        totalWritten += n
                         // 입력 레벨 표시는 사람이 읽는 숫자라 ~6Hz 면 충분하다. 버퍼마다 올리면
                         // 오디오 스레드가 float 배열을 새로 만들고 메인 스레드가 초당 수십 번 다시 그린다.
                         if (onLevel != null) {
@@ -255,6 +258,20 @@ class MixRecorder(
                 com.cseini.byd.karaoke.CrashLog.event(context, "mixrec 워커 중단 ${t::class.java.simpleName}: ${t.message}")
             } finally {
                 recording = false
+                // 진단(FB2407 씨라7 다시듣기 빨리감기): 마이크가 실제로 준 유효 레이트와 라우팅을 한 줄로.
+                // record 해제 전에 실제 샘플레이트·경로를 읽는다. events.log → LogUploader/FeedbackSender 로 서버에 실린다.
+                runCatching {
+                    val elapsedS = (System.nanoTime() - startNs) / 1_000_000_000.0
+                    val micRate = record.sampleRate
+                    val routed = if (android.os.Build.VERSION.SDK_INT >= 24) record.routedDevice else null
+                    val routedStr = if (routed != null) "type=${routed.type} name=${routed.productName}" else "none"
+                    val effHz = if (elapsedS > 0.1) totalWritten / elapsedS else 0.0
+                    com.cseini.byd.karaoke.CrashLog.event(
+                        context,
+                        "mixrec done elapsed=%.2fs written=%d effHz=%.0f reqRate=%d micRate=%d accompRate=%d routed[%s] builtin=%b bydMic=%b"
+                            .format(elapsedS, totalWritten, effHz, rate, micRate, accompRate, routedStr, opened.builtin, opened.bydOwnsMic),
+                    )
+                }
                 runCatching { record.stop() }
                 runCatching { record.release() }
                 runCatching { aec?.release() }; aec = null
