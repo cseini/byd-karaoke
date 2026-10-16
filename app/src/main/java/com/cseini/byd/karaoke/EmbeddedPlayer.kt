@@ -101,6 +101,7 @@ class EmbeddedPlayer(
 
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
+    private var micStartRunnable: Runnable? = null
     private var mediaPlayer: MediaPlayer? = null
     private var currentVideoId = ""
     private var recordStarted = false
@@ -230,6 +231,7 @@ class EmbeddedPlayer(
         player?.release()
         // 곡을 갈아탈 때(예약곡 넘김 등) 이전 곡의 녹음 스레드가 마이크를 쥔 채 남지 않도록.
         recorder?.let { if (it.isRecording) it.stop() }
+        micStartRunnable?.let { ui.removeCallbacks(it) }; micStartRunnable = null
         currentVideoId = videoId
         remoteMuted = false   // 새 곡은 항상 음소거 해제 상태로
         if (!isAutoRetry) errorRetried = false   // 새로 튼 곡이면 자동 재시도 기회를 다시 준다
@@ -326,23 +328,33 @@ class EmbeddedPlayer(
         val safe = titleView.text.toString().replace(Regex("[^가-힣A-Za-z0-9]+"), "_").trim('_').take(30).ifEmpty { "노래" }
         val ts = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.KOREA).format(java.util.Date())
         val file = File(dir, "${safe}_${currentVideoId}_${ts}.wav")
-        val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
-            activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
+        // 마이크(AudioRecord)를 재생 시작과 동시에 열면 일부 헤드유닛(씨라이언7)에서 오디오 HAL이
+        // 라우팅을 재구성하며 반주 소리가 묵음이 되는 사례(FB2862)가 있어, 재생이 먼저 안정되도록
+        // 약간 늦춰서 연다. rec 참조를 캡처해 그 사이 곡이 바뀌거나 화면이 닫히면 취소한다.
+        val targetRecorder = recorder
+        val runnable = Runnable {
+            micStartRunnable = null
+            if (recorder !== targetRecorder || recorder?.isRecording == true) return@Runnable
+            val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
+                activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
+            }
+            if (err != null) {
+                statusView.text = "녹음 시작 실패: $err"
+                CrashLog.event(activity, "rec fail: $err")
+            } else {
+                recordStarted = true; lastRecording = file
+                // 순정 마이크(내장) vs USB 마이크(Loostone) 구분 — 씨라이언에서 녹음이 순정 마이크
+                // 라우팅을 끊는 문제 진단용. type: 15=BUILTIN_MIC, 11=USB_DEVICE, 22=USB_HEADSET 등.
+                val inDevs = runCatching {
+                    val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                    am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+                        .joinToString(";") { "t=${it.type}/${it.productName}" }.take(180)
+                }.getOrDefault("?")
+                CrashLog.event(activity, "rec start in=[$inDevs]")
+            }
         }
-        if (err != null) {
-            statusView.text = "녹음 시작 실패: $err"
-            CrashLog.event(activity, "rec fail: $err")
-        } else {
-            recordStarted = true; lastRecording = file
-            // 순정 마이크(내장) vs USB 마이크(Loostone) 구분 — 씨라이언에서 녹음이 순정 마이크
-            // 라우팅을 끊는 문제 진단용. type: 15=BUILTIN_MIC, 11=USB_DEVICE, 22=USB_HEADSET 등.
-            val inDevs = runCatching {
-                val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
-                    .joinToString(";") { "t=${it.type}/${it.productName}" }.take(180)
-            }.getOrDefault("?")
-            CrashLog.event(activity, "rec start in=[$inDevs]")
-        }
+        micStartRunnable = runnable
+        ui.postDelayed(runnable, 400)
     }
 
     private fun onEnded() {
@@ -351,6 +363,8 @@ class EmbeddedPlayer(
         if (!recordStarted) {
             // 녹음·채점을 켰어도 마이크를 못 열었거나(권한·장치) 시작에 실패했으면 여기로 온다.
             // 예전엔 이 경우 아무것도 안 하고 return 해 다음곡 진행이 영구히 멈췄다.
+            // 마이크 오픈 지연(400ms) 중에 곡이 끝난 경우도 포함 — 뒤늦게 열리면 안 되니 취소.
+            micStartRunnable?.let { ui.removeCallbacks(it) }; micStartRunnable = null
             scored = true
             statusView.text = if (!recordingOn && !scoringOn) "🎵 재생 완료"
                 else "🎵 재생 완료 (마이크를 못 열어 녹음·채점 없음)"
@@ -983,6 +997,7 @@ class EmbeddedPlayer(
         }
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
+        micStartRunnable?.let { ui.removeCallbacks(it) }; micStartRunnable = null
         cancelAutoHide()
         bottom.visibility = View.VISIBLE
         stopMediaPlayer()
