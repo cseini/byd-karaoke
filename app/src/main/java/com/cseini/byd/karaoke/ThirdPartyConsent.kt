@@ -14,7 +14,9 @@ import java.net.URL
  */
 object ThirdPartyConsent {
 
-    private const val ENDPOINT = "https://byd.cseini.co.kr/feedback"
+    private const val ENDPOINT = "https://byd.cseini.co.kr/consent"
+    // 모든 BYD 앱 공통 서버 인증 헤더(링크락과 동일 규격) — 비밀값이 아니라 식별용.
+    private const val X_AUTH = "d9dd8767ab1faf0874ac816ba03ca535"
 
     private const val MESSAGE =
         "오너스랩노래방은 BYD 공식 앱이 아닌 비공식 써드파티 앱입니다.\n\n" +
@@ -42,20 +44,18 @@ object ThirdPartyConsent {
             .show()
     }
 
-    /** 동의 사실 1건 전송 — 모든 사용자가 보내는 공용 피드백 경로(운영자 전용 로그 아님). */
+    /** 동의 사실 1건 전송 — 전용 영구 보존 테이블(legal_consents)로 모든 BYD 앱이 공유하는 경로. */
     private fun send(ctx: Context, cafeNick: String, onDone: (Boolean) -> Unit) {
         val app = ctx.applicationContext
         val body = Gson().toJson(
             mapOf(
                 "app" to "karaoke",
                 "uid" to CafeNick.deviceTag(app),
+                "vin" to "",
                 "nickname" to cafeNick,
-                "category" to "써드파티고지동의",
-                "message" to "비공식 써드파티 앱 고지 동의(보증수리 제한 가능성 고지함)",
-                "device" to "headunit",
-                "model" to android.os.Build.MODEL,
-                "appVer" to BuildConfig.VERSION_NAME,
-                "consentAt" to System.currentTimeMillis()
+                "consent_version" to "v1",
+                "app_build" to BuildConfig.VERSION_NAME,
+                "device" to "headunit"
             )
         )
         val handler = android.os.Handler(app.mainLooper)
@@ -65,6 +65,7 @@ object ThirdPartyConsent {
                     requestMethod = "POST"
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("X-Auth", X_AUTH)
                     setRequestProperty("User-Agent", "byd-karaoke")
                     connectTimeout = 5_000
                     readTimeout = 10_000
