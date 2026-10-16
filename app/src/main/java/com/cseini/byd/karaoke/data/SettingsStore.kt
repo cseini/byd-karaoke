@@ -274,5 +274,15 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("cafe_nick_synced", false)
         set(v) = prefs.edit().putBoolean("cafe_nick_synced", v).apply()
 
+    /** 비공식 써드파티 앱 고지 동의(보증수리 제한 가능성 등) — 최초 1회만 받고 재노출 안 함. */
+    var thirdPartyConsentGiven: Boolean
+        get() = prefs.getBoolean("third_party_consent", false)
+        set(v) = prefs.edit().putBoolean("third_party_consent", v).apply()
+
+    /** 동의 사실을 서버(feedback)에 전송 완료했는지. 오프라인 동의 시 false 로 남아 다음 실행에 재전송. */
+    var thirdPartyConsentSynced: Boolean
+        get() = prefs.getBoolean("third_party_consent_synced", false)
+        set(v) = prefs.edit().putBoolean("third_party_consent_synced", v).apply()
+
     fun hasApiKey(): Boolean = youtubeApiKey.isNotBlank()
 }

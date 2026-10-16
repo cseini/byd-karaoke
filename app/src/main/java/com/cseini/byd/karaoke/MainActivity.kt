@@ -652,8 +652,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // USB 마이크·휠 버튼 제어는 설정 옵션(기본 꺼짐). 실제 시작/중지는 onWindowFocusChanged 에서
         // 설정값에 따라 처리(권한 다이얼로그가 포커스 전이로 닫히는 문제 + 옵트인 즉시 반영).
 
-        // 카페 닉네임 필수 입력(닫기 불가 다이얼로그) — 미등록이면 여기서 게이트한다.
-        promptCafeNickIfNeeded()
+        // 비공식 써드파티 앱 고지 동의(최초 1회, 닫기 불가) → 통과 후 카페 닉네임 게이트.
+        ThirdPartyConsent.gate(this, settings) { promptCafeNickIfNeeded() }
         // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
         prewarmScreens()
 
