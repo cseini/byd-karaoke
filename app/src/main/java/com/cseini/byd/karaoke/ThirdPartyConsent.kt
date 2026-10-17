@@ -55,7 +55,10 @@ object ThirdPartyConsent {
                 "nickname" to cafeNick,
                 "consent_version" to "v1",
                 "app_build" to BuildConfig.VERSION_NAME,
-                "device" to "headunit"
+                "device" to "headunit",
+                // 카페 인증 기기 슬롯 집계용 — vehicleType 비어있으면 폰, 아니면 헤드유닛으로 서버가 판정.
+                "deviceTag" to CafeNick.deviceTag(app),
+                "vehicleType" to VehicleProbe.vehicleType()
             )
         )
         val handler = android.os.Handler(app.mainLooper)

@@ -132,7 +132,10 @@ object CafeNick {
                 "message" to "닉네임 등록",
                 "device" to "headunit",
                 "model" to android.os.Build.MODEL,
-                "appVer" to BuildConfig.VERSION_NAME
+                "appVer" to BuildConfig.VERSION_NAME,
+                // 카페 인증 기기 슬롯 집계용 — vehicleType 비어있으면 폰, 아니면 헤드유닛으로 서버가 판정.
+                "deviceTag" to deviceTag(app),
+                "vehicleType" to VehicleProbe.vehicleType()
             )
         )
         val handler = android.os.Handler(app.mainLooper)
