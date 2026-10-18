@@ -208,10 +208,65 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 Toast.makeText(activity, "닉네임을 저장했습니다: $combined", Toast.LENGTH_SHORT).show()
             }
         }
+        root.findViewById<Button>(R.id.btn_cafe_auth).setOnClickListener { onCafeAuthButton() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
         savedSignature = currentSignature()
+    }
+
+    /** 카페 정회원 인증(2026-10-19) — 코드 발급 후 인증 웹페이지를 브라우저로 연다.
+     *  완료 확인·카페 글 안내는 웹페이지 쪽에서 전부 처리(여기선 코드 발급·브라우저 연결만). */
+    private fun onCafeAuthButton() {
+        if (CafeAuthSync.isPending(activity)) { showCafeAuthDialog(CafeAuthSync.pendingCode(activity)); return }
+        Toast.makeText(activity, "인증 코드 생성 중…", Toast.LENGTH_SHORT).show()
+        activity.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val code = CafeAuthSync.startAuth(activity)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (code == null) Toast.makeText(activity, "코드 생성 실패 — 네트워크를 확인하세요", Toast.LENGTH_SHORT).show()
+                else showCafeAuthDialog(code)
+            }
+        }
+    }
+
+    private fun showCafeAuthDialog(code: String) {
+        val dp = { d: Int -> (d * activity.resources.displayMetrics.density).toInt() }
+        val box = android.widget.LinearLayout(activity).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+        }
+        box.addView(TextView(activity).apply {
+            text = "아래 코드로 카페 정회원 인증을 진행합니다"
+            setTextColor(0xFFDDDDDD.toInt())
+            textSize = 15f
+        })
+        box.addView(TextView(activity).apply {
+            text = code
+            setTextColor(0xFF35D6FF.toInt())
+            textSize = 32f
+            setPadding(0, dp(16), 0, dp(16))
+            gravity = android.view.Gravity.CENTER
+        })
+        box.addView(TextView(activity).apply {
+            text = "'웹페이지 열기'를 누르면 인증 화면이 뜹니다. 화면 안내대로 카페 글에 이 코드를 댓글로 남기면 자동으로 인증됩니다. (코드는 1시간 유효)"
+            setTextColor(0xFFBBBBBB.toInt())
+            textSize = 13f
+        })
+        androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("카페 정회원 인증")
+            .setView(box)
+            .setPositiveButton("웹페이지 열기") { _, _ ->
+                val url = CafeAuthSync.webUrl(activity)
+                if (url == null) {
+                    Toast.makeText(activity, "코드가 만료됐습니다 — 다시 시도하세요", Toast.LENGTH_SHORT).show()
+                } else {
+                    runCatching {
+                        activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                    }.onFailure { Toast.makeText(activity, "브라우저를 열 수 없습니다", Toast.LENGTH_SHORT).show() }
+                }
+            }
+            .setNegativeButton("닫기", null)
+            .show()
     }
 
     /** 모든 설정 컨트롤의 현재 값을 하나의 문자열로 — 저장 스냅샷과 비교해 미저장 변경을 감지. */
