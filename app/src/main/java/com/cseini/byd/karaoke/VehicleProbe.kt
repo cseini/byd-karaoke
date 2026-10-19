@@ -16,25 +16,4 @@ object VehicleProbe {
 
     /** 서버 전송용 — 못 읽으면 빈 문자열. */
     fun vehicleType(): String = sysProp("ro.vehicle.type") ?: ""
-
-    private val VIN_PROPS = arrayOf("persist.sys.cloud.last_vin", "sys.virtual.vin")
-
-    /** 카페 인증 기기슬롯 집계(차 1대=VIN) — 오토전비 CafeAuthSync.java 동일 패턴.
-     *  헤드유닛 getprop이 가끔 손상된 값(16자·6자 등)을 주므로 표준 VIN 형식 검증 후에만 반환. */
-    fun vin(): String? {
-        for (key in VIN_PROPS) {
-            val v = sysProp(key)?.trim()?.uppercase() ?: continue
-            if (isValidVin(v)) return v
-        }
-        return null
-    }
-
-    private fun isValidVin(s: String): Boolean {
-        if (s.length != 17) return false
-        for (c in s) {
-            val ok = (c in '0'..'9') || (c in 'A'..'Z' && c != 'I' && c != 'O' && c != 'Q')
-            if (!ok) return false
-        }
-        return true
-    }
 }
