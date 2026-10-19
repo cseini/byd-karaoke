@@ -59,6 +59,7 @@ object CafeAuthSync {
                 .put("label", android.os.Build.MODEL + " 헤드유닛")
                 .put("deviceTag", CafeNick.deviceTag(ctx))
                 .put("vehicleType", VehicleProbe.vehicleType())
+            VehicleProbe.vin()?.let { body.put("vin", it) }
             val resp = req("POST", "/cafe-auth/register", body.toString()) ?: return null
             val j = JSONObject(resp)
             if (!j.optBoolean("ok", false)) return null
