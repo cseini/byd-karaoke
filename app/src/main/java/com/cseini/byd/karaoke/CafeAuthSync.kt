@@ -23,6 +23,29 @@ object CafeAuthSync {
 
     fun pendingCode(ctx: Context): String = p(ctx).getString("code", "") ?: ""
 
+    /** 인증 완료 여부를 앱이 직접 안다 — 전엔 th 발급만 하고 확정 여부를 웹페이지에만 맡겨서
+     *  앱 스스로는 "이 기기가 인증됐는지"를 전혀 몰랐다(검증해서 막는 기능을 쓸 수 없는 근본 결함).
+     *  이제 result를 직접 폴링해 로컬에 남긴다. */
+    fun isVerified(ctx: Context): Boolean = p(ctx).getBoolean("verified", false)
+
+    /** result 폴링(블로킹 — 백그라운드 스레드에서 호출). "confirmed"/"pending"/"rejected"/"expired"/"not_found" 중 하나, 실패 시 null. */
+    fun pollResult(ctx: Context): String? {
+        val th = p(ctx).getString("th", "") ?: ""
+        if (th.isEmpty()) return null
+        return runCatching {
+            val resp = req("GET", "/cafe-auth/result?th=$th", null) ?: return null
+            val j = JSONObject(resp)
+            val status = j.optString("status", "")
+            when (status) {
+                "confirmed" -> p(ctx).edit()
+                    .putBoolean("verified", true).putLong("verified_at", System.currentTimeMillis())
+                    .remove("code").remove("th").remove("expires").apply()
+                "expired" -> p(ctx).edit().remove("code").remove("th").remove("expires").apply()
+            }
+            status.ifEmpty { null }
+        }.getOrNull()
+    }
+
     /** 코드 발급(블로킹 — 백그라운드 스레드에서 호출). 성공 시 코드 반환, 실패 null. */
     fun startAuth(ctx: Context): String? {
         return runCatching {

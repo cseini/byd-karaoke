@@ -321,6 +321,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         val t0 = android.os.SystemClock.elapsedRealtime()
         fun lap(label: String) = CrashLog.event(this, "closeScreen $label +${android.os.SystemClock.elapsedRealtime() - t0}ms")
         screenCleanup?.invoke(); screenCleanup = null
+        settingsScreen?.onScreenClosed()
         settingsScreen = null
         if (::embedScreen.isInitialized) {
             embedScreen.removeAllViews()
@@ -820,6 +821,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             com.cseini.byd.karaoke.share.ReserveServer.enableScreen(this, this)
             com.cseini.byd.karaoke.media.KeepAliveService.start(this)
         }
+        // 웹페이지(브라우저)에서 카페 정회원 인증을 끝내고 돌아왔을 때 복구 — 설정 화면이 열려 있으면 한 번 더 확인.
+        settingsScreen?.recoverCafeAuth()
         // 접근성이 꺼져 있으면(키보드 마이크 자동클릭용) dadb(ADB)로 한 번 켜본다.
         // 유닛이 접근성 설정 UI 를 막아 사용자가 직접 못 켜는 경우 대비. 실패해도 무해.
         if (BuildConfig.FLAVOR == "lab" && KeyCatcherService.instance == null && !a11yTried) {

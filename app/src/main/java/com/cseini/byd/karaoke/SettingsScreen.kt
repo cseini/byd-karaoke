@@ -37,6 +37,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
 
     private val activity = root.context as AppCompatActivity
     private val settings = SettingsStore(activity)
+    private val cafeAuthPoll = android.os.Handler(activity.mainLooper)
+    private var cafeAuthPollTask: Runnable? = null
+    private val cafeAuthBtn: Button = root.findViewById(R.id.btn_cafe_auth)
 
     private val sttEngineGroup: RadioGroup = root.findViewById(R.id.stt_engine_group)
     private val geminiKeyArea: View = root.findViewById(R.id.gemini_key_area)
@@ -208,16 +211,26 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 Toast.makeText(activity, "닉네임을 저장했습니다: $combined", Toast.LENGTH_SHORT).show()
             }
         }
-        root.findViewById<Button>(R.id.btn_cafe_auth).setOnClickListener { onCafeAuthButton() }
+        refreshCafeAuthBtn()
+        recoverCafeAuth()
+        cafeAuthBtn.setOnClickListener { onCafeAuthButton() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
         savedSignature = currentSignature()
     }
 
-    /** 카페 정회원 인증(2026-10-19) — 코드 발급 후 인증 웹페이지를 브라우저로 연다.
-     *  완료 확인·카페 글 안내는 웹페이지 쪽에서 전부 처리(여기선 코드 발급·브라우저 연결만). */
+    /** 카페 정회원 인증(2026-10-19, 수정) — 코드 발급 후 인증 웹페이지를 브라우저로 열되, 앱도 직접 result를
+     *  폴링해 "인증됐는지"를 로컬에 남긴다(전에는 웹페이지만 확인하고 앱은 몰라서, 인증 여부로 뭘 막을 수가 없었다). */
     private fun onCafeAuthButton() {
+        if (CafeAuthSync.isVerified(activity)) {
+            androidx.appcompat.app.AlertDialog.Builder(activity)
+                .setTitle("카페 정회원 인증")
+                .setMessage("✓ 이미 인증을 완료하셨습니다.")
+                .setPositiveButton("확인", null)
+                .show()
+            return
+        }
         if (CafeAuthSync.isPending(activity)) { showCafeAuthDialog(CafeAuthSync.pendingCode(activity)); return }
         Toast.makeText(activity, "인증 코드 생성 중…", Toast.LENGTH_SHORT).show()
         activity.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -227,6 +240,28 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 else showCafeAuthDialog(code)
             }
         }
+    }
+
+    private fun refreshCafeAuthBtn() {
+        cafeAuthBtn.text = if (CafeAuthSync.isVerified(activity)) "카페인증 · 인증됨" else "카페인증"
+    }
+
+    private fun stopCafeAuthPoll() {
+        cafeAuthPollTask?.let { cafeAuthPoll.removeCallbacks(it) }
+        cafeAuthPollTask = null
+    }
+
+    /** 설정 화면이 닫힐 때(다른 탭으로 이동) 폴링을 끊는다 — 화면이 안 보이는데 계속 돌 이유 없음. */
+    fun onScreenClosed() = stopCafeAuthPoll()
+
+    /** 웹페이지(브라우저)에서 인증을 끝내고 앱으로 돌아왔을 때 복구 — 다이얼로그를 이미 닫아 폴링이 멈춘
+     *  상태라도, 설정 화면을 다시 열 때 한 번 더 확인해 "인증됨"을 놓치지 않는다. */
+    fun recoverCafeAuth() {
+        if (CafeAuthSync.isVerified(activity) || !CafeAuthSync.isPending(activity)) return
+        Thread({
+            val status = CafeAuthSync.pollResult(activity)
+            if (status == "confirmed") activity.runOnUiThread { refreshCafeAuthBtn() }
+        }, "cafeauth-recover").start()
     }
 
     private fun showCafeAuthDialog(code: String) {
@@ -252,7 +287,14 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             setTextColor(0xFFBBBBBB.toInt())
             textSize = 13f
         })
-        androidx.appcompat.app.AlertDialog.Builder(activity)
+        val stat = TextView(activity).apply {
+            text = "확인 중… (최대 5분 걸려요)"
+            setTextColor(0xFFBBBBBB.toInt())
+            textSize = 13f
+            setPadding(0, dp(10), 0, 0)
+        }
+        box.addView(stat)
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(activity)
             .setTitle("카페 정회원 인증")
             .setView(box)
             .setPositiveButton("웹페이지 열기") { _, _ ->
@@ -266,7 +308,40 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 }
             }
             .setNegativeButton("닫기", null)
-            .show()
+            .create()
+        dlg.setOnDismissListener { stopCafeAuthPoll() }
+        dlg.show()
+        cafeAuthPollTask = object : Runnable {
+            override fun run() {
+                Thread({
+                    val status = CafeAuthSync.pollResult(activity)
+                    activity.runOnUiThread {
+                        if (!dlg.isShowing) return@runOnUiThread
+                        when (status) {
+                            "confirmed" -> {
+                                stat.text = "✓ 인증 완료되었습니다!"
+                                stat.setTextColor(0xFF35FF7A.toInt())
+                                refreshCafeAuthBtn()
+                                stopCafeAuthPoll()
+                                cafeAuthPoll.postDelayed({ if (dlg.isShowing) dlg.dismiss() }, 1500)
+                            }
+                            "expired" -> {
+                                stat.text = "코드가 만료됐어요 — 닫고 다시 시도하세요"
+                                stat.setTextColor(0xFFFF6B6B.toInt())
+                                stopCafeAuthPoll()
+                            }
+                            "rejected" -> {
+                                stat.text = "정회원 확인에 실패했어요"
+                                stat.setTextColor(0xFFFF6B6B.toInt())
+                                stopCafeAuthPoll()
+                            }
+                            else -> cafeAuthPollTask?.let { cafeAuthPoll.postDelayed(it, 5000) }
+                        }
+                    }
+                }, "cafeauth-poll").start()
+            }
+        }
+        cafeAuthPoll.postDelayed(cafeAuthPollTask!!, 5000)
     }
 
     /** 모든 설정 컨트롤의 현재 값을 하나의 문자열로 — 저장 스냅샷과 비교해 미저장 변경을 감지. */
