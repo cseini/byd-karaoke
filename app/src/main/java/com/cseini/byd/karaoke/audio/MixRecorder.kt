@@ -77,6 +77,10 @@ class MixRecorder(
     @Volatile private var accompRate = 44100
     @Volatile private var accompCh = 2
     @Volatile private var accompPcm16 = true
+    // 진단: 마지막 조회 이후 디코딩된 반주 PCM 의 최대 진폭(0~32768). 0 이면 소스 자체가 무음, 크면 출력단 문제.
+    @Volatile private var accompPeak = 0
+
+    fun takeAccompPeak(): Int { val p = accompPeak; accompPeak = 0; return p }
 
     /** ExoPlayer 오디오 체인에 넣어 반주 PCM 을 재생 시작부터 담는다(패스스루). */
     val accompProcessor: AudioProcessor = object : BaseAudioProcessor() {
@@ -120,11 +124,17 @@ class MixRecorder(
         val step = accompStep
         var src = accompSrcPos
         var next = accompNextSrc
+        var pk = accompPeak
         if (accompPcm16) {
             while (bb.remaining() >= 2 * ch && w < size) {
                 var sum = 0
                 for (c in 0 until ch) sum += bb.short.toInt()
-                if (src >= next) { buf[w++] = (sum / ch).toShort(); next += step }
+                if (src >= next) {
+                    val m = sum / ch
+                    buf[w++] = m.toShort(); next += step
+                    val a = if (m < 0) -m else m
+                    if (a > pk) pk = a
+                }
                 src++
             }
         } else {
@@ -136,10 +146,13 @@ class MixRecorder(
                     if (v > 32767) v = 32767 else if (v < -32768) v = -32768
                     buf[w++] = v.toShort()
                     next += step
+                    val a = if (v < 0) -v else v
+                    if (a > pk) pk = a
                 }
                 src++
             }
         }
+        accompPeak = pk
         accompWrite.set(w)
         accompSrcPos = src
         accompNextSrc = next

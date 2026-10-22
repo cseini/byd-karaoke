@@ -102,6 +102,7 @@ class EmbeddedPlayer(
     private var player: KaraokePlayer? = null
     private var recorder: MixRecorder? = null
     private var micStartRunnable: Runnable? = null
+    private var audioDeviceCb: android.media.AudioDeviceCallback? = null
     private var mediaPlayer: MediaPlayer? = null
     private var currentVideoId = ""
     private var recordStarted = false
@@ -335,6 +336,8 @@ class EmbeddedPlayer(
         val runnable = Runnable {
             micStartRunnable = null
             if (recorder !== targetRecorder || recorder?.isRecording == true) return@Runnable
+            watchAudioDevices()
+            audioSnap("pre-mic")
             val err = recorder?.start(file, player?.currentPositionMs() ?: 0L, speedRate) { db ->
                 activity.runOnUiThread { if (recorder?.isRecording == true) statusView.text = "🔴 녹음 중… ${"%.0f".format(db)} dBFS" }
             }
@@ -351,10 +354,68 @@ class EmbeddedPlayer(
                         .joinToString(";") { "t=${it.type}/${it.productName}" }.take(180)
                 }.getOrDefault("?")
                 CrashLog.event(activity, "rec start in=[$inDevs]")
+                audioSnap("mic+0")
+                val diagVideoId = currentVideoId
+                for (delay in longArrayOf(1000, 3000, 8000)) ui.postDelayed({
+                    if (currentVideoId == diagVideoId && !replaying) audioSnap("mic+${delay}ms")
+                }, delay)
+                // 마이크 오픈 때 헤드유닛 오디오 HAL이 라우팅을 재구성하면서 ExoPlayer의
+                // AudioTrack(실제 출력 연결)이 끊긴 채로 남는 사례(FB3428/FB3459) — 볼륨·재생
+                // 상태 재확인(v7.46)만으론 안 고쳐짐이 재현됐다. 운영자가 수동으로 타임바를
+                // 움직이면 소리가 돌아온다는 신고(FB3459)로 보아, seekTo 가 ExoPlayer 내부
+                // AudioTrack을 재생성시켜 고치는 것으로 추정 — 같은 위치로 강제 seek 해 흉내낸다.
+                val targetVideoId = currentVideoId
+                ui.postDelayed({
+                    if (currentVideoId == targetVideoId && !replaying) {
+                        audioSnap("pre-seek")
+                        player?.setVolume(if (remoteMuted) 0f else 1f)
+                        // 같은 위치로 seek 하면 ExoPlayer 가 최적화로 건너뛸 수 있어, 체감 안 되는
+                        // 50ms 뒤로 걸어 반드시 실제 seek(=AudioTrack 재생성)가 일어나게 한다.
+                        player?.seekTo((player?.currentPositionMs() ?: 0L) + 50)
+                        player?.play()
+                        CrashLog.event(activity, "audio seek 강제 실행")
+                    }
+                }, 300)
             }
         }
         micStartRunnable = runnable
         ui.postDelayed(runnable, 400)
+    }
+
+    /** 진단(반주 무음 FB3428/3459/3496): 마이크 오픈 전후 오디오 상태를 한 줄로 남긴다. */
+    private fun audioSnap(tag: String) {
+        runCatching {
+            val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+            val vol = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+            val pb = am.activePlaybackConfigurations.joinToString(",") { "u${it.audioAttributes.usage}" }
+            val rec = am.activeRecordingConfigurations.joinToString(",") { "s${it.clientAudioSource}" }
+            CrashLog.event(
+                activity,
+                "audio $tag mode=${am.mode} musicVol=$vol/$max mute=${am.isStreamMute(android.media.AudioManager.STREAM_MUSIC)} " +
+                    "musicActive=${am.isMusicActive} pb=[$pb] rec=[$rec] accompPeak=${recorder?.takeAccompPeak()} ${player?.audioDiag()}",
+            )
+        }
+    }
+
+    /** 진단: 재생 중 오디오 장치(출력/입력)가 추가·제거되는 순간(헤드유닛 HAL 재구성)을 기록한다. */
+    private fun watchAudioDevices() {
+        if (audioDeviceCb != null) return
+        val cb = object : android.media.AudioDeviceCallback() {
+            private fun names(l: Array<out android.media.AudioDeviceInfo>) =
+                l.joinToString(";") { "t=${it.type}/${it.productName}/${if (it.isSink) "out" else "in"}" }
+            override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) {
+                CrashLog.event(activity, "audiodev +[${names(added)}]")
+            }
+            override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) {
+                CrashLog.event(activity, "audiodev -[${names(removed)}]")
+            }
+        }
+        audioDeviceCb = cb
+        runCatching {
+            (activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager)
+                .registerAudioDeviceCallback(cb, ui)
+        }
     }
 
     private fun onEnded() {
@@ -998,6 +1059,13 @@ class EmbeddedPlayer(
         cancelCountdown()
         ui.removeCallbacks(songTicker); ui.removeCallbacks(queuePoll); ui.removeCallbacks(replayTicker)
         micStartRunnable?.let { ui.removeCallbacks(it) }; micStartRunnable = null
+        audioDeviceCb?.let { cb ->
+            runCatching {
+                (activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager)
+                    .unregisterAudioDeviceCallback(cb)
+            }
+        }
+        audioDeviceCb = null
         cancelAutoHide()
         bottom.visibility = View.VISIBLE
         stopMediaPlayer()

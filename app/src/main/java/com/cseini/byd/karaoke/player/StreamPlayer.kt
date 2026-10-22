@@ -176,6 +176,18 @@ class StreamPlayer(
                 }
             }
 
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                com.cseini.byd.karaoke.CrashLog.event(context, "exo playWhenReady=$playWhenReady reason=$reason")
+            }
+
+            override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+                com.cseini.byd.karaoke.CrashLog.event(context, "exo suppress=$playbackSuppressionReason")
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                com.cseini.byd.karaoke.CrashLog.event(context, "exo audioSession=$audioSessionId")
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 com.cseini.byd.karaoke.CrashLog.event(context, "재생오류 ${error.errorCodeName} pos=${exo.currentPosition}")
                 cb.onError("재생 오류: ${error.errorCodeName}")
@@ -310,6 +322,9 @@ class StreamPlayer(
     override fun setVolume(v: Float) { exo.volume = v }
     override fun seekTo(ms: Long) { runCatching { exo.seekTo(ms.coerceAtLeast(0)) } }
     override fun isPlaying(): Boolean = exo.isPlaying
+    override fun audioDiag(): String =
+        "exo vol=${exo.volume} playing=${exo.isPlaying} state=${exo.playbackState} pwr=${exo.playWhenReady} " +
+            "suppress=${exo.playbackSuppressionReason} sess=${exo.audioSessionId} pos=${exo.currentPosition}"
 
     /** 키(반음)·속도 적용. 반음 n → 주파수비 2^(n/12). 속도는 음정에 영향 없음(Sonic 타임스트레치). */
     override fun setKeySpeed(semitones: Int, speed: Float) {

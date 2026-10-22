@@ -67,6 +67,12 @@ object MicRouting {
         // 씨라이언7(DiLink5·com.byd.sing)에서는 USB 마이크를 BYD 시스템이 점유한다. 우리가 그 오디오를
         // 열면 마이크가 통째로 끊긴다(실측: 마이크 빨간불 + hadSpeech=false). 그 유닛에선 USB 를 건드리지
         // 않고 차량 내장 마이크(BUS/BUILTIN)로 간다. 돌핀 등 minikaraoke 유닛은 종전대로 USB 를 쓴다.
+        //
+        // ⚠️ "반주 소리 안 들림" 신고(#1080, #3428, #3459 — 전부 모델 BYD AUTO)는 지금까지 전부
+        // bydUsb=true(=이 분기, BUS+VOICE_COMMUNICATION, com.byd.sing 설치 기기)에서만 재현됐다.
+        // USB 마이크(돌핀 등)로 추정되는 기기에선 이 증상 신고가 아직 없음 — BYD 자체 가라오케 앱과
+        // 마이크 하드웨어를 공유/경쟁하는 기기에서만 생기는 문제로 보임(EmbeddedPlayer의 seekTo 우회
+        // 참고). 같은 증상 재신고 들어오면 applog의 "mic pref=... bydUsb=" 값부터 확인할 것.
         val bydOwnsUsb = runCatching {
             context.packageManager.getPackageInfo("com.byd.sing", 0); true
         }.getOrDefault(false)

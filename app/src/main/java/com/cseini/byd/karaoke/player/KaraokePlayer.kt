@@ -22,6 +22,9 @@ interface KaraokePlayer {
     /** 키(반음, -6~+6)와 속도(0.5~1.5) 조절. 템포·음정이 서로 영향 없이 각각 바뀐다. */
     fun setKeySpeed(semitones: Int, speed: Float) {}
 
+    /** 진단용 한 줄 상태(볼륨·재생상태·오디오세션). 이벤트 로그에 남긴다. */
+    fun audioDiag(): String = ""
+
     /** 세컨드스크린 싱크용: (재생위치ms, 그 시점 System.nanoTime()) 원시값. 보간 전. */
     fun clock(): Pair<Long, Long> = currentPositionMs() to System.nanoTime()
 
