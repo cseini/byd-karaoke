@@ -39,6 +39,13 @@ class KeyCatcherService : AccessibilityService() {
         // 휠 무음 버튼(device=8) — 실측 keyCode. 더블클릭으로 음성검색을 부른다.
         private const val KEYCODE_WHEEL_MUTE = 293   // KEYCODE_AUTO_VOLUME_MUTE
         private const val DOUBLE_MS = 500L
+
+        /** 휠 무음 버튼인가 — 키 번호는 차종·펌웨어마다 다르다(아토3 293, 아토3 페이스리프트 309). 번호에 더해 프레임워크가 붙인 이름으로도 판정한다(순수 함수 — 단위 테스트). */
+        fun isWheelMute(code: Int, name: String): Boolean = code == KEYCODE_WHEEL_MUTE || name == "KEYCODE_AUTO_VOLUME_MUTE"
+
+        /** 접근성 설정값(콜론 구분)에 이 서비스가 들어 있는가 — 시스템이 짧은 표기(패키지/.클래스)로 다시 쓰는 기기가 있어 문자열이 아니라 컴포넌트로 비교한다. */
+        fun listedIn(setting: String, cn: android.content.ComponentName): Boolean =
+            setting.split(':').any { android.content.ComponentName.unflattenFromString(it.trim()) == cn }
         // 씨라이언7 모드: 팝업 잔여 이벤트로 인한 중복 트리거는 막되, 사용자가 자동재생 카운트다운
         // 중(약 5초) 버튼을 다시 눌러 재검색하는 것은 막지 않도록 짧게 잡는다.
         const val SEALION_COOLDOWN_MS = 2000L
@@ -175,7 +182,7 @@ class KeyCatcherService : AccessibilityService() {
 
         // 휠 무음 버튼 더블클릭 → 음성검색. 소비하지 않고 통과시켜(return false) 단일 누름의
         // 정상 음소거를 유지한다. 더블클릭이면 음소거가 두 번 토글돼 원상복귀 + 음성검색 실행.
-        if (code == KEYCODE_WHEEL_MUTE) {
+        if (isWheelMute(code, KeyEvent.keyCodeToString(code))) {
             val now = android.os.SystemClock.elapsedRealtime()
             if (now - lastMuteDown in 1..DOUBLE_MS) {
                 lastMuteDown = 0L

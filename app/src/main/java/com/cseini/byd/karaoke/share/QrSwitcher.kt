@@ -13,20 +13,26 @@ object QrSwitcher {
     /** @return 후보 개수(0이면 네트워크 없음).
      * @param tokenParam 쿼리 문자열(예: "?t=abc123"). 없으면 빈 문자열. */
     fun bind(qr: ImageView, urlView: TextView, hint: TextView?, port: Int, tokenParam: String = ""): Int {
-        val cands = localIpCandidates()
+        // 이름 주소(byd-karaoke.local)를 맨 앞에 — IP 가 바뀌어도 같고 홈 화면 추가에도 안전하다. 안 열리면 주소를 눌러 IP 로 넘어간다.
+        val ips = localIpCandidates(qr.context)
+        val cands = if (ips.isEmpty()) ips else (ReserveServer.nameHost()?.let { listOf(LocalIp(it, "이름 주소")) }.orEmpty() + ips)
         if (cands.isEmpty()) return 0
         var idx = 0
 
         fun render() {
             val c = cands[idx]
-            val url = "http://${c.ip}:$port/$tokenParam"
+            val url = "http://${hostForUrl(c.ip)}:$port/$tokenParam"
             urlView.text = url
             qr.setImageBitmap(qrBitmap(url, 480))
-            hint?.text = if (cands.size > 1) {
-                "주소 ${idx + 1}/${cands.size} (${c.iface}) · 연결이 안 되면 주소를 눌러 다른 주소로 바꿔보세요"
+            hint?.text = if (c.iface == "이름 주소") {
+                "이름 주소입니다. 일부 태블릿은 열리지 않아요 — 안 열리면 위 주소나 QR을 눌러 IP 주소로 바꿔서 접속하세요 (1/${cands.size})"
+            } else if (cands.size > 1) {
+                "IP 주소 ${idx + 1}/${cands.size} (${c.iface}) · 연결이 안 되면 주소를 눌러 다른 주소로 바꿔보세요"
             } else {
                 "접속이 안 되면 차와 폰이 같은 WiFi(핫스팟)에 있는지 확인하세요"
             }
+            // 홈 화면에 추가할 땐 IP 가 바뀌어도 되는 단축 주소로(서버 등록이 확인된 때만 표시).
+            GoLink.shortUrl(qr.context)?.let { hint?.append("\n홈 화면에 추가할 땐 이 주소로: $it\n단축 주소용 기기 LAN 주소는 24시간만 보관합니다 (byd.cseini.co.kr/go/privacy)") }
         }
 
         val next = {

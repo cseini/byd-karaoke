@@ -23,13 +23,13 @@ object KeyEntryServer {
 
     fun start(context: Context): String? {
         if (server != null) return url
-        val ip = localIpAddress() ?: return null
+        val ip = localIpAddress(context) ?: return null
         val app = context.applicationContext
         for (port in intArrayOf(8095, 8096, 8097)) {
             val s = Http(app, port)
             if (runCatching { s.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }.isSuccess) {
                 server = s
-                url = "http://$ip:$port/"
+                url = "http://${hostForUrl(ip)}:$port/"
                 return url
             }
         }

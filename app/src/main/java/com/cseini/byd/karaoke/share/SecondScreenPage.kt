@@ -13,6 +13,13 @@ object SecondScreenPage {
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>오너스랩노래방 뒷좌석 화면</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="노래방 화면">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.webmanifest?p=screen">
+<link rel="apple-touch-icon" href="/appicon.png">
 <style>
  *{box-sizing:border-box}
  html,body{margin:0;height:100%;background:#000;color:#eee;font-family:-apple-system,'Noto Sans KR',sans-serif;overflow:hidden}

@@ -699,13 +699,12 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
     /** 접근성 서비스(휠 버튼 감지)가 실제로 켜져 있는지. */
     private fun isKeyCatcherEnabled(): Boolean {
-        val comp = android.content.ComponentName(this, KeyCatcherService::class.java).flattenToString()
         val cur = runCatching {
             android.provider.Settings.Secure.getString(
                 contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ).orEmpty()
         }.getOrDefault("")
-        return cur.split(':').any { it.equals(comp, ignoreCase = true) }
+        return KeyCatcherService.listedIn(cur, android.content.ComponentName(this, KeyCatcherService::class.java))
     }
 
     /** 키 감지 접근성 서비스를 자동 활성화 시도. 권한·결과를 토스트로 눈에 보이게 알린다. */
@@ -727,7 +726,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         val cur = android.provider.Settings.Secure.getString(
             contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ).orEmpty()
-        if (comp in cur.split(':')) return   // 이미 켜짐
+        if (KeyCatcherService.listedIn(cur, android.content.ComponentName(this, KeyCatcherService::class.java))) return   // 이미 켜짐
         runCatching {
             android.provider.Settings.Secure.putString(
                 contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,

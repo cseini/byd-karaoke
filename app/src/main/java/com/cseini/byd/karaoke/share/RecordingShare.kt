@@ -1,6 +1,9 @@
 package com.cseini.byd.karaoke.share
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.graphics.Color
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
@@ -9,6 +12,7 @@ import fi.iki.elonen.NanoHTTPD
 import java.io.File
 import java.io.FileInputStream
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.NetworkInterface
 import java.net.URLEncoder
 import java.security.SecureRandom
@@ -79,7 +83,10 @@ class FileShareServer(private val file: File) : NanoHTTPD(0) {
  * 먼저 고르면 폰이 닿지 못하는 셀룰러 IP(예: 10.229.x)가 잡힌다. 그래서 인터페이스
  * 이름으로 WiFi(wlan/ap)를 우선하고 셀룰러(rmnet 등)는 배제한다.
  */
-fun localIpAddress(): String? = localIpCandidates().firstOrNull()?.ip
+fun localIpAddress(context: Context): String? = localIpCandidates(context).firstOrNull()?.ip
+
+/** URL 호스트부 — IPv6 는 대괄호로 싸고 zone-id(%wlan0)를 떼낸다. 예: http://[2001:db8::1]:8080/ */
+fun hostForUrl(ip: String): String = if (':' in ip) "[${ip.substringBefore('%')}]" else ip
 
 /** 접속 후보 주소 하나(인터페이스명 포함 — 유닛마다 이름이 달라 진단·수동 선택에 쓴다). */
 data class LocalIp(val ip: String, val iface: String)
@@ -89,35 +96,63 @@ data class LocalIp(val ip: String, val iface: String)
  * 어느 주소로든 접속되며, 유닛(DiLink 3/5 등)마다 인터페이스 이름이 달라 자동 선택이 틀릴 수 있어
  * 사용자가 다른 후보로 바꿔볼 수 있게 목록으로 돌려준다.
  */
-fun localIpCandidates(): List<LocalIp> {
-    val out = ArrayList<Pair<Int, LocalIp>>()
+fun localIpCandidates(context: Context): List<LocalIp> {
+    val out = ArrayList<LocalIp>()
+    val cm = runCatching { context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager }.getOrNull()
+    // 1) Wi-Fi 네트워크의 IPv4 (릴레이 webIps 와 동일 — TRANSPORT_WIFI LinkProperties)
+    cm?.let { c ->
+        runCatching {
+            for (nw in c.allNetworks) {
+                val nc = c.getNetworkCapabilities(nw) ?: continue
+                val lp = c.getLinkProperties(nw) ?: continue
+                if (!nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue
+                val iface = lp.interfaceName ?: "wifi"
+                for (la in lp.linkAddresses) {
+                    val a = la.address
+                    if (a is Inet4Address && !a.isLoopbackAddress) {
+                        val ip = a.hostAddress ?: continue
+                        if (out.none { it.ip == ip }) out.add(LocalIp(ip, iface))
+                    }
+                }
+            }
+        }
+    }
+    // 2) 인터페이스 열거 IPv4 보강 (Wi-Fi 목록이 간헐적으로 빌 때). 셀룰러(rmnet 등)는 폰이 못 붙어 배제.
     runCatching {
         for (ni in NetworkInterface.getNetworkInterfaces()) {
             if (!ni.isUp || ni.isLoopback) continue
             val name = ni.name.lowercase()
-            val isWifi = name.startsWith("wlan") || name.startsWith("ap") ||
-                name.startsWith("swlan") || name.contains("wifi") || name.startsWith("p2p")
-            // 유선/테더링(일부 유닛은 eth0·usb0 로 핫스팟에 붙는다)
-            val isWired = name.startsWith("eth") || name.startsWith("usb") || name.startsWith("rndis")
-            val isCellular = name.startsWith("rmnet") || name.startsWith("rev_rmnet") ||
-                name.startsWith("ccmni") || name.startsWith("pdp") || name.startsWith("clat")
+            if (name.startsWith("rmnet") || name.startsWith("rev_rmnet") ||
+                name.startsWith("ccmni") || name.startsWith("pdp") || name.startsWith("clat")) continue
             for (addr in ni.inetAddresses) {
-                if (addr.isLoopbackAddress || addr !is Inet4Address) continue
-                val ip = addr.hostAddress ?: continue
-                val siteLocal = addr.isSiteLocalAddress   // 192.168.x / 10.x / 172.16~31.x
-                val score = when {
-                    isWifi && siteLocal -> 6      // 폰 핫스팟/차 AP — 가장 유력
-                    isWifi -> 5
-                    isWired && siteLocal -> 4
-                    isCellular -> 0               // 셀룰러는 폰에서 접근 불가
-                    siteLocal -> 3
-                    else -> 1
+                if (addr is Inet4Address && !addr.isLoopbackAddress) {
+                    val ip = addr.hostAddress ?: continue
+                    if (out.none { it.ip == ip }) out.add(LocalIp(ip, ni.name))
                 }
-                out.add(score to LocalIp(ip, ni.name))
             }
         }
     }
-    return out.sortedByDescending { it.first }.map { it.second }
+    // 3) Wi-Fi 네트워크의 IPv6 (릴레이 webIpv6) — IPv4 뒤(fallback), link-local·loopback·multicast 제외, %zone 제거, 최대 2개
+    cm?.let { c ->
+        runCatching {
+            var v6 = 0
+            for (nw in c.allNetworks) {
+                val nc = c.getNetworkCapabilities(nw) ?: continue
+                val lp = c.getLinkProperties(nw) ?: continue
+                if (!nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue
+                val iface = lp.interfaceName ?: "wifi"
+                for (la in lp.linkAddresses) {
+                    val a = la.address
+                    if (a is Inet6Address && !a.isLinkLocalAddress && !a.isLoopbackAddress && !a.isMulticastAddress) {
+                        var ip = a.hostAddress ?: continue
+                        val z = ip.indexOf('%'); if (z >= 0) ip = ip.substring(0, z)
+                        if (v6 < 2 && out.none { it.ip == ip }) { out.add(LocalIp(ip, iface)); v6++ }
+                    }
+                }
+            }
+        }
+    }
+    return out
 }
 
 /** 문자열을 QR 비트맵으로. */

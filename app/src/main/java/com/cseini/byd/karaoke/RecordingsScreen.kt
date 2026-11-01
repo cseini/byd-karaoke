@@ -95,7 +95,7 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
             android.widget.Toast.makeText(ctx, "파일이 없습니다", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
-        val ip = com.cseini.byd.karaoke.share.localIpAddress()
+        val ip = com.cseini.byd.karaoke.share.localIpAddress(ctx)
         if (ip == null) {
             android.widget.Toast.makeText(
                 ctx, "네트워크에 연결돼 있지 않습니다. 차량 핫스팟을 켜거나 WiFi에 연결하세요.",
@@ -108,7 +108,7 @@ class RecordingsScreen(private val root: View, private val host: ScreenHost) {
             val server = com.cseini.byd.karaoke.share.FileShareServer(src)
             server.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, false)
             shareServer = server
-            val baseUrl = "http://$ip:${server.listeningPort}/"
+            val baseUrl = "http://${com.cseini.byd.karaoke.share.hostForUrl(ip)}:${server.listeningPort}/"
             val url = server.getPublicUrl(baseUrl)
             showShareDialog(url)
         } catch (e: Exception) {

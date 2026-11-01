@@ -36,9 +36,14 @@ object ReserveServer {
     }
 
     private var server: Http? = null
+    private var responder: NameResponder? = null
     private var host: Host? = null
     var url: String? = null
         private set
+
+    /** 앱이 직접 응답하는 이름 주소(mDNS). IP 가 바뀌어도 같다. 응답기가 돌 때만 값이 있다. */
+    const val NAME_HOST = "byd-karaoke.local"
+    fun nameHost(): String? = if (responder != null) NAME_HOST else null
 
     // 접속 이벤트 콜백(헤드유닛 UI가 등록) — 폰/태블릿이 각자의 "연결하기" 게이트 버튼을 누르면
     // 즉시 불려서 QR 다이얼로그를 자동으로 닫고 토스트를 띄운다. NanoHTTPD 콜백은 백그라운드
@@ -63,7 +68,7 @@ object ReserveServer {
     fun start(context: Context, host: Host? = null): String? {
         if (host != null) this.host = host
         if (server != null) return url
-        val ip = localIpAddress() ?: return null
+        val ip = localIpAddress(context) ?: return null
         val app = context.applicationContext
         // 8080/8090 은 다른 플레이어·프록시가 자주 선점해 경합(무한로딩) 원인 → 거의 안 쓰는 8770대 사용.
         for (port in intArrayOf(8770, 8771, 8772)) {
@@ -72,7 +77,11 @@ object ReserveServer {
             // 차 네트워크가 느리면 연결이 끊겨 폰에 "검색 실패"만 뜨므로 넉넉히 잡는다.
             if (runCatching { s.start(60_000, false) }.isSuccess) {
                 server = s
-                url = "http://$ip:$port/"
+                url = "http://${hostForUrl(ip)}:$port/"
+                responder = NameResponder(app, NAME_HOST,
+                    { localIpCandidates(app).map { it.ip }.filter { ':' !in it } },
+                    { CrashLog.event(app, it) }).also { it.start() }
+                GoLink.start(app, port)
                 return url
             }
         }
@@ -109,6 +118,16 @@ object ReserveServer {
             return when {
                 // 게이트 화면의 "연결하기" 버튼이 보내는 명시적 접속 이벤트 — /reserve, /screen 보다
                 // 먼저 매칭돼야 한다(그것들이 접두 매칭이라 순서가 중요).
+                uri.startsWith("/manifest.webmanifest") -> {
+                    val screen = q("p") == "screen"
+                    json(Response.Status.OK, "application/manifest+json; charset=utf-8",
+                        if (screen) WebApp.manifestJson("오너스랩노래방 뒷좌석 화면", "노래방 화면", "/screen")
+                        else WebApp.manifestJson("오너스랩노래방 예약", "노래방 예약", "/"))
+                }
+                uri.startsWith("/appicon.png") -> WebApp.iconPng(ctx)?.let {
+                    newFixedLengthResponse(Response.Status.OK, "image/png", java.io.ByteArrayInputStream(it), it.size.toLong())
+                        .apply { addHeader("Cache-Control", "public, max-age=86400") }
+                } ?: json(Response.Status.NOT_FOUND, "text/plain", "no icon")
                 uri.startsWith("/reserve-connected") -> handleReserveConnected()
                 uri.startsWith("/screen-connected") -> handleScreenConnected()
                 uri.startsWith("/search") -> handleSearch(q("q"))
@@ -284,6 +303,12 @@ object ReserveServer {
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BYD YT오너스랩노래방 예약</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="노래방 예약">
+<meta name="theme-color" content="#7c3aed">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/appicon.png">
 <style>
  body{font-family:-apple-system,sans-serif;margin:0;background:#0b0b16;color:#eee}
  header{padding:16px;background:#12122a;font-size:20px;font-weight:bold;color:#41e0ff;position:sticky;top:0}

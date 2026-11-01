@@ -263,7 +263,7 @@ object UpdateManager {
                 val cur = d.shell("settings get secure enabled_accessibility_services").allOutput.trim()
                 val next = when {
                     cur.isBlank() || cur == "null" -> comp
-                    cur.contains(comp) -> cur
+                    com.cseini.byd.karaoke.KeyCatcherService.listedIn(cur, android.content.ComponentName(context.packageName, "com.cseini.byd.karaoke.KeyCatcherService")) -> cur
                     else -> cur + ":" + comp
                 }
                 d.shell("settings put secure enabled_accessibility_services '" + next + "'")
