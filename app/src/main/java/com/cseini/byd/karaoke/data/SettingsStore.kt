@@ -221,6 +221,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("scoring", true)
         set(v) = prefs.edit().putBoolean("scoring", v).apply()
 
+    /** 채점 기준(후한 정도) — 0 원래대로(기본) 1 후하게 2 아주 후하게(아이용). 표시 점수 곡선만 바꾼다(ScoreCurve). */
+    var scoreLeniency: Int
+        get() = prefs.getInt("score_leniency", 0).coerceIn(0, 2)
+        set(v) = prefs.edit().putInt("score_leniency", v.coerceIn(0, 2)).apply()
+
 
 
 

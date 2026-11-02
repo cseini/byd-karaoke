@@ -755,9 +755,10 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             val b = androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
                 .setTitle(if (urgent) "⚠ 필수 업데이트 v${release.version}" else "🔔 새 버전 v${release.version}")
                 .setMessage(
-                    if (urgent) (min?.message?.takeIf { it.isNotBlank() }
-                        ?: "유튜브 재생 문제로 지금 업데이트해야 정상 작동합니다.")
-                    else "지금 업데이트할까요? (다운로드부터 재시작까지 자동으로 진행됩니다)",
+                    (if (release.notes.isNotBlank()) "이번 변경 내용\n${release.notes}\n\n" else "") +
+                        if (urgent) (min?.message?.takeIf { it.isNotBlank() }
+                            ?: "유튜브 재생 문제로 지금 업데이트해야 정상 작동합니다.")
+                        else "지금 업데이트할까요? (다운로드부터 재시작까지 자동으로 진행됩니다)",
                 )
                 .setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
             if (!urgent) b.setNegativeButton("나중에", null) else b.setCancelable(false)

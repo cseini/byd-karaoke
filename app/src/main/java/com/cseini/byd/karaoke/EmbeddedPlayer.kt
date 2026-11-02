@@ -477,9 +477,10 @@ class EmbeddedPlayer(
                     if (accomp != null) {
                         MelodyScorer.score(
                             voicePair!!.first, voicePair.second, accomp!!.first, accomp!!.second,
+                            leniency = settings.scoreLeniency,
                         )
                     } else {
-                        ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0)
+                        ScoringEngine.score(voicePair!!.first, voicePair.second, accomp?.first, accomp?.second ?: 0, settings.scoreLeniency)
                     }
                 }.getOrNull()
             }

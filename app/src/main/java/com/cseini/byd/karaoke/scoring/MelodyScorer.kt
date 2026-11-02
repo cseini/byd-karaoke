@@ -27,9 +27,11 @@ object MelodyScorer {
     private const val RATIO_FLOOR = 1.05       // 우연 대비 이 이하 = 0점
     private const val RATIO_CEIL = 2.8         // 우연 대비 이 이상 = 만점(비터비 추출 기준 실차 재보정)
 
+    /** leniency = 채점 기준 단계(ScoreCurve) — 0 원래대로(기본) 1 후하게 2 아주 후하게. */
     fun score(
         voice: FloatArray, voiceRate: Int, accomp: FloatArray, accompRate: Int,
         debugDir: java.io.File? = null,
+        leniency: Int = 0,
     ): ScoringEngine.Score {
         val (vRaw, vRate) = decimate(voice, voiceRate)
         val (aDs, aRate) = decimate(accomp, accompRate)
@@ -46,7 +48,7 @@ object MelodyScorer {
 
         if (mel.count { it > 0f } < 40) {
             // 멜로디를 못 뽑는 반주 → 기존 자체 채점 폴백
-            return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(aDs, aRate))
+            return ScoringEngine.score(mic, BeatTracker.detectBeatPeriod(aDs, aRate), leniency)
         }
 
         // 성량 게이트: 하위 25% 레벨(=상시 유출·환경음) +6dB 이상 프레임만 가창으로.
@@ -145,7 +147,7 @@ object MelodyScorer {
         // 배점: 멜로디 45 / 박자 25 / 완창 15 / 음량 15 (비브라토 항목 제외)
         val raw = pitch + timing + cover + volume
         // 실차 캘리브레이션: 웬만큼(ratio 2.0) ≈ 90대 초반, 아주 잘(ratio 2.2+) → 100, 엉망 ≈ 60대 초반
-        val total = (35 + raw * 0.7).roundToInt().coerceIn(35, 100)
+        val total = ScoreCurve.total(raw, leniency, 0.7)
 
         val bd = buildString {
             append("총점 ${total}점 — 🎼 멜로디 대조 채점\n")
@@ -155,6 +157,7 @@ object MelodyScorer {
             append("· 완창률 $cover/15 — 멜로디 구간의 ${(coverage * 100).roundToInt()}% 가창\n")
             append("· 음량 표현 $volume/15\n")
             append("(반주 멜로디와 직접 비교 · 옥타브 차이 허용)")
+            if (leniency > 0) append("\n(채점 기준: ${ScoreCurve.label(leniency)} — 설정에서 바꿀 수 있어요)")
         }
 
         debugDir?.let { dir ->

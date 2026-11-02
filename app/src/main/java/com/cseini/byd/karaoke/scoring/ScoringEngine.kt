@@ -36,16 +36,17 @@ object ScoringEngine {
         val breakdown: String,
     )
 
-    fun score(samples: FloatArray, sampleRate: Int): Score =
-        score(SignalAnalysis.analyze(samples, sampleRate), null)
+    /** leniency = 채점 기준 단계(ScoreCurve) — 0 원래대로(기본) 1 후하게 2 아주 후하게. 아래 오버로드 모두 같다. */
+    fun score(samples: FloatArray, sampleRate: Int, leniency: Int = 0): Score =
+        score(SignalAnalysis.analyze(samples, sampleRate), null, leniency)
 
     /** 목소리 + 반주로 채점. 반주에서 비트를 잡으면 박자를 그 비트 기준으로 평가. */
-    fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray?, accompRate: Int): Score {
+    fun score(voice: FloatArray, voiceRate: Int, accomp: FloatArray?, accompRate: Int, leniency: Int = 0): Score {
         val period = accomp?.let { BeatTracker.detectBeatPeriod(it, accompRate) }
-        return score(SignalAnalysis.analyze(voice, voiceRate), period)
+        return score(SignalAnalysis.analyze(voice, voiceRate), period, leniency)
     }
 
-    fun score(frames: List<SignalAnalysis.Frame>, beatPeriod: Double? = null): Score {
+    fun score(frames: List<SignalAnalysis.Frame>, beatPeriod: Double? = null, leniency: Int = 0): Score {
         val voiced = frames.filter { it.voiced && it.f0 > 0f }
         val voicedPct = if (frames.isEmpty()) 0 else (100 * voiced.size / frames.size)
 
@@ -66,8 +67,8 @@ object ScoringEngine {
         // 참여도: 실제 발성 비율이 낮으면(거의 안 부름) 점수를 끌어내려 변별력을 준다.
         val engage = (voicedPct / 25.0).coerceIn(0.45, 1.0)
         val raw = (rawBase * engage).roundToInt().coerceIn(0, 100)
-        // 노래방 — 어느 정도 후하되(최저 35), 잘 부를수록 확실히 높게(변별력).
-        val total = generous(raw)
+        // 노래방 — 어느 정도 후하되(최저 35), 잘 부를수록 확실히 높게(변별력). 단계(leniency)에 따라 더 후하게 고를 수 있다.
+        val total = ScoreCurve.total(raw, leniency, 0.72)
 
         val bd = buildString {
             append("총점 ${total}점\n")
@@ -77,16 +78,10 @@ object ScoringEngine {
             append("· 음량 표현 $volume/$MAX_VOLUME — ${volumeComment(volume)}\n")
             append("· 고음·비브라토 $vibrato/$MAX_VIBRATO — ${vibratoComment(vibrato)}\n")
             append("(발성 ${voicedPct}%, 중심음 ${medianF0.toInt()}Hz. 원곡 대조가 아니라 음이 정확한 음정에 앉는지로 멜로디를 평가합니다.)")
+            if (leniency > 0) append("\n(채점 기준: ${ScoreCurve.label(leniency)} — 설정에서 바꿀 수 있어요)")
         }
         return Score(total, accuracy, stability, beat, volume, vibrato, voicedPct, medianF0, bd)
     }
-
-    /**
-     * 원점수를 살짝 후한 곡선으로 — 최저 35, 잘 부르면 100.
-     * v4.24: 기울기 0.55→0.72 로 점수폭 확대(같은 사람도 곡마다 차이가 보이게).
-     * 전형적 원점수 58 은 여전히 ≈77 이라 기존 점수대와 이어진다.
-     */
-    private fun generous(raw: Int): Int = (35 + raw * 0.72).roundToInt().coerceIn(35, 100)
 
     // ── 음정 정확도: 부른 음이 반음 격자에 얼마나 정확히 앉는가(글로벌 튠 오프셋 보정) ──
     private fun pitchAccuracyFraction(f0s: List<Float>): Double {

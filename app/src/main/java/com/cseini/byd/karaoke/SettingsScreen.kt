@@ -51,6 +51,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val syncLabel: TextView = root.findViewById(R.id.sync_label)
     private val rateGroup: RadioGroup = root.findViewById(R.id.rate_group)
     private val scoringCheck: CheckBox = root.findViewById(R.id.chk_scoring)
+    private val scoreLevelGroup: RadioGroup = root.findViewById(R.id.score_level_group)
     private val recordingCheck: CheckBox = root.findViewById(R.id.chk_recording)
     private val micSourceGroup: RadioGroup = root.findViewById(R.id.mic_source_group)
     private val voiceGainSeek: SeekBar = root.findViewById(R.id.voice_gain_seek)
@@ -114,6 +115,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             }
         )
         scoringCheck.isChecked = settings.scoringEnabled
+        scoreLevelGroup.check(
+            when (settings.scoreLeniency) { 1 -> R.id.score_lv_kind; 2 -> R.id.score_lv_kid; else -> R.id.score_lv_normal },
+        )
         recordingCheck.isChecked = settings.recordingEnabled
         // 녹음 꺼지면 하위 옵션(채점·품질·음량·싱크·저장) 숨김.
         recordOptions.visibility = if (recordingCheck.isChecked) View.VISIBLE else View.GONE
@@ -347,7 +351,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     /** 모든 설정 컨트롤의 현재 값을 하나의 문자열로 — 저장 스냅샷과 비교해 미저장 변경을 감지. */
     private fun currentSignature(): String = listOf(
         openaiKey.text, sttEngineGroup.checkedRadioButtonId, geminiModelGroup.checkedRadioButtonId,
-        syncSeek.progress, rateGroup.checkedRadioButtonId, scoringCheck.isChecked,
+        syncSeek.progress, rateGroup.checkedRadioButtonId, scoringCheck.isChecked, scoreLevelGroup.checkedRadioButtonId,
         recordingCheck.isChecked, micSourceGroup.checkedRadioButtonId, voiceGainSeek.progress,
         accompGainSeek.progress, micButtonCheck.isChecked, nativeMicCheck.isChecked,
         startFullscreenCheck.isChecked, autoplayCheck.isChecked, wheelButtonCheck.isChecked,
@@ -408,6 +412,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             else -> 22050
         }
         settings.scoringEnabled = scoringCheck.isChecked
+        settings.scoreLeniency = when (scoreLevelGroup.checkedRadioButtonId) { R.id.score_lv_kind -> 1; R.id.score_lv_kid -> 2; else -> 0 }
         settings.recordingEnabled = recordingCheck.isChecked
         settings.micSourceName = when (micSourceGroup.checkedRadioButtonId) {
             R.id.ms_mic -> "MIC"
@@ -946,7 +951,15 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 return@launch
             }
             updateStatus.text = "새 버전 v${release.version}"
-            com.cseini.byd.karaoke.update.UpdateFlow.start(activity, release)
+            androidx.appcompat.app.AlertDialog.Builder(activity)
+                .setTitle("🔔 새 버전 v${release.version}")
+                .setMessage(
+                    (if (release.notes.isNotBlank()) "이번 변경 내용\n${release.notes}\n\n" else "") +
+                        "지금 업데이트할까요? (다운로드부터 재시작까지 자동으로 진행됩니다)",
+                )
+                .setPositiveButton("업데이트") { _, _ -> com.cseini.byd.karaoke.update.UpdateFlow.start(activity, release) }
+                .setNegativeButton("나중에", null)
+                .show()
         }
     }
 }

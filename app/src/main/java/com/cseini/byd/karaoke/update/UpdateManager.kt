@@ -29,7 +29,9 @@ object UpdateManager {
         get() = "https://api.github.com/repos/${BuildConfig.OTA_REPO}/releases/latest"
 
     data class Asset(val name: String?, val browser_download_url: String?)
-    data class Release(val tag_name: String?, val assets: List<Asset> = emptyList()) {
+    data class Release(val tag_name: String?, val body: String? = null, val assets: List<Asset> = emptyList()) {
+        /** 패치노트 — GitHub 릴리스 본문(tools/release.sh 의 노트 인자). 없으면 빈 문자열. 알림창이 넘치지 않게 길이를 자른다. */
+        val notes: String get() = body.orEmpty().replace("\r\n", "\n").trim().take(600)
         // 버전명이 붙은 APK(byd-karaoke-vX.YZ.apk)를 우선, 없으면 아무 .apk.
         val apkUrl: String?
             get() = (assets.firstOrNull { it.name?.matches(Regex("byd-karaoke-v.*\\.apk")) == true }
