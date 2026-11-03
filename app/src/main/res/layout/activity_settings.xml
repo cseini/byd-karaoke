@@ -498,6 +498,14 @@
                         android:text="🎤 음성 검색 후 첫 곡 자동 재생" />
 
                     <CheckBox
+                        android:id="@+id/chk_external_voice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/tj_text_primary"
+                        android:text="🗣 외부 음성 호출 허용 (음성 비서가 곡을 찾아 바로 시작)" />
+
+                    <CheckBox
                         android:id="@+id/chk_second_screen"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

@@ -211,6 +211,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("auto_play_voice", false)
         set(v) = prefs.edit().putBoolean("auto_play_voice", v).apply()
 
+    /** 음성 비서 등 다른 앱의 PLAY_QUERY 방송으로 노래방 곡을 검색·시작시키는 것을 허용(기본 켜짐, 운영자 결정 2026-11-03). */
+    var externalVoice: Boolean
+        get() = prefs.getBoolean("external_voice", true)
+        set(v) = prefs.edit().putBoolean("external_voice", v).apply()
+
     /** 녹음 품질(Hz). 낮을수록 용량↓·채점↑빠름. 22050(표준)/16000(절약)/11025(최소). */
     var recordRateHz: Int
         get() = prefs.getInt("record_rate", 22050)

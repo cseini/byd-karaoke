@@ -57,6 +57,22 @@
             </intent-filter>
         </activity>
 
+        <!-- 음성 비서 외부 호출: 먼저 깨우기(am start -W -n .../.WakeActivity), 그다음 방송(PlayQueryReceiver, 액션 PLAY_QUERY) -->
+        <activity
+            android:name=".WakeActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
+        <receiver
+            android:name=".PlayQueryReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cseini.byd.karaoke.action.PLAY_QUERY" />
+            </intent-filter>
+        </receiver>
+
         <!-- 재생·녹음함·랭킹·설정은 모두 MainActivity 안의 임베드 화면이라 별도 Activity 가 없다
              (차량 런처의 분할화면을 유지하기 위해 창을 하나만 쓴다). -->
 

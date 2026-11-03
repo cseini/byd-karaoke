@@ -671,6 +671,18 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             val sealion = intent.getBooleanExtra("sealion", false)
             searchInput.post { startVoiceGated("a11y", sealion) }
         }
+        // 음성 비서(PlayQueryReceiver)가 고른 곡 — 콜드 스타트. 화면 회전 등 재생성에서는 다시 시작하지 않는다.
+        if (savedInstanceState == null && CafeNick.isRegistered(settings.cafeNick)) handlePlayItemIntent(intent)
+    }
+
+    /** PlayQueryReceiver 가 고른 곡을 노래방 화면에서 바로 시작한다. */
+    private fun handlePlayItemIntent(i: Intent?): Boolean {
+        if (i?.action != PlayQueryReceiver.ACTION_PLAY_ITEM) return false
+        val id = i.getStringExtra("videoId") ?: return true
+        val title = i.getStringExtra("title").orEmpty()
+        CrashLog.event(this, "외부 호출 곡 시작 v=$id '${title.take(30)}'")
+        searchInput.post { playNow(QueueItem(id, title)) }
+        return true
     }
 
     /**
@@ -802,6 +814,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             searchInput.post { startVoiceGated("a11y", sealion) }
             return
         }
+        if (handlePlayItemIntent(intent)) return
         resetToSearchHome()
     }
 
