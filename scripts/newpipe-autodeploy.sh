@@ -53,7 +53,9 @@ do_release(){
   APK="app/build/outputs/apk/prod/release/app-prod-release.apk"
   GOTSHA=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | grep -i "SHA-256 digest" | grep -oE '[0-9a-f]{64}')
   [ "$GOTSHA" = "$CERT_SHA" ] || { tg "❌ v$NEWNAME 서명 불일치 → 중단."; git checkout -- app/build.gradle.kts; return 1; }
-  "$AAPT" dump badging "$APK" 2>/dev/null | grep -q "versionName='$NEWNAME'" || {
+  # 파이프로 grep -q 에 물리면 pipefail 아래서 aapt2 가 SIGPIPE 로 실패 판정돼, 정상 APK 도 "최신 아님"이 된다 — 출력을 변수에 받아 검사한다.
+  BADGING=$("$AAPT" dump badging "$APK" 2>/dev/null)
+  grep -q "versionName='$NEWNAME'" <<< "$BADGING" || {
     tg "❌ v$NEWNAME 빌드가 최신 아님 → 중단."; git checkout -- app/build.gradle.kts; return 1; }
   cp "$APK" "/tmp/byd-karaoke-v$NEWNAME.apk"; cp "$APK" "/tmp/karaoke-latest.apk"
   cp app/build/outputs/apk/lab/release/app-lab-release.apk "/tmp/byd-karaoke-v$NEWNAME-test.apk"
