@@ -17,6 +17,7 @@ class App : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         IntroJumps.init(this)
+        DrivingGuard.init(this)
         CoroutineScope(Dispatchers.IO).launch { IntroJumps.refresh(this@App) }
     }
 

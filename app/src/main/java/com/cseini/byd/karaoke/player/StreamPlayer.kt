@@ -142,7 +142,29 @@ class StreamPlayer(
         }
     }
 
+    // ── 운행 중 헤드유닛 화면 숨김(반주와 태블릿 싱크용 재생은 계속) ──
+    @Volatile private var hostHidden = false
+    private val hostCover = android.widget.TextView(context).apply {
+        setTextColor(0xFFFFFFFF.toInt()); setBackgroundColor(0xFF000000.toInt())
+        textSize = 18f; gravity = android.view.Gravity.CENTER; setPadding(40, 40, 40, 40)
+        visibility = android.view.View.GONE
+        isClickable = true
+        setOnClickListener { com.cseini.byd.karaoke.DrivingGuard.onCoverTapped(context) }
+    }
+
+    /** 운행 중 영상 화면 가림 켜기/끄기 — 메인 스레드에서만 부른다. 가려도 재생(반주)·녹음은 그대로다. */
+    fun setHostHidden(hidden: Boolean, text: String = "") {
+        if (hidden && hostCover.text.toString() != text) hostCover.text = text
+        if (hostHidden == hidden) return
+        hostHidden = hidden
+        hostCover.visibility = if (hidden) android.view.View.VISIBLE else android.view.View.GONE
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, hidden)
+            .build()
+    }
+
     init {
+        com.cseini.byd.karaoke.DrivingGuard.attach(context, this)
         YouTubeDownloader.ensureInit()
         // 노래 부를 땐 앱 버튼(정지 등)만 쓰므로 ExoPlayer 기본 재생 컨트롤(앞/뒤·멈춤)은 숨긴다.
         playerView.useController = false
@@ -154,6 +176,10 @@ class StreamPlayer(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
+        )
+        container.addView(
+            hostCover,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
         playerView.player = exo
         exo.addListener(object : Player.Listener {
@@ -197,6 +223,7 @@ class StreamPlayer(
     }
 
     override fun load(videoId: String) {
+        com.cseini.byd.karaoke.DrivingGuard.applyTo(this)
         val token = ++loadToken
         tabletUrl = null  // 곡이 바뀌면 이전 URL 을 태블릿에 넘기지 않는다
         scope.launch {
@@ -344,6 +371,7 @@ class StreamPlayer(
     }
 
     override fun release() {
+        com.cseini.byd.karaoke.DrivingGuard.detach(this)
         loadToken++
         handler.removeCallbacks(ticker)
         runCatching { exo.release() }

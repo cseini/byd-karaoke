@@ -526,6 +526,11 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     }
 
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == DrivingGuard.REQ_LOCATION) DrivingGuard.onLocationPermissionResult(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -654,7 +659,9 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // 설정값에 따라 처리(권한 다이얼로그가 포커스 전이로 닫히는 문제 + 옵트인 즉시 반영).
 
         // 비공식 써드파티 앱 고지 동의(최초 1회, 닫기 불가) → 통과 후 카페 닉네임 게이트.
-        ThirdPartyConsent.gate(this, settings) { promptCafeNickIfNeeded() }
+        ThirdPartyConsent.gate(this, settings) {
+            if (savedInstanceState == null) ThirdPartyConsent.drivingWarning(this) { promptCafeNickIfNeeded() } else promptCafeNickIfNeeded()
+        }
         // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
         prewarmScreens()
 
@@ -774,7 +781,9 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
                 )
                 .setPositiveButton("업데이트") { _, _ -> startOtaDownload(release) }
             if (!urgent) b.setNegativeButton("나중에", null) else b.setCancelable(false)
-            b.show()
+            val dlg = b.show()
+            // 필수 업데이트는 버튼을 눌러도 안내창이 닫히지 않게 — 설치가 실패해도 앱을 쓸 수 없는 채로 다시 누를 수 있다.
+            if (urgent) dlg.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { startOtaDownload(release) }
         }
     }
 

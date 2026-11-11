@@ -13,6 +13,12 @@
     <!-- SD카드(블랙박스 독점 볼륨) 직접 접근 — Legacy Storage 로 /storage 경로에 쓴다 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- 운행 중 재생 차단: 기어·차속 읽기(헤드유닛에서 self-adb 로 부여), GPS 보조 -->
+    <uses-permission android:name="android.permission.BYDAUTO_GEARBOX_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_GEARBOX_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_SPEED_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_SPEED_GET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- targetSdk 30+ 의 패키지 가시성 필터링 대비: 음성인식(RecognizerIntent) 처리 앱을
          resolveActivity 로 조회하려면 선언이 필요하다(현재 targetSdk 28 에선 무해). -->
