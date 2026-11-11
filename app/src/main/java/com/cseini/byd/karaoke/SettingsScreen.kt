@@ -99,6 +99,9 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         openaiKey.setText(settings.openaiApiKey)
         geminiModelGroup.check(if (settings.geminiModel == "flash-lite") R.id.gm_lite else R.id.gm_flash)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
+        updateStatus.setOnClickListener {
+            DrivingGuard.onVersionTapped(root.context)?.let { android.widget.Toast.makeText(root.context, it, android.widget.Toast.LENGTH_SHORT).show() }
+        }
 
         syncSeek.progress = (settings.syncOffsetMs + 300).coerceIn(0, 600)
         updateSyncLabel()
