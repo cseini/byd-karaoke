@@ -41,6 +41,12 @@ class MixRecorder(
         private var pooledAccomp: ShortArray? = null
         private var pooledVoice: ShortArray? = null
 
+        // 직전 녹음에서 잰 마이크 시간축 보정 배율. 다음 녹음의 첫 1.5초(아직 못 잰 구간)에 쓴다.
+        @Volatile private var lastCorr = 1.0
+        private const val CORR_MEASURE_AFTER_S = 0.4
+        private const val CORR_MIN = 1.15   // 이보다 작으면 정상으로 보고 보정하지 않는다
+        private const val CORR_MAX = 4.0
+
         private fun obtain(pooled: ShortArray?, n: Int): ShortArray =
             if (pooled != null && pooled.size == n) pooled
             else runCatching { ShortArray(n) }.getOrDefault(ShortArray(0))
@@ -204,7 +210,8 @@ class MixRecorder(
 
         worker = thread(name = "mix-recorder") {
             val buf = ShortArray(minBuf)
-            val out = ShortArray(minBuf)
+            val rs = ShortArray(minBuf * 4 + 8)    // 시간축 보정 후 목소리(최대 CORR_MAX 배)
+            val out = ShortArray(minBuf * 4 + 8)
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
             // 반주 버퍼가 이미 녹음 레이트라 인덱스는 샘플 1:1 로 전진한다.
             val s = if (speed > 0.05f) speed.toDouble() else 1.0
@@ -221,23 +228,62 @@ class MixRecorder(
             var prevX = 0.0
             var lastLevelNs = 0L
             var totalWritten = 0L
+            var outWritten = 0L
+            var corr = lastCorr
+            var firstReadNs = 0L
+            var firstN = 0
+            var rsPos = 0.0
+            var rsLast = 0
             val startNs = System.nanoTime()
             try {
                 while (recording) {
-                    val n = record.read(buf, 0, buf.size)
-                    if (n > 0) {
+                    val nIn = record.read(buf, 0, buf.size)
+                    if (nIn > 0) {
+                        val nowNs = System.nanoTime()
+                        if (firstReadNs == 0L) { firstReadNs = nowNs; firstN = nIn }
+                        totalWritten += nIn
+                        // 일부 차량(씨라7 BUS 마이크)은 요청한 레이트의 절반만 샘플을 준다(FB4762).
+                        // 파일 헤더는 요청 레이트라 목소리만 빨라지므로, 실시간 시계 기준으로 잰 유효 레이트로
+                        // 목소리를 늘려 반주와 같은 시간축에 맞춘다. 정상(15% 이내)이면 그대로 통과.
+                        // 첫 읽기 시점부터 재서 시작 지연이 섞이지 않게 한다.
+                        val elapsedNow = (nowNs - firstReadNs) / 1_000_000_000.0
+                        if (elapsedNow >= CORR_MEASURE_AFTER_S) {
+                            val ratio = rate / ((totalWritten - firstN) / elapsedNow)
+                            corr = if (ratio in CORR_MIN..CORR_MAX) ratio else 1.0
+                            lastCorr = corr
+                        }
+                        val n: Int
+                        if (corr > 1.0) {
+                            val step = 1.0 / corr
+                            var m = 0
+                            while (rsPos < nIn - 1 && m < rs.size) {
+                                val i = Math.floor(rsPos).toInt()
+                                val a = if (i < 0) rsLast else buf[i].toInt()
+                                val b = buf[i + 1].toInt()
+                                rs[m++] = (a + (b - a) * (rsPos - i)).toInt().toShort()
+                                rsPos += step
+                            }
+                            rsPos -= nIn
+                            rsLast = buf[nIn - 1].toInt()
+                            n = m
+                        } else {
+                            System.arraycopy(buf, 0, rs, 0, nIn)
+                            rsPos = 0.0
+                            rsLast = buf[nIn - 1].toInt()
+                            n = nIn
+                        }
                         // 채점용 목소리 원음 저장(반주 섞기 전).
                         if (voiceBuffer.isNotEmpty()) {
                             val room = voiceBuffer.size - voiceWrite
                             val cnt = if (n < room) n else room
                             if (cnt > 0) {
-                                System.arraycopy(buf, 0, voiceBuffer, voiceWrite, cnt)
+                                System.arraycopy(rs, 0, voiceBuffer, voiceWrite, cnt)
                                 voiceWrite += cnt
                             }
                         }
                         val wlimit = accompWrite.get()
                         for (i in 0 until n) {
-                            val x = buf[i].toDouble()
+                            val x = rs[i].toDouble()
                             var v = x + clarity * (x - prevX)    // 명료: 고음 강조
                             prevX = x
                             if (echoDecay > 0.0) {               // 에코
@@ -253,17 +299,16 @@ class MixRecorder(
                             readPos++
                         }
                         writer.write(out, n)
-                        totalWritten += n
+                        outWritten += n
                         // 입력 레벨 표시는 사람이 읽는 숫자라 ~6Hz 면 충분하다. 버퍼마다 올리면
                         // 오디오 스레드가 float 배열을 새로 만들고 메인 스레드가 초당 수십 번 다시 그린다.
                         if (onLevel != null) {
-                            val nowNs = System.nanoTime()
                             if (nowNs - lastLevelNs >= 160_000_000L) {
                                 lastLevelNs = nowNs
-                                onLevel(rmsDbOf(buf, n))
+                                onLevel(rmsDbOf(buf, nIn))
                             }
                         }
-                    } else if (n < 0) break
+                    } else if (nIn < 0) break
                 }
             } catch (t: Throwable) {
                 // 디스크 풀·SD 제거, 그리고 녹음 중 마이크가 시스템에 회수될 때의 AudioRecord 예외까지.
@@ -281,8 +326,8 @@ class MixRecorder(
                     val effHz = if (elapsedS > 0.1) totalWritten / elapsedS else 0.0
                     com.cseini.byd.karaoke.CrashLog.event(
                         context,
-                        "mixrec done elapsed=%.2fs written=%d effHz=%.0f reqRate=%d micRate=%d accompRate=%d routed[%s] builtin=%b bydMic=%b"
-                            .format(elapsedS, totalWritten, effHz, rate, micRate, accompRate, routedStr, opened.builtin, opened.bydOwnsMic),
+                        "mixrec done elapsed=%.2fs written=%d effHz=%.0f corr=%.3f out=%d reqRate=%d micRate=%d accompRate=%d routed[%s] builtin=%b bydMic=%b"
+                            .format(elapsedS, totalWritten, effHz, corr, outWritten, rate, micRate, accompRate, routedStr, opened.builtin, opened.bydOwnsMic),
                     )
                 }
                 runCatching { record.stop() }
