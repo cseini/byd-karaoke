@@ -115,25 +115,29 @@ object DrivingGuard {
         }.start()
     }
 
-    // ── 개발자 모드(숨김): 설정 화면의 버전 글자를 10번 연속 누르면 켜고/끈다. 켜면 운행 중 영상 가림을 하지 않는다. ──
+    // ── 개발자 모드(숨김): 설정 화면의 업데이트 버튼을 10번 연속 누르면 켜진다(끄기는 버전 옆 버튼). 켜면 운행 중 영상 가림을 하지 않는다. ──
     private const val DEV_TAPS = 10
-    private const val DEV_TAP_GAP_MS = 2_000L
+    private const val DEV_TAP_GAP_MS = 3_000L
     private var devTapCount = 0
     private var devLastTapAt = 0L
 
     fun devMode(ctx: Context): Boolean =
         ctx.applicationContext.getSharedPreferences("driving_guard", Context.MODE_PRIVATE).getBoolean("dev_mode", false)
 
-    /** 버전 글자를 눌렀을 때 — 열 번째에 켜기/끄기를 바꾸고 알림 문구를, 그 전엔 null 을 돌려준다. */
-    fun onVersionTapped(ctx: Context): String? {
+    fun setDevMode(ctx: Context, on: Boolean) {
+        ctx.applicationContext.getSharedPreferences("driving_guard", Context.MODE_PRIVATE).edit().putBoolean("dev_mode", on).apply()
+    }
+
+    /** 업데이트 버튼을 눌렀을 때 — 누른 횟수 문구를 돌려준다(10번째에 개발자 모드 켜짐 안내). 이미 켜져 있으면 null. */
+    fun onUpdateTapped(ctx: Context): String? {
+        if (devMode(ctx)) return null
         val now = SystemClock.elapsedRealtime()
         devTapCount = if (now - devLastTapAt > DEV_TAP_GAP_MS) 1 else devTapCount + 1
         devLastTapAt = now
-        if (devTapCount < DEV_TAPS) return null
+        if (devTapCount < DEV_TAPS) return "$devTapCount 회"
         devTapCount = 0
-        val on = !devMode(ctx)
-        ctx.applicationContext.getSharedPreferences("driving_guard", Context.MODE_PRIVATE).edit().putBoolean("dev_mode", on).apply()
-        return if (on) "개발자 모드 켜짐" else "개발자 모드 꺼짐"
+        setDevMode(ctx, true)
+        return "개발자 모드 활성화"
     }
 
     /** 지금 영상을 재생해도 되는지 판정한다(캐시가 아니라 이 순간의 기어). */

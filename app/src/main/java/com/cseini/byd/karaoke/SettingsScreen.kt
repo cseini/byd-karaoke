@@ -99,8 +99,12 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         openaiKey.setText(settings.openaiApiKey)
         geminiModelGroup.check(if (settings.geminiModel == "flash-lite") R.id.gm_lite else R.id.gm_flash)
         updateStatus.text = "현재 버전 v${BuildConfig.VERSION_NAME}"
-        updateStatus.setOnClickListener {
-            DrivingGuard.onVersionTapped(root.context)?.let { android.widget.Toast.makeText(root.context, it, android.widget.Toast.LENGTH_SHORT).show() }
+        val devOffBtn: Button = root.findViewById(R.id.btn_dev_off)
+        devOffBtn.visibility = if (DrivingGuard.devMode(root.context)) android.view.View.VISIBLE else android.view.View.GONE
+        devOffBtn.setOnClickListener {
+            DrivingGuard.setDevMode(root.context, false)
+            devOffBtn.visibility = android.view.View.GONE
+            android.widget.Toast.makeText(root.context, "개발자 모드 꺼짐", android.widget.Toast.LENGTH_SHORT).show()
         }
 
         syncSeek.progress = (settings.syncOffsetMs + 300).coerceIn(0, 600)
@@ -210,7 +214,14 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         // 구 lab 전용 Gboard 설치 버튼은 숨긴다(엔진 라디오 경로로 통합).
         root.findViewById<Button>(R.id.btn_gboard_setup).visibility = View.GONE
 
-        root.findViewById<Button>(R.id.btn_check_update).setOnClickListener { checkUpdate() }
+        root.findViewById<Button>(R.id.btn_check_update).setOnClickListener {
+            DrivingGuard.onUpdateTapped(root.context)?.let {
+                devToast?.cancel()
+                devToast = android.widget.Toast.makeText(root.context, it, android.widget.Toast.LENGTH_SHORT).also { t -> t.show() }
+                if (DrivingGuard.devMode(root.context)) devOffBtn.visibility = android.view.View.VISIBLE
+            }
+            checkUpdate()
+        }
         root.findViewById<Button>(R.id.btn_feedback).setOnClickListener { showFeedbackDialog() }
         root.findViewById<Button>(R.id.btn_cafe_nick).setOnClickListener {
             CafeNick.showDialog(activity, settings.cafeNick, cancelable = true) { combined ->
@@ -948,10 +959,15 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         dialog.show()
     }
 
+    private var devToast: android.widget.Toast? = null
+    private var checking = false
+
     private fun checkUpdate() {
+        if (checking) return
+        checking = true
         updateStatus.text = "업데이트 확인 중…"
         activity.lifecycleScope.launch {
-            val release = UpdateManager.checkForUpdate()
+            val release = try { UpdateManager.checkForUpdate() } finally { checking = false }
             if (release == null) {
                 updateStatus.text = "최신 버전입니다 (v${BuildConfig.VERSION_NAME})"
                 return@launch
