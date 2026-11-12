@@ -19,7 +19,7 @@ object ThirdPartyConsent {
     private const val X_AUTH = "d9dd8767ab1faf0874ac816ba03ca535"
 
     private const val MESSAGE =
-        "오너스랩노래방은 BYD 공식 앱이 아닌 비공식 써드파티 앱입니다.\n\n" +
+        "링크 노래방은 BYD 공식 앱이 아닌 비공식 써드파티 앱입니다.\n\n" +
             "설치·사용으로 인해 헤드유닛(차량 인포테인먼트) 보증수리가 제한되거나 거부될 수 있습니다.\n\n" +
             "이 사실을 이해했으며, 사용 중 발생하는 문제는 본인 책임임에 동의하는 경우에만 계속 진행해 주세요."
 

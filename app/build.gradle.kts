@@ -13,8 +13,8 @@ android {
         // targetSdk 28: Android 10 에서 Legacy External Storage 를 켜, 블랙박스가 독점 마운트한
         // SD카드 경로(/storage/XXXX-XXXX 등)에 직접 접근한다(일렉트로 앱과 동일한 전략).
         targetSdk = 28
-        versionCode = 400
-        versionName = "7.64"
+        versionCode = 401
+        versionName = "7.65"
 
         // 차량 헤드유닛은 ARM — x86 계열 네이티브 라이브러리(Vosk)는 제외해 APK 크기를 줄인다.
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
@@ -25,7 +25,7 @@ android {
     productFlavors {
         create("prod") {
             dimension = "variant"
-            manifestPlaceholders["appLabel"] = "오너스랩노래방"
+            manifestPlaceholders["appLabel"] = "링크 노래방"
             // 라이브 앱 OTA 저장소
             buildConfigField("String", "OTA_REPO", "\"cseini/byd-karaoke\"")
         }
@@ -33,7 +33,7 @@ android {
             dimension = "variant"
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
-            manifestPlaceholders["appLabel"] = "오너스랩노래방테스트"
+            manifestPlaceholders["appLabel"] = "링크 노래방 테스트"
             // 테스트 앱은 별도 저장소에서 OTA (본앱과 분리)
             buildConfigField("String", "OTA_REPO", "\"cseini/byd-karaoke-test\"")
         }

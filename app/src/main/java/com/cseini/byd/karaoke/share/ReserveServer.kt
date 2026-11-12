@@ -121,8 +121,8 @@ object ReserveServer {
                 uri.startsWith("/manifest.webmanifest") -> {
                     val screen = q("p") == "screen"
                     json(Response.Status.OK, "application/manifest+json; charset=utf-8",
-                        if (screen) WebApp.manifestJson("오너스랩노래방 뒷좌석 화면", "노래방 화면", "/screen")
-                        else WebApp.manifestJson("오너스랩노래방 예약", "노래방 예약", "/"))
+                        if (screen) WebApp.manifestJson("링크 노래방 뒷좌석 화면", "노래방 화면", "/screen")
+                        else WebApp.manifestJson("링크 노래방 예약", "노래방 예약", "/"))
                 }
                 uri.startsWith("/appicon.png") -> WebApp.iconPng(ctx)?.let {
                     newFixedLengthResponse(Response.Status.OK, "image/png", java.io.ByteArrayInputStream(it), it.size.toLong())
@@ -302,7 +302,7 @@ object ReserveServer {
     private val PAGE = """
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BYD YT오너스랩노래방 예약</title>
+<title>링크 노래방 예약</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="노래방 예약">
