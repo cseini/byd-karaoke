@@ -51,7 +51,7 @@ class KeepAliveService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL)
             else @Suppress("DEPRECATION") Notification.Builder(this)
             )
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("링크 노래방 재생 중")
             .setContentText("탭하면 링크 노래방으로 돌아갑니다")
             .setContentIntent(tap)

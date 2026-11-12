@@ -36,7 +36,7 @@ class RestartReceiver : BroadcastReceiver() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(context, "update")
                 else @Suppress("DEPRECATION") Notification.Builder(context)
                 )
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle("링크 노래방 업데이트 완료 🎉")
                 .setContentText("탭하면 새 버전으로 시작합니다")
                 .setContentIntent(tap)
