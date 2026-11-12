@@ -120,12 +120,12 @@
 
   <!-- HERO -->
   <header class="hero">
-    <div class="badge">🚗 차량 헤드유닛 전용 · 개인 프로젝트</div>
-    <div class="mic">🎤</div>
+    <div class="badge">🔗 링크 계열 · 차량 헤드유닛용 · 개인 프로젝트</div>
+    <img src="img/icon.png" alt="링크 노래방 아이콘" width="96" height="96" style="border-radius:22px;box-shadow:0 10px 30px rgba(0,0,0,.45);margin:6px auto 4px;display:block">
     <h1>링크 노래방</h1>
     <p class="sub">차 안에서 바로 즐기는 노래방. 검색해서 부르고, 마이크로 채점받고,
       친구들은 각자 폰으로 다음 곡을 예약해요.</p>
-    <a class="cta" href="https://github.com/cseini/byd-karaoke/releases/download/v7.64/byd-karaoke-v7.64.apk" download>
+    <a class="cta" id="cta-apk" href="https://github.com/cseini/byd-karaoke/releases/download/v7.66/byd-karaoke-v7.66.apk" download>
       <span>⬇</span>
       <span>최신 APK 받기
         <small>PC·휴대폰에서 받은 뒤 USB/ADB로 설치</small>
@@ -140,10 +140,30 @@
     <section class="wn-sec">
       <div class="wn">
         <div class="wn-head">
-          <span class="wn-ver">v7.64 최신</span>
+          <span class="wn-ver" id="wn-ver">v7.66 최신</span>
           <h2 class="wn-title">📋 패치노트</h2>
         </div>
         <div class="wn-grid">
+          <div class="wn-item">
+            <b>🔗 링크 노래방 · 새 아이콘 <span class="tag-new">v7.65~7.66</span></b>
+            <span>앱 이름이 «링크 노래방»으로 바뀌고 링크 계열에 맞는 새 아이콘을 달았어요. 패키지는 그대로라 기존 앱 위에 덮어 설치되고 설정·녹음은 유지됩니다.</span>
+          </div>
+          <div class="wn-item">
+            <b>🎙 차량 마이크 녹음 보정 <span class="tag-new">v7.59</span></b>
+            <span>일부 차량에서 마이크 없이 차량 자체 마이크로 녹음하면 목소리만 빠르게 녹음되던 문제를 고쳤어요.</span>
+          </div>
+          <div class="wn-item">
+            <b>🗣 음성 비서로 시작 <span class="tag-new">v7.57</span></b>
+            <span>링키 같은 음성 비서가 곡명·가수로 노래방 곡을 찾아 바로 시작해요. 설정의 «외부 음성 호출 허용»으로 끌 수 있어요(기본 켜짐).</span>
+          </div>
+          <div class="wn-item">
+            <b>💯 채점 기준 3단계 <span class="tag-new">v7.56</span></b>
+            <span>설정 &gt; 녹음에서 원래대로·후하게·아주 후하게를 고를 수 있어요. 아이들과 재미로 할 땐 «아주 후하게»면 못 불러도 80점 이상 나옵니다.</span>
+          </div>
+          <div class="wn-item">
+            <b>🎚 휠 무음 버튼 인식 <span class="tag-new">v7.55</span></b>
+            <span>핸들 무음 버튼 더블클릭 음성검색을 아토3 페이스리프트에서도 인식하고, 접근성이 켜져 있는데 꺼졌다고 경고하던 오판을 고쳤어요.</span>
+          </div>
           <div class="wn-item">
             <b>🎨 새 디자인 <span class="tag-new">v5.8</span></b>
             <span>가을 감성 글라스 테마로 전면 새단장했어요. 홈에서 최근 부른 노래와 랭킹을 앨범 카드로 한눈에 보고, 점수를 누르면 심사평까지 확인할 수 있습니다. 앱 크기도 절반 이하(약 4MB)로 줄여 설치·업데이트가 빨라졌어요.</span>
@@ -234,6 +254,11 @@
           <p>승객들이 각자 휴대폰으로 QR을 찍어 검색·예약. 부르는 중에도 대기열이 쌓이고 순서대로 이어집니다.</p>
         </div>
         <div class="card">
+          <div class="ico">🗣</div>
+          <h3>음성 비서로 시작</h3>
+          <p>링키 같은 음성 비서에게 곡명·가수를 말하면 노래방 곡을 찾아 바로 시작해요. 설정에서 끌 수 있어요.</p>
+        </div>
+        <div class="card">
           <div class="ico">🔁</div>
           <h3>다시 듣기</h3>
           <p>내가 부른 녹음을, 같은 타이밍의 영상(가사)과 함께 다시 감상해요.</p>
@@ -297,10 +322,11 @@
       <div class="steps">
         <div class="step"><span><b>PC·휴대폰에서 APK 받기</b> — 위 버튼으로 최신 APK를 받습니다.</span></div>
         <div class="step"><span><b>방법 A. USB로 옮기기</b> — 받은 APK를 USB(또는 휴대폰↔헤드유닛 전송)로 옮긴 뒤, 헤드유닛 파일 관리자에서 실행해 설치합니다.</span></div>
-        <div class="step"><span><b>방법 B. ADB로 설치</b> — PC와 헤드유닛을 USB로 연결하고 <code>adb install -r byd-karaoke-v7.64.apk</code>를 실행합니다.</span></div>
+        <div class="step"><span><b>방법 B. ADB로 설치</b> — PC와 헤드유닛을 USB로 연결하고 <code>adb install -r byd-karaoke-v(버전).apk</code>를 실행합니다.</span></div>
         <div class="step"><span><b>"출처를 알 수 없는 앱" 허용</b> — 설치 화면에서 설치 권한을 켜주세요.</span></div>
         <div class="step"><span><b>설치 후 실행</b> — 마이크 권한을 허용하면 바로 부를 수 있어요.</span></div>
-        <div class="step"><span><b>업데이트</b> — 새 버전이 나오면 앱이 알아서 확인·설치합니다(OTA, 최초 설치 이후에는 헤드유닛 안에서 동작).</span></div>
+        <div class="step"><span><b>업데이트</b> — 새 버전이 나오면 앱을 켤 때 팝업이 뜨고 «업데이트»만 누르면 다운로드·설치·재시작까지 자동으로 끝납니다. 최신 버전이 아니면 이용이 제한될 수 있어요.</span></div>
+        <div class="step"><span><b>링크 계열 앱</b> — 링크락·링크 플레이어·링크 런처 등 다른 앱은 <a href="https://link.usenu.kr/" style="color:inherit;text-decoration:underline">link.usenu.kr</a>에서 한곳에 모아 볼 수 있어요.</span></div>
       </div>
     </section>
 
@@ -313,6 +339,7 @@
           <li>재생·검색은 공개된 영상을 이용하며, 상업적 이용이나 재배포를 위한 도구가 아닙니다.</li>
           <li>녹음은 개인 감상용입니다. 저작물이 포함된 녹음의 외부 공유·배포는 이용자 책임입니다.</li>
           <li>권리자의 요청이 있으면 배포를 즉시 중단·삭제합니다.</li>
+          <li>BYD를 비롯한 자동차 제조사의 공식 앱이 아닌 비공식 앱이며, 운행 중 영상 시청은 법으로 금지되어 있습니다.</li>
           <li>사용에 따른 책임은 이용자 본인에게 있습니다.</li>
         </ul>
       </div>
@@ -322,8 +349,17 @@
 
   <footer>
     개인 프로젝트 · 비영리 · 문의/문제 제기 환영<br>
-    <a href="https://github.com/cseini/byd-karaoke/releases/download/v7.64/byd-karaoke-v7.64.apk" download>최신 APK 바로 받기</a>
+    <a id="foot-apk" href="https://github.com/cseini/byd-karaoke/releases/download/v7.66/byd-karaoke-v7.66.apk" download>최신 APK 바로 받기</a> · <a href="https://link.usenu.kr/">링크 계열 앱 더 보기</a>
   </footer>
 
+<script>
+(function(){
+fetch('https://api.github.com/repos/cseini/byd-karaoke/releases/latest').then(function(r){return r.json()}).then(function(j){
+var a=(j.assets||[]).filter(function(x){return /\.apk$/.test(x.name)})[0]; if(!a)return;
+['cta-apk','foot-apk'].forEach(function(id){var e=document.getElementById(id); if(e)e.href=a.browser_download_url});
+var v=document.getElementById('wn-ver'); if(v&&j.tag_name)v.textContent=j.tag_name+' 최신';
+}).catch(function(){});
+})();
+</script>
 </body>
 </html>
