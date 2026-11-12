@@ -9,15 +9,15 @@
 <title>링크 노래방 · 차량용 노래방 앱</title>
 <style>
   :root{
-    --bg:#0a0a14; --bg2:#12122a; --panel:#16162e; --line:#26264a;
-    --pink:#ff3b8b; --cyan:#41e0ff; --gold:#ffcf3f; --purple:#a06bff;
-    --text:#eef0ff; --muted:#9aa0c0; --hint:#6b7099;
+    --bg:#0a0e13; --bg2:#121a23; --panel:#121a23; --line:#26313f;
+    --green:#34d399; --cyan:#38bdf8; --amber:#fbbf24; --blue:#4a7fff;
+    --text:#e8eef5; --muted:#8b97a3; --hint:#6b7580;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;
-    background:radial-gradient(1200px 600px at 50% -10%, #1a1140 0%, var(--bg) 55%) no-repeat, var(--bg);
+    background:radial-gradient(1200px 600px at 50% -10%, rgba(56,189,248,.10), transparent 60%) no-repeat, var(--bg);
     color:var(--text); line-height:1.6; overflow-x:hidden;
   }
   .wrap{max-width:1040px; margin:0 auto; padding:0 20px}
@@ -26,41 +26,40 @@
   /* ── Hero ── */
   .hero{text-align:center; padding:72px 20px 40px}
   .badge{
-    display:inline-block; font-size:13px; letter-spacing:.5px; color:var(--cyan);
-    border:1px solid var(--line); border-radius:999px; padding:6px 14px; margin-bottom:22px;
-    background:rgba(65,224,255,.06);
+    display:inline-block; font-size:13px; letter-spacing:.02em; color:var(--amber);
+    border:1px solid rgba(251,191,36,.35); border-radius:999px; padding:6px 14px; margin-bottom:22px;
+    background:rgba(251,191,36,.08);
   }
   .hero h1{
-    font-size:clamp(38px,8vw,66px); margin:.1em 0; font-weight:900; letter-spacing:-1px;
-    background:linear-gradient(90deg,var(--pink),var(--gold),var(--cyan));
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    font-size:clamp(38px,8vw,66px); margin:.1em 0; font-weight:800; letter-spacing:-.01em;
+    color:#eaf3fb;
   }
-  .hero .mic{font-size:clamp(46px,10vw,80px); filter:drop-shadow(0 0 24px rgba(255,59,139,.5))}
+  .hero .mic{font-size:clamp(46px,10vw,80px); filter:drop-shadow(0 0 24px rgba(56,189,248,.5))}
   .hero p.sub{font-size:clamp(16px,2.6vw,21px); color:var(--muted); max-width:620px; margin:14px auto 0}
   .cta{
     display:inline-flex; align-items:center; gap:10px; margin-top:30px;
-    background:linear-gradient(90deg,var(--pink),var(--purple));
-    color:#fff; font-size:19px; font-weight:800; text-decoration:none;
-    padding:16px 34px; border-radius:14px; box-shadow:0 10px 30px rgba(255,59,139,.35);
+    background:linear-gradient(135deg,#38bdf8,#4a7fff);
+    color:#04121f; font-size:19px; font-weight:800; text-decoration:none;
+    padding:16px 34px; border-radius:12px; box-shadow:0 10px 30px rgba(56,189,248,.30);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .cta:hover{transform:translateY(-2px); box-shadow:0 14px 38px rgba(255,59,139,.5)}
+  .cta:hover{transform:translateY(-2px); box-shadow:0 14px 38px rgba(56,189,248,.45)}
   .cta small{display:block; font-size:12px; font-weight:500; opacity:.85}
   .platform{margin-top:14px; font-size:13px; color:var(--hint)}
 
   /* ── Section ── */
   section{padding:44px 0}
   h2.title{font-size:clamp(24px,4vw,34px); text-align:center; margin:0 0 6px; font-weight:800}
-  .title .dot{color:var(--pink)}
+  .title .dot{color:var(--green)}
   p.lead{text-align:center; color:var(--muted); margin:0 auto 34px; max-width:600px}
 
   /* ── Features ── */
   .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
   .card{
-    background:linear-gradient(180deg,var(--panel),var(--bg2)); border:1px solid var(--line);
-    border-radius:18px; padding:24px; transition:border-color .2s ease, transform .2s ease;
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:24px; transition:border-color .2s ease, transform .2s ease;
   }
-  .card:hover{border-color:var(--purple); transform:translateY(-3px)}
+  .card:hover{border-color:var(--green); transform:translateY(-3px)}
   .card .ico{font-size:34px; line-height:1}
   .card h3{margin:14px 0 6px; font-size:19px}
   .card p{margin:0; color:var(--muted); font-size:15px}
@@ -72,7 +71,7 @@
     background:var(--panel); box-shadow:0 8px 24px rgba(0,0,0,.35);
     transition:transform .2s ease, border-color .2s ease;
   }
-  .shot:hover{transform:translateY(-3px); border-color:var(--purple)}
+  .shot:hover{transform:translateY(-3px); border-color:var(--green)}
   .shot img{display:block; width:100%; aspect-ratio:16/9; object-fit:cover}
   .shot .cap{padding:12px 16px; font-size:14px; color:var(--muted); border-top:1px solid var(--line)}
   .shot .cap b{color:var(--cyan)}
@@ -84,18 +83,18 @@
   .step{display:flex; gap:16px; align-items:flex-start; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
   .step::before{
     counter-increment:s; content:counter(s);
-    flex:0 0 34px; height:34px; border-radius:50%; display:grid; place-items:center;
-    background:linear-gradient(135deg,var(--cyan),var(--purple)); color:#0a0a14; font-weight:900;
+    flex:0 0 36px; height:36px; border-radius:11px; display:grid; place-items:center;
+    background:linear-gradient(135deg,#38bdf8,#4a7fff); color:#04121f; font-weight:800;
   }
   .step b{color:var(--text)}
   .step span{color:var(--muted); font-size:15px}
 
   /* ── Notice ── */
   .notice{
-    max-width:760px; margin:0 auto; background:rgba(255,207,63,.06);
-    border:1px solid rgba(255,207,63,.28); border-radius:16px; padding:22px 24px;
+    max-width:760px; margin:0 auto; background:rgba(251,191,36,.06);
+    border:1px solid rgba(251,191,36,.28); border-radius:16px; padding:22px 24px;
   }
-  .notice h3{margin:0 0 10px; color:var(--gold); font-size:17px}
+  .notice h3{margin:0 0 10px; color:var(--amber); font-size:17px}
   .notice ul{margin:0; padding-left:18px; color:var(--muted); font-size:14px}
   .notice li{margin:6px 0}
 
@@ -104,15 +103,15 @@
 
   /* ── What's new (상단 업데이트) ── */
   .wn-sec{padding:14px 0 30px}
-  .wn{background:linear-gradient(180deg,rgba(160,107,255,.14),rgba(65,224,255,.05)); border:1px solid var(--line); border-radius:18px; padding:22px 24px}
+  .wn{background:rgba(56,189,248,.06); border:1px solid rgba(56,189,248,.25); border-radius:16px; padding:22px 24px}
   .wn-head{display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap}
-  .wn-ver{background:linear-gradient(90deg,var(--pink),var(--purple)); color:#fff; font-weight:800; font-size:13px; padding:5px 13px; border-radius:999px; box-shadow:0 6px 18px rgba(160,107,255,.35)}
+  .wn-ver{background:linear-gradient(135deg,#34d399,#22b8a0); color:#04121f; font-weight:800; font-size:13px; padding:5px 13px; border-radius:999px; box-shadow:0 6px 18px rgba(52,211,153,.35)}
   .wn-title{font-size:clamp(19px,3.4vw,25px); margin:0; font-weight:800}
   .wn-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
   .wn-item{display:flex; flex-direction:column; gap:5px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
   .wn-item b{font-size:16px; color:var(--text)}
   .wn-item span{color:var(--muted); font-size:14px}
-  .tag-new{font-size:11px; font-weight:700; color:#0a0a14; background:var(--gold); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px}
+  .tag-new{font-size:11px; font-weight:700; color:#0a0a14; background:var(--amber); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px}
   .tag-ver{font-size:11px; font-weight:600; color:var(--hint); border:1px solid var(--line); padding:2px 8px; border-radius:999px; vertical-align:middle; margin-left:6px}
 </style>
 </head>
@@ -240,7 +239,7 @@
         </div>
         <div class="card">
           <div class="ico">🎙️</div>
-          <h3>음성으로 검색 <span style="font-size:12px;color:var(--gold);vertical-align:middle">무료 키 필요</span></h3>
+          <h3>음성으로 검색 <span style="font-size:12px;color:var(--amber);vertical-align:middle">무료 키 필요</span></h3>
           <p>버튼을 누르고 곡·가수를 말하면 찾아줘요. Google의 무료 Gemini 키를 넣으면 켜지고, 조회 후 첫 곡을 자동 재생합니다.</p>
         </div>
         <div class="card">
