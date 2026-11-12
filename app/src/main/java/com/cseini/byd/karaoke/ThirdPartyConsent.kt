@@ -30,14 +30,60 @@ object ThirdPartyConsent {
             "• 운행 중 영상 시청으로 생기는 사고와 법적 책임은 사용자 본인에게 있습니다.\n\n" +
             "동의하는 경우에만 시작해 주세요."
 
-    /** 실행할 때마다 보여 주는 운행 중 영상 시청 경고 — 닫기 불가, 동의해야 시작된다. */
+    /** 실행할 때마다 보여 주는 운행 중 영상 시청 경고 — 5초 카운트다운 후 자동으로 닫히고, 그 전에 큰 네모 칸을 눌러도 닫힌다. */
     fun drivingWarning(activity: Activity, onDone: () -> Unit) {
-        AlertDialog.Builder(activity)
+        val dp = activity.resources.displayMetrics.density
+        val root = android.widget.LinearLayout(activity).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((24 * dp).toInt(), (16 * dp).toInt(), (24 * dp).toInt(), (16 * dp).toInt())
+        }
+        root.addView(android.widget.TextView(activity).apply {
+            text = DRIVING_MESSAGE
+            textSize = 16f
+        })
+        val box = android.widget.TextView(activity).apply {
+            textSize = 26f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, (20 * dp).toInt(), 0, (20 * dp).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(android.graphics.Color.TRANSPARENT)
+                setStroke((3 * dp).toInt(), android.graphics.Color.GRAY)
+                cornerRadius = 8 * dp
+            }
+        }
+        root.addView(box, android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = (24 * dp).toInt() })
+        val dialog = AlertDialog.Builder(activity)
             .setTitle("⚠ 운행 중 영상 시청 금지")
-            .setMessage(DRIVING_MESSAGE)
+            .setView(root)
             .setCancelable(false)
-            .setPositiveButton("동의합니다") { _, _ -> onDone() }
-            .show()
+            .create()
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var left = 5
+        var finished = false
+        fun finish() {
+            if (finished) return
+            finished = true
+            handler.removeCallbacksAndMessages(null)
+            if (dialog.isShowing) dialog.dismiss()
+            onDone()
+        }
+        val tick = object : Runnable {
+            override fun run() {
+                if (finished) return
+                if (left <= 0) { finish(); return }
+                box.text = "동의합니다 ($left)"
+                left--
+                handler.postDelayed(this, 1000)
+            }
+        }
+        box.setOnClickListener { finish() }
+        dialog.setOnDismissListener { handler.removeCallbacksAndMessages(null) }
+        dialog.show()
+        tick.run()
     }
 
     /** 동의를 이미 받았으면 바로 onDone, 아니면 닫기 불가 다이얼로그로 막는다. */
