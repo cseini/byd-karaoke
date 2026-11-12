@@ -1,13 +1,7 @@
 package com.cseini.byd.karaoke
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.util.UnstableApi
@@ -20,7 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * 운행 중 영상 시청 차단 — 기어가 P(주차)·N(중립)일 때만 영상을 보여 준다(운영자 결정).
  * 기어를 알 수 없으면 가린다. 기어는 BYD SDK 로 읽는다(릴레이와 같은 게터).
  * 기어 게터가 얼어붙는 사례(릴레이 v80 교훈)에 대비해, 차속이 읽히고 5km/h 이상이면 기어와 무관하게 차단한다.
- * 씨라7(D5)은 SDK 가 시스템 앱 안에 있어 그 APK 에서 읽어 온다(릴레이 deviceFromSystemApp 방식). 기어를 끝내 못 읽으면 차속(SDK→GPS)으로 판단한다.
+ * 씨라7(D5)은 SDK 가 시스템 앱 안에 있어 그 APK 에서 읽어 온다(릴레이 deviceFromSystemApp 방식). 기어를 끝내 못 읽으면 SDK 차속으로 판단한다.
  * 운행 중이면 재생을 멈추거나 화면을 닫지 않고, 영상 화면만 검게 가린다(소리는 계속 나고, 뒷좌석 태블릿은 계속 재생한다).
  * 폰·태블릿용 지인 빌드에는 적용하지 않는다.
  */
@@ -32,7 +26,6 @@ object DrivingGuard {
     const val GEAR_D = 2
     const val GEAR_P = 3
     const val MOVING_KMH = 5.0
-    const val REQ_LOCATION = 7101
 
     private const val POLL_MS = 1_000L
     private const val GEARBOX_CLASS = "android.hardware.bydauto.gearbox.BYDAutoGearboxDevice"
@@ -144,15 +137,13 @@ object DrivingGuard {
     @Synchronized
     fun check(ctx: Context): Verdict {
         if (devMode(ctx)) return Verdict.OK
+        if (VehicleProbe.isNonCar()) return Verdict.OK   // 차가 아닌 기기(폰·태블릿)는 해당 없음
         val app = ctx.applicationContext
         appCtx = app
         val gear = readGear(app)
-        val speed = readSpeed(app) ?: if (gear == null) gpsSpeed(app) else null   // GPS 는 기어를 못 읽을 때만 쓴다
+        val speed = readSpeed(app)
         return decide(gear, speed)
     }
-
-    fun hasLocationPermission(ctx: Context) =
-        ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     fun gearName(g: Int) = when (g) { GEAR_P -> "P"; GEAR_R -> "R"; GEAR_N -> "N"; GEAR_D -> "D"; else -> "?" }
 
@@ -164,20 +155,12 @@ object DrivingGuard {
         val tablet = tabletActive()
         return when (v) {
             Verdict.UNKNOWN ->
-                "차량 기어를 확인할 수 없어 노래방 영상을 가렸어요\n안전을 위해 운행 중 영상 시청은 불가능합니다" +
-                    (if (tablet) "\n뒷좌석 화면에서는 계속 재생 중이에요" else "") +
-                    (if (!hasLocationPermission(ctx)) "\n\n(화면을 누르면 위치 권한으로 속도를 확인할 수 있어요)" else "")
+                "차량 기어를 확인할 수 없어 노래방 영상을 가렸어요\n주차 중인데도 안 보이면 차량 설정에서 ADB(디버깅)가 켜져 있는지 확인한 뒤 앱을 다시 실행해 주세요" +
+                    (if (tablet) "\n뒷좌석 화면에서는 계속 재생 중이에요" else "")
             else ->
                 "운행 중에는 영상 시청이 불가능합니다\n반주 소리만 재생됩니다" +
                     (if (tablet) "\n뒷좌석 화면에서는 계속 재생 중이에요" else "")
         }
-    }
-
-    /** 가림 화면을 눌렀을 때 — 기어를 못 읽고 위치 권한도 없으면 권한을 요청한다. */
-    fun onCoverTapped(ctx: Context) {
-        val act = ctx as? android.app.Activity ?: return
-        if (check(act) == Verdict.UNKNOWN && !hasLocationPermission(act))
-            act.requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_LOCATION)
     }
 
     // ───────── SDK ─────────
@@ -265,50 +248,6 @@ object DrivingGuard {
             c = c.superclass
         }
     }
-
-    // ───────── GPS 속도(기어를 못 읽을 때만) ─────────
-
-    @Volatile private var gpsKmh: Double? = null
-    @Volatile private var gpsAt = 0L
-    @Volatile private var gpsPrev: Location? = null
-    @Volatile private var gpsStarted = false
-
-    private fun gpsSpeed(app: Context): Double? {
-        if (!hasLocationPermission(app)) return null
-        if (!gpsStarted) startGps(app)
-        val k = gpsKmh ?: return null
-        return if (SystemClock.elapsedRealtime() - gpsAt > 10_000L) null else k
-    }
-
-    private val gpsListener = object : LocationListener {
-        override fun onLocationChanged(l: Location) {
-            val kmh = if (l.hasSpeed()) l.speed * 3.6 else {
-                val p = gpsPrev
-                val dt = if (p == null) 0.0 else (l.elapsedRealtimeNanos - p.elapsedRealtimeNanos) / 1e9
-                if (p != null && dt > 0.3) p.distanceTo(l) / dt * 3.6 else null
-            }
-            gpsPrev = l
-            if (kmh != null) { gpsKmh = kmh; gpsAt = SystemClock.elapsedRealtime() }
-        }
-        @Deprecated("API 29 이하 호환용") override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        override fun onProviderEnabled(provider: String) {}
-        override fun onProviderDisabled(provider: String) {}
-    }
-
-    private fun startGps(app: Context) {
-        if (gpsStarted || !hasLocationPermission(app)) return
-        try {
-            val lm = app.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, gpsListener, Looper.getMainLooper())
-            gpsStarted = true
-            CrashLog.event(app, "운행 감지: GPS 속도 수신 시작")
-        } catch (t: Throwable) {
-            CrashLog.event(app, "운행 감지: GPS 시작 실패 ${t::class.java.simpleName}: ${t.message?.take(80)}")
-        }
-    }
-
-    /** 위치 권한 허용 결과 — 허용됐으면 GPS 속도 수신을 시작한다. */
-    fun onLocationPermissionResult(ctx: Context) { if (hasLocationPermission(ctx)) startGps(ctx.applicationContext) }
 
     /** self-adb(127.0.0.1:5555)로 이 앱에 권한을 부여한다 — 부여 명령이 모두 성공해야 true. */
     private fun grantSelfPermissions(app: Context, perms: List<String>): Boolean {

@@ -149,7 +149,6 @@ class StreamPlayer(
         textSize = 18f; gravity = android.view.Gravity.CENTER; setPadding(40, 40, 40, 40)
         visibility = android.view.View.GONE
         isClickable = true
-        setOnClickListener { com.cseini.byd.karaoke.DrivingGuard.onCoverTapped(context) }
     }
 
     /** 운행 중 영상 화면 가림 켜기/끄기 — 메인 스레드에서만 부른다. 가려도 재생(반주)·녹음은 그대로다. */

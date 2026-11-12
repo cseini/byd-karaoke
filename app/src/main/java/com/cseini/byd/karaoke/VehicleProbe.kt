@@ -16,4 +16,7 @@ object VehicleProbe {
 
     /** 서버 전송용 — 못 읽으면 빈 문자열. */
     fun vehicleType(): String = sysProp("ro.vehicle.type") ?: ""
+
+    /** 차량 속성이 아예 없는 일반 폰·태블릿이면 true. 읽기 자체가 실패하면(null) 차로 취급한다. */
+    fun isNonCar(): Boolean = sysProp("ro.vehicle.type") == ""
 }

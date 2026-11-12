@@ -18,7 +18,6 @@
     <uses-permission android:name="android.permission.BYDAUTO_GEARBOX_GET" />
     <uses-permission android:name="android.permission.BYDAUTO_SPEED_COMMON" />
     <uses-permission android:name="android.permission.BYDAUTO_SPEED_GET" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- targetSdk 30+ 의 패키지 가시성 필터링 대비: 음성인식(RecognizerIntent) 처리 앱을
          resolveActivity 로 조회하려면 선언이 필요하다(현재 targetSdk 28 에선 무해). -->
