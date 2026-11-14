@@ -1,7 +1,6 @@
 package com.cseini.byd.karaoke
 
 import android.content.Context
-import android.provider.Settings
 import com.google.gson.Gson
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,11 +22,9 @@ object PlayReporter {
 
     fun report(context: Context, videoId: String, title: String) {
         if (videoId.isBlank() || !isTjOrKy(title)) return
-        // 헤드유닛 고유값 — 인기곡 집계에서 "한 차가 같은 곡 여러 번" 과 "여러 차가 한 번씩"
-        // 을 구분하는 중복제거 키(song-ranking.js 의 unique_devices). 공장초기화 전까지 고정.
-        val deviceId = runCatching {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-        }.getOrNull()
+        // 설치별 무작위 값 — 인기곡 집계에서 "한 차가 같은 곡 여러 번" 과 "여러 차가 한 번씩"
+        // 을 구분하는 중복제거 키(song-ranking.js 의 unique_devices). 기기 고유번호는 보내지 않는다.
+        val deviceId = InstallId.get(context)
         val body = Gson().toJson(mapOf("videoId" to videoId, "title" to title, "deviceId" to deviceId))
         Thread {
             runCatching {

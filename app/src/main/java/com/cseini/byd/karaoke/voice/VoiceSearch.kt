@@ -327,12 +327,7 @@ class VoiceSearch(private val context: Context, private val settings: SettingsSt
     private fun transcribeServer(file: File, onResult: (String) -> Unit, onError: (String) -> Unit) {
         if (!file.exists() || file.length() < 2000) { deliver { onError("녹음이 감지되지 않았습니다") }; return }
         normalizeWav(file)
-        val device = runCatching {
-            android.provider.Settings.Secure.getString(
-                context.contentResolver, android.provider.Settings.Secure.ANDROID_ID,
-            )
-        }.getOrNull() ?: "unknown"
-        val url = "$STT_SERVER?k=$STT_SECRET&lang=ko&device=$device&ver=${com.cseini.byd.karaoke.BuildConfig.VERSION_NAME}"
+        val url = "$STT_SERVER?k=$STT_SECRET&lang=ko&ver=${com.cseini.byd.karaoke.BuildConfig.VERSION_NAME}"
         val t0 = android.os.SystemClock.elapsedRealtime()
         val req = Request.Builder().url(url)
             .post(file.readBytes().toRequestBody("audio/wav".toMediaTypeOrNull()))

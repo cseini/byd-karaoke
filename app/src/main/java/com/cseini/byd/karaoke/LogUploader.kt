@@ -22,11 +22,7 @@ object LogUploader {
         val lines = events.lines().filter { it.isNotBlank() }.toMutableList()
         if (crash != null) lines += "CRASH " + crash.replace("\n", " ⏎ ")
         if (lines.isEmpty()) { onDone(false); return }
-        val device = runCatching {
-            android.provider.Settings.Secure.getString(
-                app.contentResolver, android.provider.Settings.Secure.ANDROID_ID
-            )
-        }.getOrNull() ?: "unknown"
+        val device = InstallId.get(app)
         val body = Gson().toJson(
             mapOf("device" to device, "ver" to BuildConfig.VERSION_NAME, "lines" to lines)
         )
