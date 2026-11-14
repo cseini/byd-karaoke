@@ -1,6 +1,8 @@
 // 앱이 노래방 모드로 곡을 재생할 때마다 호출(옵트인 아님, fire-and-forget) → D1 played_songs.
 // 목적: 사용자들이 실제로 많이 부르는 TJ/금영 곡을 자동으로 추려 간주점프 데이터화 대상으로 삼는다.
-export async function onRequestPost({ request, env }) {
+import { deviceHash, maybeSweep } from '../_lib/privacy.js';
+
+export async function onRequestPost({ request, env, waitUntil }) {
   try {
     const body = await request.json();
     const videoId = String(body.videoId || '').slice(0, 32);
@@ -8,7 +10,7 @@ export async function onRequestPost({ request, env }) {
     // deviceId: 헤드유닛(Android ID) 단위 — 한 사람(차)이 같은 곡을 여러 번 불러도
     // unique_devices 는 1로만 잡히게 하기 위한 중복제거 키. 구버전 앱은 안 보낼 수 있어 optional —
     // 없으면 song_device_plays/unique_devices 갱신을 건너뛰고 기존 play_count 집계만 한다.
-    const deviceId = String(body.deviceId || '').slice(0, 64) || null;
+    const deviceId = await deviceHash(env, String(body.deviceId || '').slice(0, 64));
     if (!videoId) return new Response(null, { status: 400 });
     const now = new Date().toISOString();
 
@@ -49,6 +51,7 @@ export async function onRequestPost({ request, env }) {
       );
     }
     await env.DB.batch(statements);
+    maybeSweep(env, waitUntil);
     return new Response(null, { status: 204 });
   } catch {
     return new Response(null, { status: 400 });
