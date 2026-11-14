@@ -17,18 +17,12 @@ object CafeNick {
     private const val ENDPOINT = "https://byd.cseini.co.kr/feedback"
     const val SEP = "ll"
 
-    /** 차량별 안정적 태그(PII 아님) — ANDROID_ID 의 SHA-256 앞 8hex. 오토전비와 동일. */
+    /** 설치할 때 한 번 만든 무작위 8hex 꼬리표(PII 아님) — 기기 고유번호와 무관하고 다른 앱과도 연결되지 않는다. 앱을 지우면 새로 만들어진다. */
     fun deviceTag(ctx: Context): String {
-        return try {
-            val aid = android.provider.Settings.Secure.getString(
-                ctx.contentResolver, android.provider.Settings.Secure.ANDROID_ID
-            )
-            if (aid.isNullOrEmpty()) return "unk"
-            val h = java.security.MessageDigest.getInstance("SHA-256").digest(aid.toByteArray(Charsets.UTF_8))
-            val sb = StringBuilder()
-            for (i in 0 until 4) sb.append("%02x".format(h[i].toInt() and 0xff))
-            sb.toString()
-        } catch (t: Throwable) { "unk" }
+        val p = ctx.applicationContext.getSharedPreferences("device_tag", Context.MODE_PRIVATE)
+        p.getString("v", null)?.let { return it }
+        val b = ByteArray(4).also { java.security.SecureRandom().nextBytes(it) }
+        return b.joinToString("") { "%02x".format(it.toInt() and 0xff) }.also { p.edit().putString("v", it).apply() }
     }
 
     /** 저장된 닉이 3분절 규격이면 다시 묻지 않는다. */
