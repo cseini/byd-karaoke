@@ -274,16 +274,6 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("prefer_usb", true)
         set(v) = prefs.edit().putBoolean("prefer_usb", v).apply()
 
-    /** 카페 닉네임 — "지역ll닉네임ll차종" 3분절. 앱 시작 시 필수 입력(닫기 불가 다이얼로그). */
-    var cafeNick: String
-        get() = prefs.getString("cafe_nick", "") ?: ""
-        set(v) = prefs.edit().putString("cafe_nick", v).apply()
-
-    /** 닉네임 등록을 서버(feedback)에 전송 완료했는지. 오프라인 등록 시 false 로 남아 다음 실행에 재전송. */
-    var cafeNickSynced: Boolean
-        get() = prefs.getBoolean("cafe_nick_synced", false)
-        set(v) = prefs.edit().putBoolean("cafe_nick_synced", v).apply()
-
     /** 비공식 써드파티 앱 고지 동의(보증수리 제한 가능성 등) — 최초 1회만 받고 재노출 안 함. */
     var thirdPartyConsentGiven: Boolean
         get() = prefs.getBoolean("third_party_consent", false)

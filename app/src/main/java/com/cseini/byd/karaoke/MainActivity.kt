@@ -653,9 +653,9 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         // USB 마이크·휠 버튼 제어는 설정 옵션(기본 꺼짐). 실제 시작/중지는 onWindowFocusChanged 에서
         // 설정값에 따라 처리(권한 다이얼로그가 포커스 전이로 닫히는 문제 + 옵트인 즉시 반영).
 
-        // 비공식 써드파티 앱 고지 동의(최초 1회, 닫기 불가) → 통과 후 카페 닉네임 게이트.
+        // 비공식 써드파티 앱 고지 동의(최초 1회, 닫기 불가) → 통과 후 운행 경고.
         ThirdPartyConsent.gate(this, settings) {
-            if (savedInstanceState == null) ThirdPartyConsent.drivingWarning(this) { promptCafeNickIfNeeded() } else promptCafeNickIfNeeded()
+            if (savedInstanceState == null) ThirdPartyConsent.drivingWarning(this) {}
         }
         // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
         prewarmScreens()
@@ -668,13 +668,12 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         com.cseini.byd.karaoke.share.ReserveServer.start(this, this)
 
         // 접근성(마이크 버튼)에서 넘어온 음성검색 요청(콜드 스타트)
-        // 닉네임 모달이 떠 있으면 그 뒤에서 USB/마이크를 잡지 않도록 스킵한다.
-        if (intent?.action == KeyCatcherService.ACTION_VOICE && CafeNick.isRegistered(settings.cafeNick)) {
+        if (intent?.action == KeyCatcherService.ACTION_VOICE) {
             val sealion = intent.getBooleanExtra("sealion", false)
             searchInput.post { startVoiceGated("a11y", sealion) }
         }
         // 음성 비서(PlayQueryReceiver)가 고른 곡 — 콜드 스타트. 화면 회전 등 재생성에서는 다시 시작하지 않는다.
-        if (savedInstanceState == null && CafeNick.isRegistered(settings.cafeNick)) handlePlayItemIntent(intent)
+        if (savedInstanceState == null) handlePlayItemIntent(intent)
     }
 
     /** PlayQueryReceiver 가 고른 곡을 노래방 화면에서 바로 시작한다. */
@@ -685,30 +684,6 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         CrashLog.event(this, "외부 호출 곡 시작 v=$id '${title.take(30)}'")
         searchInput.post { playNow(QueueItem(id, title)) }
         return true
-    }
-
-    /**
-     * 앱 실행 시 카페 닉네임을 필수로 받는다. 저장된 닉이 "지역ll닉ll차종" 3분절이면 다시 묻지 않는다.
-     * 미동기화(오프라인 등록) 상태면 조용히 재전송만 시도한다.
-     */
-    private fun promptCafeNickIfNeeded() {
-        if (CafeNick.isRegistered(settings.cafeNick)) {
-            if (!settings.cafeNickSynced) {
-                CafeNick.send(this, settings.cafeNick) { ok -> if (ok) settings.cafeNickSynced = true }
-            }
-            return
-        }
-        CafeNick.showDialog(this, "", cancelable = false) { combined -> saveCafeNick(combined) }
-    }
-
-    /** 닉네임 저장 — 게이트(신규 등록) 전용. 설정 화면(수정)은 SettingsScreen 이 자체 처리한다. */
-    private fun saveCafeNick(combined: String) {
-        settings.cafeNick = combined
-        settings.cafeNickSynced = false
-        CafeNick.send(this, combined) { sent ->
-            if (sent) settings.cafeNickSynced = true
-            else CrashLog.event(this, "닉네임 저장 서버 전송 실패(오프라인?) — 다음 실행에 재전송")
-        }
     }
 
     /** 접근성 서비스(휠 버튼 감지)가 실제로 켜져 있는지. */

@@ -1,7 +1,6 @@
 package com.cseini.byd.karaoke
 
 import android.content.Context
-import com.cseini.byd.karaoke.data.SettingsStore
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -17,13 +16,11 @@ object FeedbackSender {
 
     fun send(ctx: Context, category: String, message: String, attachLog: Boolean, onDone: (Boolean) -> Unit) {
         val app = ctx.applicationContext
-        val settings = SettingsStore(app)
         val body = JSONObject()
             .put("app", "karaoke")
             .put("uid", CafeNick.deviceTag(app))
             .put("device", "headunit")
             .put("model", android.os.Build.MODEL)
-            .put("nickname", settings.cafeNick)
             .put("appVer", BuildConfig.VERSION_NAME)
             .put("category", category)
             .put("message", message)

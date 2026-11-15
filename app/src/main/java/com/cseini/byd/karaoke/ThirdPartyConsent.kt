@@ -94,7 +94,7 @@ object ThirdPartyConsent {
     fun gate(activity: Activity, settings: com.cseini.byd.karaoke.data.SettingsStore, onDone: () -> Unit) {
         if (settings.thirdPartyConsentGiven) {
             if (!settings.thirdPartyConsentSynced) {
-                send(activity, settings.cafeNick) { ok -> if (ok) settings.thirdPartyConsentSynced = true }
+                send(activity) { ok -> if (ok) settings.thirdPartyConsentSynced = true }
             }
             onDone()
             return
@@ -105,21 +105,21 @@ object ThirdPartyConsent {
             .setCancelable(false)
             .setPositiveButton("이해했고 동의합니다") { _, _ ->
                 settings.thirdPartyConsentGiven = true
-                send(activity, settings.cafeNick) { ok -> settings.thirdPartyConsentSynced = ok }
+                send(activity) { ok -> settings.thirdPartyConsentSynced = ok }
                 onDone()
             }
             .show()
     }
 
     /** 동의 사실 1건 전송 — 전용 영구 보존 테이블(legal_consents)로 모든 BYD 앱이 공유하는 경로. */
-    private fun send(ctx: Context, cafeNick: String, onDone: (Boolean) -> Unit) {
+    private fun send(ctx: Context, onDone: (Boolean) -> Unit) {
         val app = ctx.applicationContext
         val body = Gson().toJson(
             mapOf(
                 "app" to "karaoke",
                 "uid" to CafeNick.deviceTag(app),
                 "vin" to "",
-                "nickname" to cafeNick,
+                "nickname" to "",
                 "consent_version" to "v1",
                 "app_build" to BuildConfig.VERSION_NAME,
                 "device" to "headunit",

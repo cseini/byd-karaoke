@@ -223,14 +223,6 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
             checkUpdate()
         }
         root.findViewById<Button>(R.id.btn_feedback).setOnClickListener { showFeedbackDialog() }
-        root.findViewById<Button>(R.id.btn_cafe_nick).setOnClickListener {
-            CafeNick.showDialog(activity, settings.cafeNick, cancelable = true) { combined ->
-                settings.cafeNick = combined
-                settings.cafeNickSynced = false
-                CafeNick.send(activity, combined) { ok -> if (ok) settings.cafeNickSynced = true }
-                Toast.makeText(activity, "닉네임을 저장했습니다: $combined", Toast.LENGTH_SHORT).show()
-            }
-        }
         refreshCafeAuthBtn()
         recoverCafeAuth()
         cafeAuthBtn.setOnClickListener { onCafeAuthButton() }
