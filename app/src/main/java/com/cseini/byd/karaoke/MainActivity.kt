@@ -655,7 +655,8 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
         // 비공식 써드파티 앱 고지 동의(최초 1회, 닫기 불가) → 통과 후 운행 경고.
         ThirdPartyConsent.gate(this, settings) {
-            if (savedInstanceState == null) ThirdPartyConsent.drivingWarning(this) {}
+            if (savedInstanceState == null) ThirdPartyConsent.drivingWarning(this) { CafeGate.run(this) }
+            else CafeGate.run(this)
         }
         // 설정·녹음함 화면 레이아웃 미리 인플레이트(백그라운드) — 첫 열기 1.8초 지연 제거.
         prewarmScreens()
@@ -799,6 +800,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
 
     override fun onResume() {
         super.onResume()
+        CafeGate.onResume(this)
         // 설치 권한을 켜고 설정에서 돌아온 경우, 미뤄둔 업데이트 설치를 자동 재개
         UpdateManager.retryPendingInstall(this)
         refreshHistory()

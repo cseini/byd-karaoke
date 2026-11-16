@@ -52,17 +52,14 @@ object CafeAuthSync {
     }
 
     /** 코드 발급(블로킹 — 백그라운드 스레드에서 호출). 성공 시 코드 반환, 실패 null. */
-    /** forChat=true 는 이미 인증을 마친 사람이 단톡방 안내만 받으려고 코드를 한 번 더 남기는 경우:
-     *  증명 앱 이름을 chat 으로 보내 기기 슬롯을 쓰지 않고, 기기 꼬리표·차종도 보내지 않는다. */
-    fun startAuth(ctx: Context, forChat: Boolean = false): String? {
+    fun startAuth(ctx: Context): String? {
         return runCatching {
             val rawB = ByteArray(32)
             SecureRandom().nextBytes(rawB)
             val raw = hex(rawB)
             val th = sha256hex(raw)
-            val body = JSONObject().put("token_hash", th)
-            if (forChat) body.put("app", "chat")
-            else body
+            val body = JSONObject()
+                .put("token_hash", th)
                 .put("app", "karaoke")
                 .put("label", android.os.Build.MODEL + " 헤드유닛")
                 .put("deviceTag", CafeNick.deviceTag(ctx))
@@ -85,6 +82,33 @@ object CafeAuthSync {
         val th = p.getString("th", "") ?: ""
         if (code.isEmpty() || th.isEmpty() || p.getLong("expires", 0) < System.currentTimeMillis()) return null
         return "$BASE/cafe-auth?code=$code&th=$th"
+    }
+
+    /** 정회원 권한 체크 결과. enforceAt: 사용 제한 시작 시각(밀리초, 0 이면 서버가 정하지 않음). */
+    class GateState(val pass: Boolean, val enforceAt: Long)
+
+    /** 정회원 권한 확인(블로킹 — 백그라운드 스레드에서 호출). 서버로는 인증에 쓰던 해시(th)뿐 보낸다.
+     *  원문 비밀값이 없는(옛 버전에서 인증한) 사용자는 th 를 만들 수 없어 임시 값으로 묻고 미통과로 본다.
+     *  서버에 닿지 못하면 마지막 통과가 7일 안일 때만 통과시키고, 아니면 알고 있던 제한 시각 전까지만 통과시킨다. */
+    fun checkGate(ctx: Context): GateState {
+        val pr = p(ctx)
+        val now = System.currentTimeMillis()
+        val tok = pr.getString("tok", "") ?: ""
+        val th = if (tok.isNotEmpty()) sha256hex(tok) else sha256hex(hex(ByteArray(32).also { SecureRandom().nextBytes(it) }))
+        val resp = req("GET", "/cafe-auth/status?th=$th", null)
+        val j = runCatching { JSONObject(resp ?: "") }.getOrNull()
+        if (j == null || !j.optBoolean("ok", false)) {
+            val cached = pr.getLong("gate_enforce_at", 0)
+            if (now - pr.getLong("gate_pass_at", 0) < 7L * 24 * 3600 * 1000) return GateState(true, cached)
+            return GateState(cached == 0L || now < cached, cached)
+        }
+        val enforceAt = j.optLong("gateEnforceAt", 0)
+        val pass = (tok.isNotEmpty() && j.optBoolean("verified", false)) || j.optBoolean("exempt", false)
+        val e = pr.edit()
+        if (enforceAt != 0L) e.putLong("gate_enforce_at", enforceAt) else e.remove("gate_enforce_at")
+        if (pass) e.putLong("gate_pass_at", now)
+        e.apply()
+        return GateState(pass, enforceAt)
     }
 
     /** 단톡방 안내를 받을 수 있는 상태(인증 확인 때 원문 비밀값을 보관한 경우). 이전 버전에서 인증한 사람은 없다. */

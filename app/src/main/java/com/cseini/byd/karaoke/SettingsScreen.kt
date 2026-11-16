@@ -294,17 +294,8 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         if (!CafeAuthSync.hasChatToken(activity)) {
             androidx.appcompat.app.AlertDialog.Builder(activity)
                 .setTitle("단톡방 입장")
-                .setMessage("단톡방 안내를 받으려면 카페 인증 코드를 한 번 더 남겨 확인해야 합니다. (이미 한 인증과 별개로, 기기 등록 수는 늘지 않습니다)")
-                .setPositiveButton("진행") { _, _ ->
-                    if (CafeAuthSync.isPending(activity)) { showCafeAuthDialog(CafeAuthSync.pendingCode(activity)); return@setPositiveButton }
-                    activity.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        val code = CafeAuthSync.startAuth(activity, forChat = true)
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            if (code == null) Toast.makeText(activity, "코드 생성 실패 — 네트워크를 확인하세요", Toast.LENGTH_SHORT).show()
-                            else showCafeAuthDialog(code)
-                        }
-                    }
-                }
+                .setMessage("단톡방 안내를 받으려면 카페 인증 코드를 한 번 더 남겨 확인해야 합니다.")
+                .setPositiveButton("진행") { _, _ -> CafeGate.showAuth(activity) { refreshCafeAuthBtn() } }
                 .setNegativeButton("취소", null)
                 .show()
             return
