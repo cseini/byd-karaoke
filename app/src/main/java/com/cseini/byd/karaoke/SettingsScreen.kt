@@ -262,6 +262,33 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         cafeChatBtn.visibility = if (verified) View.VISIBLE else View.GONE
     }
 
+    /** 단톡방 입장 안내 화면: 폰 카메라로 찍는 QR + 주소·비밀번호 글. 헤드유닛처럼 넓은 화면은 가로로 나란히. */
+    private fun chatDialogView(url: String, pw: String): android.view.View {
+        val c = activity
+        val d = c.resources.displayMetrics.density
+        val wide = c.resources.configuration.screenWidthDp >= 600
+        val qrPx = (200 * d).toInt()
+        val img = android.widget.ImageView(c).apply {
+            setImageBitmap(com.cseini.byd.karaoke.share.qrBitmap(url, qrPx))
+            layoutParams = android.widget.LinearLayout.LayoutParams(qrPx, qrPx)
+        }
+        val txt = android.widget.TextView(c).apply {
+            text = "폰 카메라로 QR을 찍으면 단톡방 주소로 가요.\n\n주소\n$url\n\n비밀번호\n$pw\n\n단톡방 주소와 비밀번호는 다른 분께 알리지 말아 주세요."
+            textSize = 15f
+            setTextIsSelectable(true)
+            val pad = (16 * d).toInt()
+            if (wide) setPadding(pad, 0, 0, 0) else setPadding(0, pad, 0, 0)
+        }
+        val box = android.widget.LinearLayout(c).apply {
+            orientation = if (wide) android.widget.LinearLayout.HORIZONTAL else android.widget.LinearLayout.VERTICAL
+            val pad = (20 * d).toInt()
+            setPadding(pad, pad, pad, 0)
+            addView(img)
+            addView(txt)
+        }
+        return android.widget.ScrollView(c).apply { addView(box) }
+    }
+
     /** 정회원 단톡방 안내 — 인증이 확인된 사람만 버튼이 보인다. 주소·비밀번호는 서버에서 받아 화면에만 보이고 저장·로그하지 않는다. */
     private fun onCafeChatButton() {
         if (!CafeAuthSync.hasChatToken(activity)) {
@@ -290,7 +317,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
                 if (url != null && pw != null) {
                     androidx.appcompat.app.AlertDialog.Builder(activity)
                         .setTitle("단톡방 입장")
-                        .setMessage("주소\n$url\n\n비밀번호\n$pw\n\n단톡방 주소와 비밀번호는 다른 분께 알리지 말아 주세요.")
+                        .setView(chatDialogView(url, pw))
                         .setPositiveButton("주소 열기") { _, _ ->
                             try { activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
                             catch (_: Throwable) { Toast.makeText(activity, "이 기기에서 주소를 열 수 없어요. 위 주소를 폰에서 열어 주세요", Toast.LENGTH_LONG).show() }
