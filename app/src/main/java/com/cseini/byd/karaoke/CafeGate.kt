@@ -7,11 +7,14 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.cseini.byd.karaoke.share.qrBitmap
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -145,14 +148,21 @@ object CafeGate {
             setPadding(0, dp(14), 0, dp(14))
         })
         box.addView(TextView(act).apply {
-            text = "'인증 화면 열기'를 누르면 카페 글로 가는 안내 화면이 떠요. 댓글을 남기면 이 창에서 자동으로 확인돼요."
+            text = "폰으로 하려면 카메라로 아래 QR을 찍어 주세요. 이 화면에서 하려면 '인증 화면 열기'를 누르세요. 댓글을 남기면 이 창에서 자동으로 확인돼요."
             textSize = 13f
         })
+        CafeAuthSync.webUrl(act)?.let { u ->
+            val qrPx = dp(180)
+            box.addView(ImageView(act).apply {
+                setImageBitmap(qrBitmap(u, qrPx))
+                layoutParams = LinearLayout.LayoutParams(qrPx, qrPx).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(10) }
+            })
+        }
         val stat = TextView(act).apply { text = "확인 중… (보통 15~30초, 길면 5분)"; textSize = 13f; setPadding(0, dp(10), 0, 0) }
         box.addView(stat)
         val dlg = AlertDialog.Builder(act)
             .setTitle("카페 정회원 인증")
-            .setView(box)
+            .setView(ScrollView(act).apply { addView(box) })
             .setPositiveButton("인증 화면 열기", null)
             .setNegativeButton("닫기", null)
             .create()
@@ -164,7 +174,7 @@ object CafeGate {
             val url = CafeAuthSync.webUrl(act)
             if (url == null) Toast.makeText(act, "코드가 만료됐어요 — 닫고 다시 시도하세요", Toast.LENGTH_SHORT).show()
             else runCatching { act.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                .onFailure { Toast.makeText(act, "이 기기에서 브라우저를 열 수 없어요. 폰에서 byd.cseini.co.kr/cafe-auth 로 진행해 주세요", Toast.LENGTH_LONG).show() }
+                .onFailure { Toast.makeText(act, "이 기기에서 브라우저를 열 수 없어요. 위 QR을 폰 카메라로 찍어 진행해 주세요", Toast.LENGTH_LONG).show() }
         }
         task = object : Runnable {
             override fun run() {

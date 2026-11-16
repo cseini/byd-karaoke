@@ -321,7 +321,6 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         val t0 = android.os.SystemClock.elapsedRealtime()
         fun lap(label: String) = CrashLog.event(this, "closeScreen $label +${android.os.SystemClock.elapsedRealtime() - t0}ms")
         screenCleanup?.invoke(); screenCleanup = null
-        settingsScreen?.onScreenClosed()
         settingsScreen = null
         if (::embedScreen.isInitialized) {
             embedScreen.removeAllViews()
