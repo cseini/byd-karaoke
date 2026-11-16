@@ -40,6 +40,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     private val cafeAuthPoll = android.os.Handler(activity.mainLooper)
     private var cafeAuthPollTask: Runnable? = null
     private val cafeAuthBtn: Button = root.findViewById(R.id.btn_cafe_auth)
+    private val cafeChatBtn: Button = root.findViewById(R.id.btn_cafe_chat)
 
     private val sttEngineGroup: RadioGroup = root.findViewById(R.id.stt_engine_group)
     private val geminiKeyArea: View = root.findViewById(R.id.gemini_key_area)
@@ -226,6 +227,7 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
         refreshCafeAuthBtn()
         recoverCafeAuth()
         cafeAuthBtn.setOnClickListener { onCafeAuthButton() }
+        cafeChatBtn.setOnClickListener { onCafeChatButton() }
         root.findViewById<Button>(R.id.btn_key_qr).setOnClickListener { showKeyQr() }
 
         NavBar.wireEmbedded(root, "settings") { host.onNavigate(it) }
@@ -255,7 +257,64 @@ class SettingsScreen(private val root: View, private val host: ScreenHost) {
     }
 
     private fun refreshCafeAuthBtn() {
-        cafeAuthBtn.text = if (CafeAuthSync.isVerified(activity)) "카페인증 · 인증됨" else "카페인증"
+        val verified = CafeAuthSync.isVerified(activity)
+        cafeAuthBtn.text = if (verified) "카페인증 · 인증됨" else "카페인증"
+        cafeChatBtn.visibility = if (verified) View.VISIBLE else View.GONE
+    }
+
+    /** 정회원 단톡방 안내 — 인증이 확인된 사람만 버튼이 보인다. 주소·비밀번호는 서버에서 받아 화면에만 보이고 저장·로그하지 않는다. */
+    private fun onCafeChatButton() {
+        if (!CafeAuthSync.hasChatToken(activity)) {
+            androidx.appcompat.app.AlertDialog.Builder(activity)
+                .setTitle("단톡방 입장")
+                .setMessage("단톡방 안내를 받으려면 카페 인증 코드를 한 번 더 남겨 확인해야 합니다. (이미 한 인증과 별개로, 기기 등록 수는 늘지 않습니다)")
+                .setPositiveButton("진행") { _, _ ->
+                    if (CafeAuthSync.isPending(activity)) { showCafeAuthDialog(CafeAuthSync.pendingCode(activity)); return@setPositiveButton }
+                    activity.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val code = CafeAuthSync.startAuth(activity, forChat = true)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            if (code == null) Toast.makeText(activity, "코드 생성 실패 — 네트워크를 확인하세요", Toast.LENGTH_SHORT).show()
+                            else showCafeAuthDialog(code)
+                        }
+                    }
+                }
+                .setNegativeButton("취소", null)
+                .show()
+            return
+        }
+        Toast.makeText(activity, "확인 중…", Toast.LENGTH_SHORT).show()
+        activity.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val r = CafeAuthSync.fetchChat(activity)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                val url = r.url; val pw = r.password
+                if (url != null && pw != null) {
+                    androidx.appcompat.app.AlertDialog.Builder(activity)
+                        .setTitle("단톡방 입장")
+                        .setMessage("주소\n$url\n\n비밀번호\n$pw\n\n단톡방 주소와 비밀번호는 다른 분께 알리지 말아 주세요.")
+                        .setPositiveButton("주소 열기") { _, _ ->
+                            try { activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                            catch (_: Throwable) { Toast.makeText(activity, "이 기기에서 주소를 열 수 없어요. 위 주소를 폰에서 열어 주세요", Toast.LENGTH_LONG).show() }
+                        }
+                        .setNeutralButton("비밀번호 복사") { _, _ ->
+                            (activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("단톡방 비밀번호", pw))
+                            Toast.makeText(activity, "비밀번호를 복사했어요", Toast.LENGTH_SHORT).show()
+                        }
+                        .setNegativeButton("닫기", null)
+                        .show()
+                } else {
+                    Toast.makeText(activity, when (r.error) {
+                        "not_member" -> "지금은 정회원 확인이 되지 않아요(등급 변경이나 활동정지일 수 있어요)"
+                        "not_authenticated", "no_token" -> "인증 기록을 찾지 못했어요. 단톡방 입장을 다시 눌러 인증을 한 번 더 해 주세요"
+                        "not_configured" -> "단톡방 안내를 준비 중이에요. 잠시 후 다시 시도해 주세요"
+                        "rate_limited" -> "잠시 후 다시 시도해 주세요"
+                        "network" -> "네트워크를 확인해 주세요"
+                        else -> "단톡방 안내를 받지 못했어요. 잠시 후 다시 시도해 주세요"
+                    }, Toast.LENGTH_LONG).show()
+                    refreshCafeAuthBtn()
+                }
+            }
+        }
     }
 
     private fun stopCafeAuthPoll() {

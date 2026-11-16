@@ -43,6 +43,18 @@
             android:text="카페인증" />
 
         <Button
+            android:id="@+id/btn_cafe_chat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            android:visibility="gone"
+            app:backgroundTint="@color/tj_panel_light"
+            android:textColor="@color/tj_text_primary"
+            android:text="단톡방 입장" />
+
+        <Button
             android:id="@+id/btn_check_update"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
