@@ -55,6 +55,8 @@ object CafeGate {
         if (checking) return
         checking = true
         Thread({
+            // 코드 창이 닫혀 있는 동안 서버가 확인했다면 이 앱은 아직 모른다 — 대기 중인 인증이 있으면 먼저 결과를 받아 둔다.
+            if (CafeAuthSync.isPending(act)) CafeAuthSync.pollResult(act)
             val st = CafeAuthSync.checkGate(act)
             act.runOnUiThread {
                 checking = false
@@ -125,6 +127,7 @@ object CafeGate {
 
     private fun recheckAfterAuth(act: AppCompatActivity) {
         Thread({
+            if (CafeAuthSync.isPending(act)) CafeAuthSync.pollResult(act)
             val st = CafeAuthSync.checkGate(act)
             act.runOnUiThread {
                 if (act.isFinishing || act.isDestroyed) return@runOnUiThread
