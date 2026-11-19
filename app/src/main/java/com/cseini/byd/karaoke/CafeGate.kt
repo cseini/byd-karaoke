@@ -14,7 +14,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.cseini.byd.karaoke.share.qrBitmap
+import com.cseini.byd.karaoke.update.UpdateFlow
+import com.cseini.byd.karaoke.update.UpdateManager
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -94,12 +98,29 @@ object CafeGate {
             .setMessage("이 앱은 BYD 차량 전용이라 카페 정회원 인증을 마친 분만 쓸 수 있어요.\n\n$HOW_TO\n\n이전에 인증하셨어도 한 번만 다시 인증해 주세요. 정회원 등급이 아니거나 활동이 정지된 계정은 쓸 수 없어요.")
             .setCancelable(false)
             .setPositiveButton("지금 인증하기", null)
+            .setNeutralButton("업데이트 확인", null)
             .setNegativeButton("앱 닫기") { _, _ -> act.finishAffinity() }
             .create()
         dlg.show()
         // 인증 화면이 뜨는 동안에도 이 안내가 뒤에 남아 있어야 하므로 누르면 닫히지 않게 한다.
         dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { showAuth(act) { recheckAfterAuth(act) } }
+        // 시작 때 뜬 새 버전 안내가 이 창 뒤에 가려져도 인증 전에 최신 버전을 받을 수 있게 한다.
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { checkUpdateFromBlock(act) }
         blockDlg = dlg
+    }
+
+    private var updateChecking = false
+
+    private fun checkUpdateFromBlock(act: AppCompatActivity) {
+        if (updateChecking) return
+        updateChecking = true
+        Toast.makeText(act, "업데이트 확인 중…", Toast.LENGTH_SHORT).show()
+        act.lifecycleScope.launch {
+            val release = try { UpdateManager.checkForUpdate() } finally { updateChecking = false }
+            if (act.isFinishing || act.isDestroyed) return@launch
+            if (release == null) Toast.makeText(act, "새 버전이 없어요(현재 v${BuildConfig.VERSION_NAME})", Toast.LENGTH_LONG).show()
+            else UpdateFlow.start(act, release)
+        }
     }
 
     private fun recheckAfterAuth(act: AppCompatActivity) {
