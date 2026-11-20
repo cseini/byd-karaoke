@@ -65,6 +65,7 @@ object CafeGate {
                 val now = System.currentTimeMillis()
                 when {
                     st.pass -> { blockDlg?.dismiss(); blockDlg = null }
+                    st.paused -> showPaused(act, st.pauseTitle, st.pauseBody)
                     st.enforceAt != 0L && now >= st.enforceAt -> showBlock(act)
                     else -> if (!graceShown) { graceShown = true; showGrace(act, st.enforceAt) }
                 }
@@ -91,6 +92,28 @@ object CafeGate {
             .setPositiveButton("지금 인증하기") { _, _ -> showAuth(act) { recheckAfterAuth(act) } }
             .setNegativeButton("나중에", null)
             .show()
+    }
+
+    /** 운영자가 서비스를 멈춘 동안의 안내 — 인증 버튼 없이 안내문과 업데이트 확인·앱 닫기만 둔다. */
+    private var pausedDlg: AlertDialog? = null
+
+    private fun showPaused(act: AppCompatActivity, title: String, body: String) {
+        if (pausedDlg?.isShowing == true) return
+        blockDlg?.dismiss()
+        val dlg = AlertDialog.Builder(act)
+            .setTitle(title.ifEmpty { "서비스를 잠시 멈췄어요" })
+            .setMessage(body.ifEmpty { "이용을 잠시 멈췄어요. 다시 열리면 카페 공지로 안내드릴게요." })
+            .setCancelable(false)
+            .setPositiveButton("확인", null)
+            .setNeutralButton("업데이트 확인", null)
+            .setNegativeButton("앱 닫기") { _, _ -> act.finishAffinity() }
+            .create()
+        dlg.show()
+        // '확인'은 창을 닫지 않고 지금 상태를 다시 묻는다 — 서비스가 다시 열렸으면 바로 풀린다.
+        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { recheckAfterAuth(act) }
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { checkUpdateFromBlock(act) }
+        blockDlg = dlg
+        pausedDlg = dlg
     }
 
     private fun showBlock(act: AppCompatActivity) {
@@ -135,6 +158,8 @@ object CafeGate {
                 if (st.pass) {
                     blockDlg?.dismiss(); blockDlg = null
                     Toast.makeText(act, "정회원 확인이 끝났어요", Toast.LENGTH_SHORT).show()
+                } else if (st.paused) {
+                    Toast.makeText(act, "아직 멈춰 있어요", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(act, "아직 정회원으로 확인되지 않아요(등급이나 활동정지를 확인해 주세요)", Toast.LENGTH_LONG).show()
                 }

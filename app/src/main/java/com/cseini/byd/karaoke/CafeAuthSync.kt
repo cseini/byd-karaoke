@@ -85,7 +85,13 @@ object CafeAuthSync {
     }
 
     /** 정회원 권한 체크 결과. enforceAt: 사용 제한 시작 시각(밀리초, 0 이면 서버가 정하지 않음). */
-    class GateState(val pass: Boolean, val enforceAt: Long)
+    class GateState(
+        val pass: Boolean,
+        val enforceAt: Long,
+        val paused: Boolean = false,
+        val pauseTitle: String = "",
+        val pauseBody: String = "",
+    )
 
     /** 정회원 권한 확인(블로킹 — 백그라운드 스레드에서 호출). 서버로는 인증에 쓰던 해시(th)뿐 보낸다.
      *  원문 비밀값이 없는(옛 버전에서 인증한) 사용자는 th 를 만들 수 없어 임시 값으로 묻고 미통과로 본다.
@@ -108,6 +114,10 @@ object CafeAuthSync {
         if (enforceAt != 0L) e.putLong("gate_enforce_at", enforceAt) else e.remove("gate_enforce_at")
         if (pass) e.putLong("gate_pass_at", now)
         e.apply()
+        // 운영자가 서비스를 멈춘 경우 — 예외 대상이 아니면 서버가 안내문과 함께 알려 준다(인증으로는 풀리지 않는다).
+        if (!pass && j.optBoolean("paused", false)) {
+            return GateState(false, enforceAt, true, j.optString("pauseTitle", ""), j.optString("pauseBody", ""))
+        }
         return GateState(pass, enforceAt)
     }
 
