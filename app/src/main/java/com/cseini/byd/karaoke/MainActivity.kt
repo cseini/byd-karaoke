@@ -364,7 +364,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
     private lateinit var repo: YouTubeRepository
     private lateinit var voice: VoiceSearch
 
-    private lateinit var searchInput: EditText
+    private lateinit var searchInput: android.widget.AutoCompleteTextView
     private var searchJob: kotlinx.coroutines.Job? = null
     private var inFlightQuery: String? = null   // 진행 중인 검색어(같은 검색 중복 재시작 방지)
     private var resultsLayoutGeneral: Boolean? = null   // results 에 마지막으로 적용한 레이아웃 모드(불필요한 재할당 방지)
@@ -410,7 +410,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         }
     }
     private val adapter = ResultAdapter(
-        onReserve = { reserve(it) },
+        onReserve = { recordSearch(); reserve(it) },
         onPlayNow = { item ->
             if (item.videoId.isBlank()) {
                 // 차트 목록(제목·가수만 있고 반주 videoId 는 아직 없음) — 골랐을 때 그제서야 검색한다.
@@ -419,7 +419,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
                 chartAutoPlay = true   // 검색 결과가 오면 목록만 보여주지 말고 1위 곡을 바로 재생한다.
                 searchInput.setText(listOf(item.title, item.channel).filter { it.isNotBlank() }.joinToString(" "))
                 doSearch()
-            } else playNow(item)
+            } else { recordSearch(); playNow(item) }
         },
     )
     // 차트에서 고른 곡 검색 — 결과 목록만 보여주지 않고 최상위 결과를 바로 재생한다(doSearch 에서 소비).
@@ -620,7 +620,44 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
         }
 
         searchInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) { hideKeyboard(); doSearch(); true } else false
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) { recordSearch(); hideKeyboard(); doSearch(); true } else false
+        }
+        // 최근 검색어 드롭다운 — 글자를 치면(자동 필터 임계값을 크게 둬) 뜨지 않고, 빈 입력창에 포커스·터치할 때만 직접 띄운다.
+        val recentAdapter = SearchHistoryAdapter(this)
+        searchInput.setAdapter(recentAdapter)
+        searchInput.threshold = 1000
+        searchInput.setDropDownBackgroundDrawable(android.graphics.drawable.ColorDrawable(getColor(R.color.tj_panel_light)))
+        fun showRecentSearches() {
+            if (searchInput.text.isNotEmpty()) return
+            val recent = com.cseini.byd.karaoke.data.SearchHistoryStore.recent(this)
+            if (recent.isEmpty()) return
+            recentAdapter.replace(recent)
+            searchInput.post {
+                if (!isFinishing && !isDestroyed && searchInput.isAttachedToWindow &&
+                    searchInput.hasFocus() && searchInput.text.isEmpty()
+                ) runCatching { searchInput.showDropDown() }
+            }
+        }
+        searchInput.setOnFocusChangeListener { _, focused -> if (focused) showRecentSearches() }
+        searchInput.setOnClickListener { showRecentSearches() }
+        recentAdapter.onFill = { q ->
+            searchInput.setText(q)
+            searchInput.setSelection(q.length)
+            searchInput.dismissDropDown()
+        }
+        searchInput.setOnItemClickListener { _, _, pos, _ ->
+            val q = recentAdapter.getItem(pos) ?: return@setOnItemClickListener
+            if (q == SearchHistoryAdapter.CLEAR_ALL) {
+                com.cseini.byd.karaoke.data.SearchHistoryStore.clear(this)
+                recentAdapter.replace(emptyList()); searchInput.dismissDropDown()
+                return@setOnItemClickListener
+            }
+            searchInput.setText(q)
+            searchInput.setSelection(q.length)
+            pendingSearch?.let { searchDebounce.removeCallbacks(it) }
+            recordSearch()
+            hideKeyboard()
+            doSearch()
         }
         // 타이핑마다 자동 검색(디바운스) — 비슷한 곡이 바로 위에 뜨도록.
         // 한글은 조합 중에도 매 글자 변경이 오고 검색 한 번이 결과 페이지 통째(수백 KB)라,
@@ -636,6 +673,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
                 cancelAutoPlay()
             }
             btnClear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
+            if (q.isEmpty() && searchInput.hasFocus()) showRecentSearches()
             pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             if (q.length >= 2) {
                 pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 1200) }
@@ -1001,6 +1039,12 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             showResults()
             status.text = "🎵 ${source.label} — 곡을 고르면 그 노래의 반주를 찾아드려요"
         }
+    }
+
+    /** 사용자가 직접 확정한 검색(엔터·최근 검색어·곡 선택)만 기록 — 자동 조회 중간 글자는 남기지 않는다. */
+    private fun recordSearch() {
+        val q = searchInput.text.toString().trim()
+        if (q.length >= 2) com.cseini.byd.karaoke.data.SearchHistoryStore.add(this, q)
     }
 
     private fun doSearch() {

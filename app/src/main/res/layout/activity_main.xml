@@ -39,7 +39,7 @@
             android:textSize="18sp"
             android:paddingEnd="10dp" />
 
-        <EditText
+        <AutoCompleteTextView
             android:id="@+id/search_input"
             android:layout_width="0dp"
             android:layout_height="44dp"
