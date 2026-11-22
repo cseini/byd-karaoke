@@ -638,7 +638,7 @@ class MainActivity : AppCompatActivity(), ScreenHost, com.cseini.byd.karaoke.sha
             btnClear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
             pendingSearch?.let { searchDebounce.removeCallbacks(it) }
             if (q.length >= 2) {
-                pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 700) }
+                pendingSearch = Runnable { doSearch() }.also { searchDebounce.postDelayed(it, 1200) }
             }
         }
 
