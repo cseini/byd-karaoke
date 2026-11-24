@@ -37,9 +37,9 @@ object CafeGate {
     private var graceShown = false
     private var blockDlg: AlertDialog? = null
     private var checking = false
-    private var bypass = false
+    private var pauseBypass = false
 
-    /** 차단·중지 안내창 제목을 연속 10번 탭하면 앱 프로세스가 끝날 때까지 이 창을 건너뛴다(저장 안 함). */
+    /** 서비스 중지 안내창 제목을 연속 10번 탭하면 앱 프로세스가 끝날 때까지 그 중지 안내를 건너뛴다(저장 안 함). 정회원 인증 창에는 적용하지 않는다. */
     private fun armBypass(dlg: AlertDialog) {
         val title = dlg.findViewById<TextView>(androidx.appcompat.R.id.alertTitle) ?: return
         var taps = 0
@@ -49,7 +49,7 @@ object CafeGate {
             taps = if (now - last > 2000) 1 else taps + 1
             last = now
             if (taps >= 10) {
-                bypass = true
+                pauseBypass = true
                 dlg.dismiss()
                 blockDlg = null
                 pausedDlg = null
@@ -59,13 +59,13 @@ object CafeGate {
 
     /** 앱을 열 때 한 번. */
     fun run(act: AppCompatActivity) {
-        if (!enabled || bypass) return
+        if (!enabled) return
         check(act)
     }
 
     /** 앱이 오래 켜져 있는 차량 특성상, 돌아올 때 마지막 확인이 오래됐으면 다시 확인한다. */
     fun onResume(act: AppCompatActivity) {
-        if (!enabled || bypass) return
+        if (!enabled) return
         if (System.currentTimeMillis() - lastCheckAt < RECHECK_MS && blockDlg == null) return
         check(act)
     }
@@ -79,12 +79,12 @@ object CafeGate {
             val st = CafeAuthSync.checkGate(act)
             act.runOnUiThread {
                 checking = false
-                if (act.isFinishing || act.isDestroyed || bypass) return@runOnUiThread
+                if (act.isFinishing || act.isDestroyed) return@runOnUiThread
                 lastCheckAt = System.currentTimeMillis()
                 val now = System.currentTimeMillis()
                 when {
                     st.pass -> { blockDlg?.dismiss(); blockDlg = null }
-                    st.paused -> showPaused(act, st.pauseTitle, st.pauseBody)
+                    st.paused -> if (!pauseBypass) showPaused(act, st.pauseTitle, st.pauseBody)
                     st.enforceAt != 0L && now >= st.enforceAt -> showBlock(act)
                     else -> if (!graceShown) { graceShown = true; showGrace(act, st.enforceAt) }
                 }
@@ -151,7 +151,6 @@ object CafeGate {
         dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { showAuth(act) { recheckAfterAuth(act) } }
         // 시작 때 뜬 새 버전 안내가 이 창 뒤에 가려져도 인증 전에 최신 버전을 받을 수 있게 한다.
         dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { checkUpdateFromBlock(act) }
-        armBypass(dlg)
         blockDlg = dlg
     }
 
