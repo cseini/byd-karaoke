@@ -27,6 +27,15 @@ object ThirdPartyConsent {
             "• 음성 검색을 쓸 때 녹음한 목소리 (서버를 거쳐 외부 AI 서비스(Groq)로 전달되어 글자로 바뀝니다. 노래방 서버는 녹음을 저장하지 않으며, 직접 넣은 Gemini 키를 쓰면 Google 로 전달됩니다)\n\n" +
             "이 사실을 이해했으며, 사용 중 발생하는 문제는 본인 책임임에 동의하는 경우에만 계속 진행해 주세요."
 
+    // 차가 아닌 폰·태블릿 — 보증수리 문구 없이 같은 정보 고지.
+    private const val PHONE_MESSAGE =
+        "링크 노래방은 BYD 공식 앱이 아닌 비공식 써드파티 앱입니다.\n\n" +
+            "서버로 보내는 정보:\n" +
+            "• 재생한 노래방 곡의 제목 (설치할 때 만든 무작위 값과 함께, 인기곡 집계용)\n" +
+            "• 설정의 '로그 보내기'를 눌렀을 때만 앱 기록\n" +
+            "• 음성 검색을 쓸 때 녹음한 목소리 (서버를 거쳐 외부 AI 서비스(Groq)로 전달되어 글자로 바뀝니다. 노래방 서버는 녹음을 저장하지 않으며, 직접 넣은 Gemini 키를 쓰면 Google 로 전달됩니다)\n\n" +
+            "이 사실을 이해했으며, 사용 중 발생하는 문제는 본인 책임임에 동의하는 경우에만 계속 진행해 주세요."
+
     private const val DRIVING_MESSAGE =
         "운행 중 영상 시청은 위험하며 법으로 금지되어 있습니다.\n\n" +
             "• 기어가 P(주차)·N(중립)일 때만 영상이 보입니다. 주행 중에는 화면이 가려지고 반주 소리만 나옵니다.\n" +
@@ -102,7 +111,7 @@ object ThirdPartyConsent {
         }
         AlertDialog.Builder(activity)
             .setTitle("비공식 써드파티 앱 안내")
-            .setMessage(MESSAGE)
+            .setMessage(if (VehicleProbe.isNonCar()) PHONE_MESSAGE else MESSAGE)
             .setCancelable(false)
             .setPositiveButton("이해했고 동의합니다") { _, _ ->
                 settings.thirdPartyConsentGiven = true
