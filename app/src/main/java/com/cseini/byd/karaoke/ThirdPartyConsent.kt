@@ -36,6 +36,7 @@ object ThirdPartyConsent {
 
     /** 실행할 때마다 보여 주는 운행 중 영상 시청 경고 — 5초 카운트다운 후 자동으로 닫히고, 그 전에 큰 네모 칸을 눌러도 닫힌다. */
     fun drivingWarning(activity: Activity, onDone: () -> Unit) {
+        if (VehicleProbe.isNonCar()) { onDone(); return }
         val dp = activity.resources.displayMetrics.density
         val root = android.widget.LinearLayout(activity).apply {
             orientation = android.widget.LinearLayout.VERTICAL
