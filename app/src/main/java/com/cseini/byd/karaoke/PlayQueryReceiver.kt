@@ -39,6 +39,7 @@ class PlayQueryReceiver : BroadcastReceiver() {
     private suspend fun handle(ctx: Context, query: String, artist: String): JsonObject {
         val settings = SettingsStore(ctx)
         if (!settings.externalVoice) return fail("외부 음성 호출 허용이 꺼져 있습니다(설정)")
+        if (!CafeGate.externalAllowed(ctx)) return fail("정회원 인증이 필요합니다")
         if (query.isEmpty()) return fail("곡명이 필요합니다")
         if (query.length > MAX_LEN || artist.length > MAX_LEN) return fail("검색어가 너무 깁니다")
         if (!settings.keylessSearch && !settings.hasApiKey()) return fail("검색 설정이 없습니다(API 키 또는 '키 없이 검색')")

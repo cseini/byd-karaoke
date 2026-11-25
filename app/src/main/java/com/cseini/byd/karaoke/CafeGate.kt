@@ -87,6 +87,16 @@ object CafeGate {
         check(act)
     }
 
+    /** 앱 화면을 거치지 않는 외부 호출(음성 비서)이 재생해도 되는지 — 화면의 판정(check)과 같은 기준. 백그라운드 스레드에서 부른다. */
+    fun externalAllowed(ctx: android.content.Context): Boolean {
+        if (!enabled) return true
+        if (CafeAuthSync.isPending(ctx)) CafeAuthSync.pollResult(ctx)
+        val st = CafeAuthSync.checkGate(ctx)
+        if (st.pass) return true
+        if (st.paused) return pauseBypass
+        return !(st.enforceAt != 0L && System.currentTimeMillis() >= st.enforceAt)
+    }
+
     private fun check(act: AppCompatActivity) {
         if (checking) return
         checking = true
