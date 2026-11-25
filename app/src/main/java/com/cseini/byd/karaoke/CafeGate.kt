@@ -108,7 +108,7 @@ object CafeGate {
         AlertDialog.Builder(act)
             .setTitle("정회원 인증이 필요해요")
             .setMessage("이 앱은 BYD 차량 전용이라 카페 정회원 인증을 마친 분만 쓸 수 있어요. ${when_} 인증 없이는 쓸 수 없어요. 지금은 그대로 쓰실 수 있어요.\n\n$HOW_TO\n\n이전에 인증하셨어도 한 번만 다시 인증해 주세요.")
-            .setPositiveButton("지금 인증하기") { _, _ -> showAuth(act) { recheckAfterAuth(act) } }
+            .setPositiveButton("지금 인증하기") { _, _ -> showAuth(act) { afterGateAuth(act) } }
             .setNegativeButton("나중에", null)
             .show()
     }
@@ -148,7 +148,7 @@ object CafeGate {
             .create()
         dlg.show()
         // 인증 화면이 뜨는 동안에도 이 안내가 뒤에 남아 있어야 하므로 누르면 닫히지 않게 한다.
-        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { showAuth(act) { recheckAfterAuth(act) } }
+        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { showAuth(act) { afterGateAuth(act) } }
         // 시작 때 뜬 새 버전 안내가 이 창 뒤에 가려져도 인증 전에 최신 버전을 받을 수 있게 한다.
         dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { checkUpdateFromBlock(act) }
         blockDlg = dlg
@@ -165,6 +165,75 @@ object CafeGate {
             if (act.isFinishing || act.isDestroyed) return@launch
             if (release == null) Toast.makeText(act, "새 버전이 없어요(현재 v${BuildConfig.VERSION_NAME})", Toast.LENGTH_LONG).show()
             else UpdateFlow.start(act, release)
+        }
+    }
+
+    /** 시작 때 뜬 인증 안내에서 인증을 마친 직후 — 사용법은 단톡방에서 안내하므로 입장 안내를 바로 이어서 보여준다. */
+    private fun afterGateAuth(act: AppCompatActivity) {
+        recheckAfterAuth(act)
+        if (CafeAuthSync.hasChatToken(act)) showChat(act, welcome = true)
+    }
+
+    /** 단톡방 입장 안내 화면: 폰 카메라로 찍는 QR + 주소·비밀번호 글. 헤드유닛처럼 넓은 화면은 가로로 나란히. */
+    private fun chatDialogView(act: AppCompatActivity, url: String, pw: String, welcome: Boolean): View {
+        val d = act.resources.displayMetrics.density
+        val wide = act.resources.configuration.screenWidthDp >= 600
+        val qrPx = (200 * d).toInt()
+        val img = ImageView(act).apply {
+            setImageBitmap(qrBitmap(url, qrPx))
+            layoutParams = LinearLayout.LayoutParams(qrPx, qrPx)
+        }
+        val head = if (welcome) "인증이 끝났어요! 앱 사용법은 단톡방에서 안내해 드려요. 나중에도 설정에서 단톡방 입장을 눌러 다시 볼 수 있어요.\n\n" else ""
+        val txt = TextView(act).apply {
+            text = "${head}폰 카메라로 QR을 찍으면 단톡방 주소로 가요.\n\n주소\n$url\n\n비밀번호\n$pw\n\n단톡방 주소와 비밀번호는 다른 분께 알리지 말아 주세요."
+            textSize = 15f
+            setTextIsSelectable(true)
+            val pad = (16 * d).toInt()
+            if (wide) setPadding(pad, 0, 0, 0) else setPadding(0, pad, 0, 0)
+        }
+        val box = LinearLayout(act).apply {
+            orientation = if (wide) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            val pad = (20 * d).toInt()
+            setPadding(pad, pad, pad, 0)
+            addView(img)
+            addView(txt)
+        }
+        return ScrollView(act).apply { addView(box) }
+    }
+
+    /** 정회원 단톡방 안내 — 주소·비밀번호는 서버에서 받아 화면에만 보이고 저장·로그하지 않는다. 받지 못하면 안내 글을 띄우고 onFail 을 부른다. */
+    fun showChat(act: AppCompatActivity, welcome: Boolean = false, onFail: () -> Unit = {}) {
+        Toast.makeText(act, "확인 중…", Toast.LENGTH_SHORT).show()
+        act.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val r = CafeAuthSync.fetchChat(act)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (act.isFinishing || act.isDestroyed) return@withContext
+                val url = r.url; val pw = r.password
+                if (url != null && pw != null) {
+                    AlertDialog.Builder(act).setTitle("단톡방 입장")
+                        .setView(chatDialogView(act, url, pw, welcome))
+                        .setPositiveButton("주소 열기") { _, _ ->
+                            try { act.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            catch (_: Throwable) { Toast.makeText(act, "이 기기에서 주소를 열 수 없어요. 위 주소를 폰에서 열어 주세요", Toast.LENGTH_LONG).show() }
+                        }
+                        .setNeutralButton("비밀번호 복사") { _, _ ->
+                            (act.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("단톡방 비밀번호", pw))
+                            Toast.makeText(act, "비밀번호를 복사했어요", Toast.LENGTH_SHORT).show()
+                        }
+                        .setNegativeButton("닫기", null).show()
+                } else {
+                    Toast.makeText(act, when (r.error) {
+                        "not_member" -> "지금은 정회원 확인이 되지 않아요(등급 변경이나 활동정지일 수 있어요)"
+                        "not_authenticated", "no_token" -> "인증 기록을 찾지 못했어요. 단톡방 입장을 다시 눌러 인증을 한 번 더 해 주세요"
+                        "not_configured" -> "단톡방 안내를 준비 중이에요. 잠시 후 다시 시도해 주세요"
+                        "rate_limited" -> "잠시 후 다시 시도해 주세요"
+                        "network" -> "네트워크를 확인해 주세요"
+                        else -> "단톡방 안내를 받지 못했어요. 잠시 후 다시 시도해 주세요"
+                    }, Toast.LENGTH_LONG).show()
+                    onFail()
+                }
+            }
         }
     }
 
