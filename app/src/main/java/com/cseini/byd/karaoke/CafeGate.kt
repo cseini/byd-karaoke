@@ -49,13 +49,20 @@ object CafeGate {
 
     /** 서비스 중지 안내창 제목을 연속 10번 탭하면 앱 프로세스가 끝날 때까지 그 중지 안내를 건너뛴다(저장 안 함). 정회원 인증 창에는 적용하지 않는다. */
     private fun armBypass(dlg: AlertDialog) {
-        val title = dlg.findViewById<TextView>(androidx.appcompat.R.id.alertTitle) ?: return
+        val title = dlg.findViewById<View>(androidx.appcompat.R.id.topPanel)
+            ?: dlg.findViewById<TextView>(androidx.appcompat.R.id.alertTitle) ?: return
         var taps = 0
         var last = 0L
+        var toast: android.widget.Toast? = null
         title.setOnClickListener {
             val now = android.os.SystemClock.uptimeMillis()
             taps = if (now - last > 2000) 1 else taps + 1
             last = now
+            toast?.cancel()
+            toast = null
+            if (taps in 3..9) {
+                toast = android.widget.Toast.makeText(dlg.context, "$taps / 10", android.widget.Toast.LENGTH_SHORT).also { it.show() }
+            }
             if (taps >= 10) {
                 pauseBypass = true
                 proceed()
