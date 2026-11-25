@@ -115,13 +115,16 @@ object CafeGate {
 
     private fun showGrace(act: AppCompatActivity, enforceAt: Long) {
         val when_ = if (enforceAt != 0L) "${dateText(enforceAt)}부터는" else "곧"
-        AlertDialog.Builder(act)
+        val dlg = AlertDialog.Builder(act)
             .setTitle("정회원 인증이 필요해요")
             .setMessage("이 앱은 BYD 차량 전용이라 카페 정회원 인증을 마친 분만 쓸 수 있어요. ${when_} 인증 없이는 쓸 수 없어요. 지금은 그대로 쓰실 수 있어요.\n\n$HOW_TO\n\n이전에 인증하셨어도 한 번만 다시 인증해 주세요.")
             .setPositiveButton("지금 인증하기") { _, _ -> showAuth(act) { afterGateAuth(act) } }
             .setNegativeButton("나중에") { _, _ -> proceed() }
+            .setNeutralButton("인증이 안 돼요", null)
             .setOnCancelListener { proceed() }
-            .show()
+            .create()
+        dlg.show()
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { showFeedback(act) }
     }
 
     /** 운영자가 서비스를 멈춘 동안의 안내 — 인증 버튼 없이 안내문과 업데이트 확인·앱 닫기만 둔다. */
@@ -151,7 +154,21 @@ object CafeGate {
         if (blockDlg?.isShowing == true) return
         val dlg = AlertDialog.Builder(act)
             .setTitle("정회원 인증이 필요해요")
-            .setMessage("이 앱은 BYD 차량 전용이라 카페 정회원 인증을 마친 분만 쓸 수 있어요.\n\n$HOW_TO\n\n이전에 인증하셨어도 한 번만 다시 인증해 주세요. 정회원 등급이 아니거나 활동이 정지된 계정은 쓸 수 없어요.")
+            .setView(ScrollView(act).apply {
+                val d = act.resources.displayMetrics.density
+                addView(LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding((24 * d).toInt(), (8 * d).toInt(), (24 * d).toInt(), 0)
+                    addView(TextView(act).apply {
+                        text = "이 앱은 BYD 차량 전용이라 카페 정회원 인증을 마친 분만 쓸 수 있어요.\n\n$HOW_TO\n\n이전에 인증하셨어도 한 번만 다시 인증해 주세요. 정회원 등급이 아니거나 활동이 정지된 계정은 쓸 수 없어요."
+                        textSize = 16f
+                    })
+                    addView(android.widget.Button(act).apply {
+                        text = "인증이 안 돼요 · 의견 보내기"
+                        setOnClickListener { showFeedback(act) }
+                    }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = (12 * d).toInt() })
+                })
+            })
             .setCancelable(false)
             .setPositiveButton("지금 인증하기", null)
             .setNeutralButton("업데이트 확인", null)
@@ -163,6 +180,44 @@ object CafeGate {
         // 시작 때 뜬 새 버전 안내가 이 창 뒤에 가려져도 인증 전에 최신 버전을 받을 수 있게 한다.
         dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { checkUpdateFromBlock(act) }
         blockDlg = dlg
+    }
+
+    /** 인증이 안 될 때 바로 알릴 수 있는 의견 보내기 — 설정 화면은 이 창 뒤에 가려져 있어 여기서 직접 받는다. 어떤 상태인지 앞에 붙여 보낸다. */
+    fun showFeedback(act: AppCompatActivity) {
+        val d = act.resources.displayMetrics.density
+        val input = android.widget.EditText(act).apply {
+            hint = "상황을 적어 주세요 (예: 공장 초기화 후 다시 설치했는데 인증이 안 돼요)"
+            minLines = 4
+            gravity = Gravity.TOP or Gravity.START
+        }
+        val status = TextView(act).apply { textSize = 13f; setPadding(0, (8 * d).toInt(), 0, 0) }
+        val box = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((20 * d).toInt(), (12 * d).toInt(), (20 * d).toInt(), 0)
+            addView(input)
+            addView(status)
+        }
+        val dlg = AlertDialog.Builder(act)
+            .setTitle("의견 보내기")
+            .setView(ScrollView(act).apply { addView(box) })
+            .setPositiveButton("보내기", null)
+            .setNegativeButton("취소", null)
+            .create()
+        dlg.show()
+        val send = dlg.getButton(AlertDialog.BUTTON_POSITIVE)
+        send.setOnClickListener {
+            val text = input.text.toString().trim()
+            if (text.isEmpty()) { status.text = "내용을 입력해 주세요"; return@setOnClickListener }
+            val code = CafeAuthSync.pendingCode(act).ifEmpty { "없음" }
+            val msg = "[정회원 인증 문의] 인증 기록=${if (CafeAuthSync.isVerified(act)) "있음" else "없음"} · 대기 코드=$code\n\n$text"
+            send.isEnabled = false
+            status.text = "보내는 중…"
+            val done = { ok: Boolean ->
+                if (ok) { Toast.makeText(act, "의견을 보냈어요. 감사합니다", Toast.LENGTH_SHORT).show(); dlg.dismiss() }
+                else { status.text = "전송 실패 — 네트워크를 확인하고 다시 시도해 주세요"; send.isEnabled = true }
+            }
+            FeedbackSender.send(act, "인증", msg, true) { ok -> done(ok) }
+        }
     }
 
     private var updateChecking = false
@@ -181,8 +236,7 @@ object CafeGate {
 
     /** 시작 때 뜬 인증 안내에서 인증을 마친 직후 — 사용법은 단톡방에서 안내하므로 입장 안내를 바로 이어서 보여준다. */
     private fun afterGateAuth(act: AppCompatActivity) {
-        recheckAfterAuth(act, proceedNow = false)
-        if (CafeAuthSync.hasChatToken(act)) showChat(act) { proceed() } else proceed()
+        recheckAfterAuth(act) { if (CafeAuthSync.hasChatToken(act)) showChat(act) { proceed() } else proceed() }
     }
 
     /** 단톡방 입장 안내 화면: 폰 카메라로 찍는 QR + 주소·비밀번호 글. 헤드유닛처럼 넓은 화면은 가로로 나란히. */
@@ -247,7 +301,7 @@ object CafeGate {
         }
     }
 
-    private fun recheckAfterAuth(act: AppCompatActivity, proceedNow: Boolean = true) {
+    private fun recheckAfterAuth(act: AppCompatActivity, onPass: () -> Unit = { proceed() }) {
         Thread({
             if (CafeAuthSync.isPending(act)) CafeAuthSync.pollResult(act)
             val st = CafeAuthSync.checkGate(act)
@@ -257,9 +311,11 @@ object CafeGate {
                 if (st.pass) {
                     blockDlg?.dismiss(); blockDlg = null
                     Toast.makeText(act, "정회원 확인이 끝났어요", Toast.LENGTH_SHORT).show()
-                    if (proceedNow) proceed()
+                    onPass()
                 } else if (st.paused) {
-                    Toast.makeText(act, "아직 멈춰 있어요", Toast.LENGTH_SHORT).show()
+                    if (pauseBypass) proceed()
+                    else if (pausedDlg?.isShowing == true) Toast.makeText(act, "아직 멈춰 있어요", Toast.LENGTH_SHORT).show()
+                    else showPaused(act, st.pauseTitle, st.pauseBody)
                 } else {
                     Toast.makeText(act, "아직 정회원으로 확인되지 않아요(등급이나 활동정지를 확인해 주세요)", Toast.LENGTH_LONG).show()
                 }
@@ -313,6 +369,7 @@ object CafeGate {
             .setTitle("카페 정회원 인증")
             .setView(ScrollView(act).apply { addView(box) })
             .setPositiveButton("인증 화면 열기", null)
+            .setNeutralButton("인증이 안 돼요", null)
             .setNegativeButton("닫기", null)
             .create()
         val handler = Handler(Looper.getMainLooper())
@@ -325,6 +382,7 @@ object CafeGate {
             else runCatching { act.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 .onFailure { Toast.makeText(act, "이 기기에서 브라우저를 열 수 없어요. 위 QR을 폰 카메라로 찍어 진행해 주세요", Toast.LENGTH_LONG).show() }
         }
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { showFeedback(act) }
         task = object : Runnable {
             override fun run() {
                 Thread({
