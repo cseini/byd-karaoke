@@ -87,14 +87,15 @@ object CafeGate {
         check(act)
     }
 
-    /** 앱 화면을 거치지 않는 외부 호출(음성 비서)이 재생해도 되는지 — 화면의 판정(check)과 같은 기준. 백그라운드 스레드에서 부른다. */
-    fun externalAllowed(ctx: android.content.Context): Boolean {
-        if (!enabled) return true
+    /** 앱 화면을 거치지 않는 외부 호출(음성 비서)을 막아야 하면 그 이유, 재생해도 되면 null — 화면의 판정(check)과 같은 기준. 백그라운드 스레드에서 부른다. */
+    fun externalDenial(ctx: android.content.Context): String? {
+        if (!enabled) return null
         if (CafeAuthSync.isPending(ctx)) CafeAuthSync.pollResult(ctx)
         val st = CafeAuthSync.checkGate(ctx)
-        if (st.pass) return true
-        if (st.paused) return pauseBypass
-        return !(st.enforceAt != 0L && System.currentTimeMillis() >= st.enforceAt)
+        if (st.pass) return null
+        // 서비스 중지는 인증을 마친 사람에게도 온다 — 인증하라고 말하면 틀린 안내가 된다.
+        if (st.paused) return if (pauseBypass) null else st.pauseBody.ifEmpty { "이용을 잠시 멈췄어요" }
+        return if (st.enforceAt != 0L && System.currentTimeMillis() >= st.enforceAt) "정회원 인증이 필요합니다" else null
     }
 
     private fun check(act: AppCompatActivity) {
@@ -144,7 +145,7 @@ object CafeGate {
         dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { showFeedback(act) }
     }
 
-    /** 운영자가 서비스를 멈춘 동안의 안내 — 인증 버튼 없이 안내문과 업데이트 확인·앱 닫기만 둔다. */
+    /** 운영자가 서비스를 멈춘 동안의 안내 — 인증 버튼은 없다. 이 안내는 인증을 마친 사람에게만 뜨므로 단톡방 입장 버튼을 둔다. */
     private var pausedDlg: AlertDialog? = null
 
     private fun showPaused(act: AppCompatActivity, title: String, body: String) {
@@ -153,6 +154,14 @@ object CafeGate {
         val dlg = AlertDialog.Builder(act)
             .setTitle(title.ifEmpty { "서비스를 잠시 멈췄어요" })
             .setMessage(body.ifEmpty { "이용을 잠시 멈췄어요. 다시 열리면 카페 공지로 안내드릴게요." })
+            .setView(LinearLayout(act).apply {
+                val d = act.resources.displayMetrics.density
+                setPadding((24 * d).toInt(), (12 * d).toInt(), (24 * d).toInt(), 0)
+                addView(android.widget.Button(act).apply {
+                    text = "카카오톡 단톡방 입장"
+                    setOnClickListener { showChat(act) }
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            })
             .setCancelable(false)
             .setPositiveButton("확인", null)
             .setNeutralButton("업데이트 확인", null)
