@@ -273,7 +273,7 @@ class EmbeddedPlayer(
                 }
             },
         )
-        player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec.accompProcessor)
+        player = StreamPlayer(activity, container, activity.lifecycleScope, cb, rec)
         // 키·속도는 '지금 부르는 곡'에만 적용 — 곡이 바뀌면 원래대로 초기화한다.
         keySemitones = 0
         speedRate = 1.0f
@@ -364,18 +364,22 @@ class EmbeddedPlayer(
                 // 상태 재확인(v7.46)만으론 안 고쳐짐이 재현됐다. 운영자가 수동으로 타임바를
                 // 움직이면 소리가 돌아온다는 신고(FB3459)로 보아, seekTo 가 ExoPlayer 내부
                 // AudioTrack을 재생성시켜 고치는 것으로 추정 — 같은 위치로 강제 seek 해 흉내낸다.
-                val targetVideoId = currentVideoId
-                ui.postDelayed({
-                    if (currentVideoId == targetVideoId && !replaying) {
-                        audioSnap("pre-seek")
-                        player?.setVolume(if (remoteMuted) 0f else 1f)
-                        // 같은 위치로 seek 하면 ExoPlayer 가 최적화로 건너뛸 수 있어, 체감 안 되는
-                        // 50ms 뒤로 걸어 반드시 실제 seek(=AudioTrack 재생성)가 일어나게 한다.
-                        player?.seekTo((player?.currentPositionMs() ?: 0L) + 50)
-                        player?.play()
-                        CrashLog.event(activity, "audio seek 강제 실행")
-                    }
-                }, 300)
+                // 이 무음은 BYD 가 마이크를 쥔 기기(씨라이언7 계열)에서만 신고됐다. 다른 차(디링크3)에서는
+                // 위치 이동이 곡 앞부분을 끊기만 하므로 실행하지 않는다.
+                if (targetRecorder?.bydOwnsMic == true) {
+                    val targetVideoId = currentVideoId
+                    ui.postDelayed({
+                        if (currentVideoId == targetVideoId && !replaying) {
+                            audioSnap("pre-seek")
+                            player?.setVolume(if (remoteMuted) 0f else 1f)
+                            // 같은 위치로 seek 하면 ExoPlayer 가 최적화로 건너뛸 수 있어, 체감 안 되는
+                            // 50ms 뒤로 걸어 반드시 실제 seek(=AudioTrack 재생성)가 일어나게 한다.
+                            player?.seekTo((player?.currentPositionMs() ?: 0L) + 50)
+                            player?.play()
+                            CrashLog.event(activity, "audio seek 강제 실행")
+                        }
+                    }, 300)
+                }
             }
         }
         micStartRunnable = runnable

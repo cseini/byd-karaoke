@@ -77,6 +77,23 @@ class MixRecorder(
     private var accompNextSrc = 0.0
     private var accompStep = 1.0
 
+    // 곡 중 위치 이동·일시정지·버퍼링을 녹음이 따라가기 위한 상태.
+    @Volatile private var playing = false
+    @Volatile private var heard = 0      // 녹음 중 지금까지 들린 반주 위치
+    @Volatile private var flushes = 0
+    // 씨라이언7 계열처럼 BYD 가 마이크를 쥔 기기인지 — start() 성공 뒤에 정해진다.
+    var bydOwnsMic = false
+        private set
+
+    fun setPlaying(isPlaying: Boolean) { playing = isPlaying }
+
+    /** 재생 장치가 비워질 때(재생 스레드) — 녹음 중이면 안 들린 반주를 버린다. */
+    fun onSinkFlush() {
+        if (!recording) return
+        accompWrite.set(flushAccompWrite(accompWrite.get(), heard))
+        flushes++
+    }
+
     // 채점용 목소리(마이크 원음, rate 기준). 믹스가 아니라 목소리만 채점해 반주로 인한 고득점을 막는다.
     private var voiceBuffer = ShortArray(0)
     @Volatile private var voiceWrite = 0
@@ -94,8 +111,8 @@ class MixRecorder(
             accompRate = inputAudioFormat.sampleRate
             accompCh = if (inputAudioFormat.channelCount > 0) inputAudioFormat.channelCount else 2
             accompPcm16 = inputAudioFormat.encoding == C.ENCODING_PCM_16BIT
-            // 새 재생 시작 → 반주 버퍼 리셋(곡 0초부터 다시 담는다).
-            accompWrite.set(0)
+            // 새 재생 시작 → 반주 버퍼 리셋(곡 0초부터 다시 담는다). 녹음 중 재구성이면 쌓은 반주를 지킨다.
+            if (!recording) accompWrite.set(0)
             accompSrcPos = 0L
             accompNextSrc = 0.0
             accompStep = accompRate.toDouble() / rate
@@ -186,6 +203,7 @@ class MixRecorder(
                 "src=${settings.micSourceName} usb=${MicRouting.hasUsbMic(context)} builtin=${opened.builtin}",
         )
         val record = opened.record
+        bydOwnsMic = opened.bydOwnsMic
         // 내장(통화) 마이크는 스피커 반주가 섞여 들어오므로 에코·잡음 제거를 켠다(믹스 이중 반주 방지).
         if (opened.builtin && !opened.bydOwnsMic) {   // 씨라이언7: HAL 효과가 BYD 마이크 경로를 건드릴 수 있어 끈다
             val sid = record.audioSessionId
@@ -206,6 +224,9 @@ class MixRecorder(
         val writer = WavIo.Writer(outFile, rate)
         outputFile = outFile
         record.startRecording()
+        val s0 = if (speed > 0.05f) speed.toDouble() else 1.0
+        heard = (startPosMs / s0 * rate / 1000.0).toInt()
+        flushes = 0
         recording = true
 
         worker = thread(name = "mix-recorder") {
@@ -215,7 +236,8 @@ class MixRecorder(
             // 녹음 시작 위치 + 실측 보정 + 사용자 싱크 보정(마이크/재생 시스템 지연은 기기마다 다름).
             // 반주 버퍼가 이미 녹음 레이트라 인덱스는 샘플 1:1 로 전진한다.
             val s = if (speed > 0.05f) speed.toDouble() else 1.0
-            var readPos = ((startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * rate / 1000.0).toInt()
+            val reader = AccompReader(((startPosMs / s + ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * rate / 1000.0).toInt())
+            val offset = ((ACCOMP_ADVANCE_MS + settings.syncOffsetMs) * rate / 1000.0).toInt()
             // 목소리 처리: 명료도(고음 강조 pre-emphasis) + 에코(리버브)
             // 녹음 믹스 음량: 목소리(기본 1.0)와 반주(기본 0.6)를 설정으로 조절.
             val voiceGain = settings.voiceGainPct / 100.0
@@ -272,8 +294,9 @@ class MixRecorder(
                             rsLast = buf[nIn - 1].toInt()
                             n = nIn
                         }
-                        // 채점용 목소리 원음 저장(반주 섞기 전).
-                        if (voiceBuffer.isNotEmpty()) {
+                        val live = playing
+                        // 채점용 목소리 원음 저장(반주 섞기 전). 반주와 같은 시각끼리 비교하므로 멈춘 동안은 담지 않는다.
+                        if (live && voiceBuffer.isNotEmpty()) {
                             val room = voiceBuffer.size - voiceWrite
                             val cnt = if (n < room) n else room
                             if (cnt > 0) {
@@ -291,13 +314,12 @@ class MixRecorder(
                                 echo[echoIdx] = v.toFloat()
                                 echoIdx = (echoIdx + 1) % echoLen
                             }
-                            val ai = readPos
-                            val acc = if (ai in 0 until wlimit) accompBuffer[ai].toInt() else 0
+                            val acc = reader.next(accompBuffer, wlimit, live)
                             var m = (v * voiceGain).toInt() + (acc * accompGain).toInt()
                             if (m > 32767) m = 32767 else if (m < -32768) m = -32768
                             out[i] = m.toShort()
-                            readPos++
                         }
+                        heard = reader.pos - offset
                         writer.write(out, n)
                         outWritten += n
                         // 입력 레벨 표시는 사람이 읽는 숫자라 ~6Hz 면 충분하다. 버퍼마다 올리면
@@ -326,8 +348,11 @@ class MixRecorder(
                     val effHz = if (elapsedS > 0.1) totalWritten / elapsedS else 0.0
                     com.cseini.byd.karaoke.CrashLog.event(
                         context,
-                        "mixrec done elapsed=%.2fs written=%d effHz=%.0f corr=%.3f out=%d reqRate=%d micRate=%d accompRate=%d routed[%s] builtin=%b bydMic=%b"
-                            .format(elapsedS, totalWritten, effHz, corr, outWritten, rate, micRate, accompRate, routedStr, opened.builtin, opened.bydOwnsMic),
+                        "mixrec done elapsed=%.2fs written=%d effHz=%.0f corr=%.3f out=%d reqRate=%d micRate=%d accompRate=%d routed[%s] builtin=%b bydMic=%b accMiss=%.2fs held=%.2fs flush=%d"
+                            .format(
+                                elapsedS, totalWritten, effHz, corr, outWritten, rate, micRate, accompRate, routedStr, opened.builtin, opened.bydOwnsMic,
+                                reader.missed.toDouble() / rate, reader.held.toDouble() / rate, flushes,
+                            ),
                     )
                 }
                 runCatching { record.stop() }

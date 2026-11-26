@@ -20,6 +20,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
@@ -28,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.cseini.byd.karaoke.audio.MixRecorder
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamExtractor
@@ -63,7 +65,7 @@ class StreamPlayer(
     container: FrameLayout,
     private val scope: CoroutineScope,
     private val cb: PlayerCallbacks,
-    accompProcessor: AudioProcessor? = null,
+    private val recorder: MixRecorder? = null,
     // 다시듣기 전용: 가사 화면만 필요하므로 가장 가벼운 저화질 영상만 재생(구형 헤드유닛 끊김 방지).
     private val lowRes: Boolean = false,
 ) : KaraokePlayer {
@@ -86,10 +88,10 @@ class StreamPlayer(
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
         .build()
 
-    private val exo = buildExo(context, accompProcessor)
+    private val exo = buildExo(context, recorder)
 
-    private fun buildExo(context: Context, proc: AudioProcessor?): ExoPlayer {
-        if (proc == null) return ExoPlayer.Builder(context)
+    private fun buildExo(context: Context, rec: MixRecorder?): ExoPlayer {
+        if (rec == null) return ExoPlayer.Builder(context)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ true)
             .build()
         // 반주 오디오를 합성 녹음(MixRecorder)에 넘기기 위해 오디오 처리 체인에 프로세서를 끼운다.
@@ -100,9 +102,16 @@ class StreamPlayer(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
-            ): AudioSink = DefaultAudioSink.Builder(context)
-                .setAudioProcessorChain(ShiftThenTapChain(proc))
-                .build()
+            ): AudioSink = object : ForwardingAudioSink(
+                DefaultAudioSink.Builder(context)
+                    .setAudioProcessorChain(ShiftThenTapChain(rec.accompProcessor))
+                    .build(),
+            ) {
+                override fun flush() {
+                    rec.onSinkFlush()
+                    super.flush()
+                }
+            }
         }
         // 재생 시작 전 버퍼를 고정(2.5초)해 디코딩 앞섬(반주 지터)을 매번 일정하게 한다.
         val loadControl = DefaultLoadControl.Builder()
@@ -183,6 +192,7 @@ class StreamPlayer(
         playerView.player = exo
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                recorder?.setPlaying(isPlaying)
                 if (isPlaying) cb.onPlaying()
             }
 
