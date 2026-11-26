@@ -15,6 +15,9 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -34,6 +37,7 @@ import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.VideoStream
+import java.io.IOException
 
 /**
  * 오디오 체인: [Sonic(키·속도)] → [반주 탭]. 기본 체인과 달리 탭을 Sonic 뒤에 두어
@@ -197,6 +201,9 @@ class StreamPlayer(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_BUFFERING || state == Player.STATE_READY) {
+                    com.cseini.byd.karaoke.CrashLog.event(context, "exo state=$state pos=${exo.currentPosition} buf=${exo.totalBufferedDuration}")
+                }
                 if (state != Player.STATE_ENDED) return
                 // 실제로 곡 끝까지 재생됐을 때만 종료 처리. 어라운드뷰(후진·컨시그널)나 외부
                 // 오디오 개입으로 재생이 중간에 끊겨 ENDED 로 와도, 위치가 끝이 아니면 무시한다.
@@ -226,6 +233,22 @@ class StreamPlayer(
             override fun onPlayerError(error: PlaybackException) {
                 com.cseini.byd.karaoke.CrashLog.event(context, "재생오류 ${error.errorCodeName} pos=${exo.currentPosition}")
                 cb.onError("재생 오류: ${error.errorCodeName}")
+            }
+        })
+        exo.addAnalyticsListener(object : AnalyticsListener {
+            override fun onLoadError(
+                eventTime: AnalyticsListener.EventTime,
+                loadEventInfo: LoadEventInfo,
+                mediaLoadData: MediaLoadData,
+                error: IOException,
+                wasCanceled: Boolean,
+            ) {
+                // 주소 전체에는 접속 정보가 들어 있어 종류(영상/소리)만 남긴다.
+                com.cseini.byd.karaoke.CrashLog.event(
+                    context,
+                    "받기오류 ${loadEventInfo.uri.getQueryParameter("mime")} ${error.javaClass.simpleName} " +
+                        "pos=${exo.currentPosition} bytes=${loadEventInfo.bytesLoaded} ms=${loadEventInfo.loadDurationMs}",
+                )
             }
         })
         handler.postDelayed(ticker, 500)
@@ -266,7 +289,8 @@ class StreamPlayer(
                 YouTubeDownloader.withIpv4 { it.fetchPage() }
             }
         }
-        val dsf = DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT)
+        // 유튜브는 긴 단일 요청을 조이거나 멈춰 곡 초반이 10초쯤 서므로 조각(range)으로 나눠 받는다.
+        val dsf = ChunkedDataSource.Factory(DefaultHttpDataSource.Factory().setUserAgent(YouTubeDownloader.USER_AGENT))
 
         // 뒷좌석 태블릿엔 <video> 로 재생 가능한 단일 progressive URL 하나만 넘긴다(무음 재생).
         if (!lowRes) { tabletUrl = pickTabletStream(extractor); tabletUrlLow = pickTabletStreamLow(extractor) }
